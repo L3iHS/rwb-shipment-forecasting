@@ -72,10 +72,12 @@ python scripts/plot_backtest.py --run-dir .local/runs/ridge_features
 ## Готовый CSV для платформы
 
 ```bash
-python scripts/make_candidate_submission.py --config configs/round3.json
+python scripts/make_candidate_submission.py --config configs/latent_mass_blend50.json
 ```
 
-Результат — локальный `submissions/latent_ridge_h1_hybrid.csv` с колонками `id,y_pred`. Принятая модель использует Ridge для первого горизонта и прежний бустинг для остальных семи. CSV и файл с его параметрами исключены из Git. [Правила каталога submissions](submissions/README.md). Оценка реального теста до загрузки неизвестна; команда ничего не отправляет на платформу.
+Результат — локальный `submissions/latent_mass_blend50.csv` с колонками `id,y_pred`. По скриншоту участника публичный score — **0,330** против 0,331 у предыдущего гибрида. Средний локальный score на 14 окнах — **0,332570**, новый отложенный контроль пока не выполнен. Модель сохраняет первый горизонт гибрида и перераспределяет остальные прогнозы между маршрутами при сохранении предсказанной суммы. [Устройство и воспроизведение](docs/mass-blend.md).
+
+CSV и параметры исключены из Git. [Правила каталога submissions](submissions/README.md). Команда ничего не отправляет на платформу. Предыдущий `latent_ridge_h1_hybrid.csv` воспроизводится с `--config configs/round3.json`.
 
 ## Первые два раунда сравнения моделей
 

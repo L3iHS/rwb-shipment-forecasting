@@ -21,6 +21,14 @@ def configured_predictor(spec: dict):
     if kind == "latent":
         from .latent_models import predict_latent_ridge
         return partial(predict_latent_ridge, **params)
+    if kind == "mass_preserving":
+        from .mass_preserving import predict_mass_preserving
+        return partial(
+            predict_mass_preserving,
+            incumbent_predictor=configured_predictor(spec["incumbent"]),
+            alternative_predictor=configured_predictor(spec["alternative"]),
+            **params,
+        )
     if kind in {"latent_hybrid", "latent_projection"}:
         from .latent_models import hybrid_first_horizon, project_incumbent
         predictor = hybrid_first_horizon if kind == "latent_hybrid" else project_incumbent
@@ -42,7 +50,15 @@ def configured_comparison(specs: dict):
         key = json.dumps(spec, sort_keys=True)
         if key in built:
             return built[key]
-        if spec["kind"] in {"latent_hybrid", "latent_projection"}:
+        if spec["kind"] == "mass_preserving":
+            from .mass_preserving import predict_mass_preserving
+            predictor = partial(
+                predict_mass_preserving,
+                incumbent_predictor=build(spec["incumbent"]),
+                alternative_predictor=build(spec["alternative"]),
+                **spec["params"],
+            )
+        elif spec["kind"] in {"latent_hybrid", "latent_projection"}:
             from .latent_models import hybrid_first_horizon, project_incumbent
             function = hybrid_first_horizon if spec["kind"] == "latent_hybrid" else project_incumbent
             predictor = partial(function, incumbent_predictor=build(spec["incumbent"]), **spec["params"])

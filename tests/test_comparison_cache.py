@@ -56,3 +56,21 @@ def test_callers_cannot_mutate_cached_predictions_or_nested_audits(setup):
     again, audit_again = models["base"](data)
     assert len(calls) == 1 and (again > 0).all()
     assert audit_again["nested"]["value"] == 17
+
+
+def test_mass_blend_dispatch_and_shared_components(setup):
+    data, calls, _ = setup
+    base = {"kind": "ridge", "params": {}}
+    alternative = {"kind": "latent", "params": {}}
+    blend = {"kind": "mass_preserving", "params": {"weight": 0.5},
+             "incumbent": base, "alternative": alternative}
+    models = candidates.configured_comparison({"blend": blend, "base": base,
+                                               "alternative": alternative})
+    blended, audit = models["blend"](data)
+    original, _ = models["base"](data)
+    assert len(calls) == 1
+    np.testing.assert_array_equal(blended[:, 0], original[:, 0])
+    np.testing.assert_allclose(blended.sum(axis=0), original.sum(axis=0))
+    standalone, standalone_audit = candidates.configured_predictor(blend)(data)
+    np.testing.assert_array_equal(standalone, blended)
+    assert standalone_audit == audit
