@@ -1,0 +1,11 @@
+# Project, tests and optional interactive notebook workflow.
+numpy==2.5.4
+pandas==3.1.1
+pyarrow==26.0.1
+matplotlib==3.11.2
+scikit-learn==1.9.1
+scipy==1.18.1
+pytest==9.2.0
+pytest-cov==7.1.0
+jupyterlab==4.6.6
+ipykernel==7.4.0

@@ -1,0 +1,37 @@
+{
+  "competition_url": "https://wbspace.wb.ru/competitions/kejs-chempionat",
+  "files": [
+    {
+      "path": "data/raw/train_solo_track.parquet",
+      "original_filename": "train_solo_track.parquet",
+      "bytes": 94465651,
+      "sha256": "300aecbe2d3dc28be03bff957ba56ab20c7fa8ceb81b0301822d4bf6473bd076",
+      "origin": "User-provided competition material",
+      "received_on": "2026-11-06"
+    },
+    {
+      "path": "data/raw/test_solo_track.parquet",
+      "original_filename": "test_solo_track.parquet",
+      "bytes": 55000,
+      "sha256": "62442611ead0ed9eaad187b461c6c6d4584c17016f827663084e1d4f9b5c3ad6",
+      "origin": "User-provided competition material",
+      "received_on": "2026-11-06"
+    },
+    {
+      "path": "data/reference/sample_submission.csv",
+      "original_filename": "7d0fdad7-06fc-4bd3-9ab4-e4ef946a2b88.csv",
+      "bytes": 186712,
+      "sha256": "ccba2807967b68152a771479852eb836a07556ab2258c62deb0299f0f29e070e",
+      "origin": "User-provided competition material",
+      "received_on": "2026-11-06"
+    },
+    {
+      "path": "data/reference/baseline.ipynb",
+      "original_filename": "baseline.ipynb",
+      "bytes": 17582,
+      "sha256": "426f0f1ae12a53d5cdd4f6df8b1df6932445e7adabe679db4cffd062b74fbe21",
+      "origin": "User-provided competition material",
+      "received_on": "2026-11-06"
+    }
+  ]
+}

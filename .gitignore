@@ -1,0 +1,21 @@
+.venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.DS_Store
+.env
+.env.*
+!.env.example
+.local/
+/AGENTS.md
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Generated features, models and new submissions. Original competition files are tracked.
+data/processed/*
+!data/processed/.gitkeep
+models/*
+!models/.gitkeep
+submissions/*
+!submissions/.gitkeep
