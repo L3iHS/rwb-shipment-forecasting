@@ -1,0 +1,184 @@
+{
+  "round": 3,
+  "baseline": "hgb_direct_norm_advanced",
+  "original_baseline": "ridge_calendar",
+  "selected_model": "latent_ridge_h1_hybrid",
+  "research_origins": [
+    "2025-10-18 10:30:00",
+    "2025-10-19 10:30:00",
+    "2025-10-20 10:30:00",
+    "2025-10-21 10:30:00",
+    "2025-10-22 10:30:00",
+    "2025-10-23 10:30:00",
+    "2025-10-24 10:30:00",
+    "2025-10-25 10:30:00",
+    "2025-10-26 10:30:00",
+    "2025-10-27 10:30:00",
+    "2025-10-28 10:30:00",
+    "2025-10-29 10:30:00",
+    "2025-10-30 10:30:00",
+    "2025-10-31 10:30:00"
+  ],
+  "original_research_origins": [
+    "2025-10-25 10:30:00",
+    "2025-10-26 10:30:00",
+    "2025-10-27 10:30:00",
+    "2025-10-28 10:30:00",
+    "2025-10-29 10:30:00",
+    "2025-10-30 10:30:00",
+    "2025-10-31 10:30:00"
+  ],
+  "control_origins": [
+    "2025-10-11 10:30:00",
+    "2025-10-12 10:30:00",
+    "2025-10-13 10:30:00",
+    "2025-10-14 10:30:00",
+    "2025-10-15 10:30:00",
+    "2025-10-16 10:30:00",
+    "2025-10-17 10:30:00"
+  ],
+  "models": {
+    "ridge_calendar": {
+      "kind": "ridge",
+      "params": {
+        "feature_set": "calendar",
+        "train_days": 14,
+        "alpha": 4.0
+      }
+    },
+    "hgb_direct_norm_advanced": {
+      "kind": "boosting",
+      "params": {
+        "name": "hgb_direct_norm_advanced",
+        "normalize": true,
+        "loss": "squared_error",
+        "calibrate": false,
+        "advanced": true,
+        "direct": true,
+        "residual": false,
+        "train_days": 28,
+        "source_stride": 4,
+        "max_iter": 180,
+        "max_leaf_nodes": 31,
+        "learning_rate": 0.08,
+        "l2_regularization": 10.0
+      },
+      "research_round": 2
+    },
+    "latent_ridge_direct": {
+      "kind": "latent",
+      "params": {
+        "train_days": 14,
+        "alpha": 4.0,
+        "rounding_tolerance": 0.5
+      }
+    },
+    "latent_ridge_h1_hybrid": {
+      "kind": "latent_hybrid",
+      "params": {
+        "train_days": 14,
+        "alpha": 4.0,
+        "rounding_tolerance": 0.5
+      },
+      "incumbent": {
+        "kind": "boosting",
+        "params": {
+          "name": "hgb_direct_norm_advanced",
+          "normalize": true,
+          "loss": "squared_error",
+          "calibrate": false,
+          "advanced": true,
+          "direct": true,
+          "residual": false,
+          "train_days": 28,
+          "source_stride": 4,
+          "max_iter": 180,
+          "max_leaf_nodes": 31,
+          "learning_rate": 0.08,
+          "l2_regularization": 10.0
+        },
+        "research_round": 2
+      }
+    },
+    "incumbent_halfhour_projection": {
+      "kind": "latent_projection",
+      "params": {
+        "rounding_tolerance": 0.5
+      },
+      "incumbent": {
+        "kind": "boosting",
+        "params": {
+          "name": "hgb_direct_norm_advanced",
+          "normalize": true,
+          "loss": "squared_error",
+          "calibrate": false,
+          "advanced": true,
+          "direct": true,
+          "residual": false,
+          "train_days": 28,
+          "source_stride": 4,
+          "max_iter": 180,
+          "max_leaf_nodes": 31,
+          "learning_rate": 0.08,
+          "l2_regularization": 10.0
+        },
+        "research_round": 2
+      }
+    },
+    "hgb_global_context": {
+      "kind": "boosting",
+      "params": {
+        "name": "hgb_global_context",
+        "normalize": true,
+        "loss": "squared_error",
+        "calibrate": false,
+        "advanced": true,
+        "direct": true,
+        "residual": false,
+        "global_context": true,
+        "halfhour": false,
+        "train_days": 28,
+        "source_stride": 4,
+        "max_iter": 180,
+        "max_leaf_nodes": 31,
+        "learning_rate": 0.08,
+        "l2_regularization": 10.0
+      }
+    },
+    "hgb_global_halfhour": {
+      "kind": "boosting",
+      "params": {
+        "name": "hgb_global_halfhour",
+        "normalize": true,
+        "loss": "squared_error",
+        "calibrate": false,
+        "advanced": true,
+        "direct": true,
+        "residual": false,
+        "global_context": true,
+        "halfhour": true,
+        "train_days": 28,
+        "source_stride": 4,
+        "max_iter": 180,
+        "max_leaf_nodes": 31,
+        "learning_rate": 0.08,
+        "l2_regularization": 10.0
+      }
+    }
+  },
+  "metric": "WAPE + absolute relative bias",
+  "primary": "arithmetic mean of per-origin score",
+  "compute_threads": 4,
+  "target_mean_score": 0.32,
+  "selection": "Lowest mean per-origin development score over18-31October among the five registered new candidates. Original25-31October is descriptive, not the selection endpoint.",
+  "promotion_rule": "Must improve over incumbent on development14mean AND freshcontrol7mean. Goal below.32 evaluated on original7,development14,andfreshcontrol7 separately.",
+  "control_note": "Newcontrol earlier than development, present in development fit histories; robustness check not fully independent futureholdout.",
+  "prior_exposure_note": "During previous work, raw descriptive status-correlation analysis included1\u201314Oct. Newcontrol11\u201317Oct forecast metrics have not been computed or used for candidate selection; no claim of entirely unseen raw data.",
+  "development_compute_note": "The first3HGB origins used2 native threads; the remaining11 used4 after a resource-only checkpoint amendment. Frozen model parameters and feature code unchanged; real-data bitwise thread parity not claimed. Fresh controls and inference use4.",
+  "comparison_models": [
+    "ridge_calendar",
+    "hgb_direct_norm_advanced",
+    "latent_ridge_h1_hybrid"
+  ],
+  "shared_component_cache": "Identical model specifications reuse one prediction within the same immutable history prefix; a new history object clears the cache."
+}

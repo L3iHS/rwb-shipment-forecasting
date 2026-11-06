@@ -25,6 +25,9 @@ def main():
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     config = json.loads(args.config.read_text())
+    thread_count = config.get("compute_threads", 2)
+    if type(thread_count) is not int or thread_count < 1:
+        parser.error("compute_threads must be a positive integer")
     name = config["selected_model"]
     spec = config["models"][name]
     output = args.output or ROOT / f"submissions/{name}.csv"
@@ -34,7 +37,7 @@ def main():
     train = ROOT / "data/raw/train_solo_track.parquet"
     test = ROOT / "data/raw/test_solo_track.parquet"
     data = ForecastData.from_frame(pd.read_parquet(train))
-    with threadpool_limits(limits=2):
+    with threadpool_limits(limits=thread_count):
         submission, audit = make_submission(data, pd.read_parquet(test), predictor=configured_predictor(spec))
     output.parent.mkdir(parents=True, exist_ok=True)
     submission.to_csv(output, index=False, mode="x")
@@ -47,6 +50,7 @@ def main():
         "config_sha256": hashlib.sha256(args.config.read_bytes()).hexdigest(),
         "source_sha256": {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in source_paths},
         "python": platform.python_version(),
+        "native_thread_limit": thread_count,
         "libraries": {name: version(name) for name in ["numpy", "pandas", "scikit-learn", "scipy"]},
         "platform_submission": False,
     }

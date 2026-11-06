@@ -1,0 +1,226 @@
+{
+  "split": "control",
+  "config": {
+    "round": 3,
+    "baseline": "hgb_direct_norm_advanced",
+    "original_baseline": "ridge_calendar",
+    "selected_model": "latent_ridge_h1_hybrid",
+    "research_origins": [
+      "2025-10-18 10:30:00",
+      "2025-10-19 10:30:00",
+      "2025-10-20 10:30:00",
+      "2025-10-21 10:30:00",
+      "2025-10-22 10:30:00",
+      "2025-10-23 10:30:00",
+      "2025-10-24 10:30:00",
+      "2025-10-25 10:30:00",
+      "2025-10-26 10:30:00",
+      "2025-10-27 10:30:00",
+      "2025-10-28 10:30:00",
+      "2025-10-29 10:30:00",
+      "2025-10-30 10:30:00",
+      "2025-10-31 10:30:00"
+    ],
+    "original_research_origins": [
+      "2025-10-25 10:30:00",
+      "2025-10-26 10:30:00",
+      "2025-10-27 10:30:00",
+      "2025-10-28 10:30:00",
+      "2025-10-29 10:30:00",
+      "2025-10-30 10:30:00",
+      "2025-10-31 10:30:00"
+    ],
+    "control_origins": [
+      "2025-10-11 10:30:00",
+      "2025-10-12 10:30:00",
+      "2025-10-13 10:30:00",
+      "2025-10-14 10:30:00",
+      "2025-10-15 10:30:00",
+      "2025-10-16 10:30:00",
+      "2025-10-17 10:30:00"
+    ],
+    "models": {
+      "ridge_calendar": {
+        "kind": "ridge",
+        "params": {
+          "feature_set": "calendar",
+          "train_days": 14,
+          "alpha": 4.0
+        }
+      },
+      "hgb_direct_norm_advanced": {
+        "kind": "boosting",
+        "params": {
+          "name": "hgb_direct_norm_advanced",
+          "normalize": true,
+          "loss": "squared_error",
+          "calibrate": false,
+          "advanced": true,
+          "direct": true,
+          "residual": false,
+          "train_days": 28,
+          "source_stride": 4,
+          "max_iter": 180,
+          "max_leaf_nodes": 31,
+          "learning_rate": 0.08,
+          "l2_regularization": 10.0
+        },
+        "research_round": 2
+      },
+      "latent_ridge_direct": {
+        "kind": "latent",
+        "params": {
+          "train_days": 14,
+          "alpha": 4.0,
+          "rounding_tolerance": 0.5
+        }
+      },
+      "latent_ridge_h1_hybrid": {
+        "kind": "latent_hybrid",
+        "params": {
+          "train_days": 14,
+          "alpha": 4.0,
+          "rounding_tolerance": 0.5
+        },
+        "incumbent": {
+          "kind": "boosting",
+          "params": {
+            "name": "hgb_direct_norm_advanced",
+            "normalize": true,
+            "loss": "squared_error",
+            "calibrate": false,
+            "advanced": true,
+            "direct": true,
+            "residual": false,
+            "train_days": 28,
+            "source_stride": 4,
+            "max_iter": 180,
+            "max_leaf_nodes": 31,
+            "learning_rate": 0.08,
+            "l2_regularization": 10.0
+          },
+          "research_round": 2
+        }
+      },
+      "incumbent_halfhour_projection": {
+        "kind": "latent_projection",
+        "params": {
+          "rounding_tolerance": 0.5
+        },
+        "incumbent": {
+          "kind": "boosting",
+          "params": {
+            "name": "hgb_direct_norm_advanced",
+            "normalize": true,
+            "loss": "squared_error",
+            "calibrate": false,
+            "advanced": true,
+            "direct": true,
+            "residual": false,
+            "train_days": 28,
+            "source_stride": 4,
+            "max_iter": 180,
+            "max_leaf_nodes": 31,
+            "learning_rate": 0.08,
+            "l2_regularization": 10.0
+          },
+          "research_round": 2
+        }
+      },
+      "hgb_global_context": {
+        "kind": "boosting",
+        "params": {
+          "name": "hgb_global_context",
+          "normalize": true,
+          "loss": "squared_error",
+          "calibrate": false,
+          "advanced": true,
+          "direct": true,
+          "residual": false,
+          "global_context": true,
+          "halfhour": false,
+          "train_days": 28,
+          "source_stride": 4,
+          "max_iter": 180,
+          "max_leaf_nodes": 31,
+          "learning_rate": 0.08,
+          "l2_regularization": 10.0
+        }
+      },
+      "hgb_global_halfhour": {
+        "kind": "boosting",
+        "params": {
+          "name": "hgb_global_halfhour",
+          "normalize": true,
+          "loss": "squared_error",
+          "calibrate": false,
+          "advanced": true,
+          "direct": true,
+          "residual": false,
+          "global_context": true,
+          "halfhour": true,
+          "train_days": 28,
+          "source_stride": 4,
+          "max_iter": 180,
+          "max_leaf_nodes": 31,
+          "learning_rate": 0.08,
+          "l2_regularization": 10.0
+        }
+      }
+    },
+    "metric": "WAPE + absolute relative bias",
+    "primary": "arithmetic mean of per-origin score",
+    "compute_threads": 4,
+    "target_mean_score": 0.32,
+    "selection": "Lowest mean per-origin development score over18-31October among the five registered new candidates. Original25-31October is descriptive, not the selection endpoint.",
+    "promotion_rule": "Must improve over incumbent on development14mean AND freshcontrol7mean. Goal below.32 evaluated on original7,development14,andfreshcontrol7 separately.",
+    "control_note": "Newcontrol earlier than development, present in development fit histories; robustness check not fully independent futureholdout.",
+    "prior_exposure_note": "During previous work, raw descriptive status-correlation analysis included1\u201314Oct. Newcontrol11\u201317Oct forecast metrics have not been computed or used for candidate selection; no claim of entirely unseen raw data.",
+    "development_compute_note": "The first3HGB origins used2 native threads; the remaining11 used4 after a resource-only checkpoint amendment. Frozen model parameters and feature code unchanged; real-data bitwise thread parity not claimed. Fresh controls and inference use4.",
+    "comparison_models": [
+      "ridge_calendar",
+      "hgb_direct_norm_advanced",
+      "latent_ridge_h1_hybrid"
+    ],
+    "shared_component_cache": "Identical model specifications reuse one prediction within the same immutable history prefix; a new history object clears the cache."
+  },
+  "evaluated_models": [
+    "ridge_calendar",
+    "hgb_direct_norm_advanced",
+    "latent_ridge_h1_hybrid"
+  ],
+  "dataset_sha256": "300aecbe2d3dc28be03bff957ba56ab20c7fa8ceb81b0301822d4bf6473bd076",
+  "source_sha256": {
+    "src/rwb_forecasting/__init__.py": "ebf5cb9c4602355f8596a4776aec62ef50651ee371633604d53cca2730af14db",
+    "src/rwb_forecasting/block_ridge.py": "0b69dc5e4ac89d6c0fbbefa778e247ef98fbcb745b639d6af9cf7fe26cfcc6b0",
+    "src/rwb_forecasting/boosting.py": "a9cddcc4fb2b1aa6d4588b1af48a2e909b6943102e633b5cd9bf6317dda2392a",
+    "src/rwb_forecasting/candidates.py": "08ef7a561c112d12beb68ce333c1b82e81b028c1557461a36b28a5d0b1f35331",
+    "src/rwb_forecasting/context_features.py": "ad622fc3d21cc973bfdf4e6f79e4e623724601fd67e3f377ea3ef7079c34b4d8",
+    "src/rwb_forecasting/data.py": "060486f5799443b6fab4b305242ad300a1e9d89e6547028b63df6a6d9e58e0be",
+    "src/rwb_forecasting/experiments.py": "28f293f87a2f81a93690e921d261ea764e3e1b1105838d1410ffe7f670c0996a",
+    "src/rwb_forecasting/features.py": "7d1027773ff735baaf1383f9238c6e83741f563c919cda8bf0d268708dcf655a",
+    "src/rwb_forecasting/halfhour.py": "0a5c6e032ba9559ae2121efc9b2341eaa3eed398e3cc68943e4a19c8903c90ef",
+    "src/rwb_forecasting/latent_models.py": "35b9d381bfd9666a83c3cea0ea638822eb26f14bfe130a7ca2dfad4da573f6d7",
+    "src/rwb_forecasting/latent_volume.py": "a5c0bea441ce3a034181ad46a9ab8a34ea7b1dafbe0140b5bbfbe5400028e711",
+    "src/rwb_forecasting/linear_candidates.py": "d93b07ae659c469a1e52d3527f1b3021c87efe8f3055aa19f9534edef6474146",
+    "src/rwb_forecasting/metrics.py": "e6cd79c08ea13484cd3681ba10438afd540149445b7d4d545d621fc577ccebfc",
+    "src/rwb_forecasting/models.py": "26f0aecd937b0540990a6134c1a87b186320a88f3c5ca2a47f584404cde478dd",
+    "src/rwb_forecasting/submission.py": "838835f4c5a28e47ec310adddb3bdaaf8a2805ab543be300b95e402e993989c9",
+    "src/rwb_forecasting/validation.py": "96d84a4c702d38175147a1383285dd3116e7c2e10937adcf5619f5658a2913a5",
+    "scripts/run_comparison.py": "dfee3222421ced30748671edecdf2daa8b16777ac368f53d11c0a44fde1b9c43",
+    "requirements.txt": "3e6287b08026819aec06dd1f9e18f24a614ed4e91267d44861b455bcc41c230f"
+  },
+  "config_sha256": "3ac19f420c27f997f6dc964ac9af77da49c0e01ba40d1f7b9ae194a052682a51",
+  "python": "3.14.6",
+  "native_thread_limit": 4,
+  "shared_component_cache": "identical model specs reused only within the same history object",
+  "libraries": {
+    "numpy": "2.5.4",
+    "pandas": "3.1.1",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1"
+  },
+  "primary_comparison": "arithmetic mean of per-origin WAPE + absolute relative bias",
+  "elapsed_seconds": 212.09075754100922,
+  "platform_submission": false
+}

@@ -5,6 +5,7 @@ import pandas as pd
 from sklearn.ensemble import HistGradientBoostingRegressor
 from .data import ForecastData, HORIZON, STEP
 from .features import feature_frame
+from .context_features import global_context_frame, halfhour_feature_frame
 
 @dataclass(frozen=True)
 class BoostConfig:
@@ -15,6 +16,8 @@ class BoostConfig:
     advanced: bool = False
     direct: bool = False
     residual: bool = False
+    global_context: bool = False
+    halfhour: bool = False
     train_days: int = 14
     source_stride: int = 8
     max_iter: int = 150
@@ -22,7 +25,7 @@ class BoostConfig:
     learning_rate: float = 0.08
     l2_regularization: float = 10.0
 
-def pooled_features(history: ForecastData, indices: np.ndarray, normalize: bool=False, advanced: bool=False):
+def pooled_features(history: ForecastData, indices: np.ndarray, normalize: bool=False, advanced: bool=False, global_context: bool=False, halfhour: bool=False):
     """Return horizon-major rows, scale per row; every observation <= source."""
     indices = np.asarray(indices)
     base = feature_frame(history, indices, 'calendar').drop(columns='route_id')
@@ -50,6 +53,10 @@ def pooled_features(history: ForecastData, indices: np.ndarray, normalize: bool=
                 values = values / scale[:, None]
             for s in range(6):
                 base[f'status_{s + 1}_lag_{lag}'] = values[:, s]
+    if global_context:
+        base = pd.concat([base, global_context_frame(history, indices)], axis=1)
+    if halfhour:
+        base = pd.concat([base, halfhour_feature_frame(history, indices, scale if normalize else None)], axis=1)
     blocks = []
     for h in range(1, HORIZON + 1):
         frame = base.copy()
@@ -78,9 +85,9 @@ def predict_boosting(history: ForecastData, config: BoostConfig=BoostConfig()):
     indices = np.arange(last, first - 1, -config.source_stride)[::-1]
     if config.residual and (not config.advanced):
         raise ValueError('Residual predictions require advanced seasonal profile')
-    (X, scales) = pooled_features(history, indices, config.normalize, config.advanced)
+    (X, scales) = pooled_features(history, indices, config.normalize, config.advanced, config.global_context, config.halfhour)
     y = np.concatenate([history.target[indices + h].reshape(-1) for h in range(1, HORIZON + 1)])
-    (current, current_scales) = pooled_features(history, np.array([len(history.timestamps) - 1]), config.normalize, config.advanced)
+    (current, current_scales) = pooled_features(history, np.array([len(history.timestamps) - 1]), config.normalize, config.advanced, config.global_context, config.halfhour)
     fit_y = y / scales if config.normalize else y.copy()
     if config.residual:
         fit_y -= X['aligned_daily_mean_7'].to_numpy()
@@ -116,4 +123,8 @@ def predict_boosting(history: ForecastData, config: BoostConfig=BoostConfig()):
     pred = np.concatenate(prediction_blocks)
     pred = np.maximum(pred.reshape(HORIZON, len(history.routes)).T, 0)
     audit = {'model': config.name, 'config': asdict(config), 'training_rows': len(X), 'training_sources': len(indices), 'first_source_timestamp': str(history.timestamps[indices[0]]), 'last_source_timestamp': str(history.timestamps[indices[-1]]), 'latest_label_timestamp': str(history.timestamps[indices[-1] + HORIZON]), 'earliest_feature_timestamp': str(history.timestamps[indices[0] - 336]), 'calibration_factors': factors.tolist(), 'fit_early_stopping': False}
+    if config.halfhour:
+        audit['earliest_feature_timestamp'] = str(history.timestamps[0])
+        audit['halfhour_rounding_tolerance'] = 0.5
+        audit['halfhour_method'] = 'forward feasible bounds; no backward smoothing'
     return (pred, audit)
