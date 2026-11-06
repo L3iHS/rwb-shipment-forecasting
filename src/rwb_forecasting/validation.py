@@ -5,7 +5,8 @@ import pandas as pd
 
 from .data import ForecastData, HORIZON, STEP
 from .metrics import evaluate
-from .models import MODEL_NAMES, SIMPLE_MODELS, predict_ridge, predict_simple
+from .features import FEATURE_SETS
+from .models import SIMPLE_MODELS, predict_ridge, predict_simple
 
 
 def daily_origins(data: ForecastData, count: int = 7, time: str = "10:30") -> list[pd.Timestamp]:
@@ -24,21 +25,29 @@ def daily_origins(data: ForecastData, count: int = 7, time: str = "10:30") -> li
 def backtest(
     data: ForecastData, origins: Sequence[pd.Timestamp], train_days: int = 14,
     alpha: float = 4.0, progress: Callable[[str], None] | None = None,
+    ridge_feature_sets: Sequence[str] = ("status",),
 ) -> dict[str, pd.DataFrame | list[dict]]:
     folds, by_horizon, predictions, audits = [], [], [], []
     if not origins or len(set(origins)) != len(origins):
         raise ValueError("Origins must be nonempty and unique")
+    if (not ridge_feature_sets or len(set(ridge_feature_sets)) != len(ridge_feature_sets)
+            or any(name not in FEATURE_SETS for name in ridge_feature_sets)):
+        raise ValueError("Ridge feature sets must be nonempty, known and unique")
+    model_names = (*SIMPLE_MODELS, *(f"ridge_{name}" for name in ridge_feature_sets))
     for origin in origins:
         index = data.timestamps.get_indexer([origin])[0]
         if index < 0 or index + HORIZON >= len(data.timestamps):
             raise ValueError("Validation origin requires a full future horizon")
         history = data.history(origin)
         forecasts = {name: predict_simple(history, name) for name in SIMPLE_MODELS}
-        if progress:
-            progress(f"{origin}: fitting Ridge on history ending at origin")
-        forecasts["ridge_status"], audit = predict_ridge(history, train_days, alpha)
-        audit["origin"] = str(origin)
-        audits.append(audit)
+        for feature_set in ridge_feature_sets:
+            name = f"ridge_{feature_set}"
+            if progress:
+                progress(f"{origin}: fitting {name} on history ending at origin")
+            forecasts[name], audit = predict_ridge(history, train_days, alpha, feature_set)
+            audit["origin"] = str(origin)
+            audit["model"] = name
+            audits.append(audit)
         # Future facts are read only for scoring after predictions are produced.
         future_times = data.timestamps[index + 1 : index + HORIZON + 1]
         truth = data.target[index + 1 : index + HORIZON + 1].T
@@ -65,7 +74,7 @@ def backtest(
     prediction_frame = pd.concat(predictions, ignore_index=True)
     winners = fold_frame.loc[fold_frame.groupby("origin")["score"].idxmin(), "model"].value_counts()
     summary = []
-    for name in MODEL_NAMES:
+    for name in model_names:
         values = fold_frame.loc[fold_frame["model"] == name, "score"]
         pooled = evaluate(prediction_frame["y_true"].to_numpy(), prediction_frame[name].to_numpy())
         summary.append({

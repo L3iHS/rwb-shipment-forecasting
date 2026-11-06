@@ -19,3 +19,4 @@ models/*
 !models/.gitkeep
 submissions/*
 !submissions/.gitkeep
+!submissions/README.md

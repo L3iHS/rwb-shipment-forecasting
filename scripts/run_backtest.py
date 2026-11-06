@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from rwb_forecasting.data import ForecastData
+from rwb_forecasting.features import FEATURE_SETS, feature_spec
 from rwb_forecasting.validation import backtest, daily_origins
 
 
@@ -29,6 +30,7 @@ def main() -> None:
     parser.add_argument("--origin-time", default="10:30")
     parser.add_argument("--train-days", type=int, default=14)
     parser.add_argument("--alpha", type=float, default=4.0)
+    parser.add_argument("--ridge-features", nargs="+", choices=FEATURE_SETS, default=["status"])
     parser.add_argument("--output", type=Path, default=ROOT / ".local/runs/temporal_baselines")
     args = parser.parse_args()
     if args.train_days < 1 or args.alpha <= 0:
@@ -42,7 +44,10 @@ def main() -> None:
     origins = daily_origins(data, args.origin_count, args.origin_time)
     print(f"Loaded {len(data.routes)} routes; validation origins: {origins[0]} to {origins[-1]}", flush=True)
     with threadpool_limits(limits=2):
-        result = backtest(data, origins, args.train_days, args.alpha, lambda text: print(text, flush=True))
+        result = backtest(
+            data, origins, args.train_days, args.alpha,
+            lambda text: print(text, flush=True), ridge_feature_sets=args.ridge_features,
+        )
     for name in ["summary", "folds", "by_horizon", "predictions"]:
         result[name].to_csv(output / f"{name}.csv", index=False)
     (output / "training_audit.json").write_text(json.dumps(result["audits"], indent=2) + "\n")
@@ -60,7 +65,7 @@ def main() -> None:
         "primary_comparison": "arithmetic mean of official score across fixed-origin folds",
         "pooled_note": "Pooled bias can cancel across folds; pooled score is secondary.",
         "ridge": {
-            "features": "six statuses at source timestamp and one-hot route_id",
+            "feature_sets": {name: feature_spec(name) for name in args.ridge_features},
             "source_window_days": args.train_days,
             "alpha": args.alpha, "solver": "lsqr", "tol": 1e-6,
             "negative_predictions": "clipped to zero",
