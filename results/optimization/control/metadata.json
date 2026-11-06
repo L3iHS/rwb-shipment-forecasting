@@ -1,0 +1,250 @@
+{
+  "split": "control",
+  "config": {
+    "research_origins": [
+      "2025-10-25 10:30:00",
+      "2025-10-26 10:30:00",
+      "2025-10-27 10:30:00",
+      "2025-10-28 10:30:00",
+      "2025-10-29 10:30:00",
+      "2025-10-30 10:30:00",
+      "2025-10-31 10:30:00"
+    ],
+    "control_origins": [
+      "2025-10-18 10:30:00",
+      "2025-10-19 10:30:00",
+      "2025-10-20 10:30:00",
+      "2025-10-21 10:30:00",
+      "2025-10-22 10:30:00",
+      "2025-10-23 10:30:00",
+      "2025-10-24 10:30:00"
+    ],
+    "baseline": "ridge_calendar",
+    "selected_model": "hgb_direct_norm_advanced",
+    "metric": "WAPE + abs(sum(pred)/sum(true) - 1)",
+    "primary": "arithmetic mean of per-origin score",
+    "models": {
+      "ridge_calendar": {
+        "kind": "ridge",
+        "params": {
+          "feature_set": "calendar",
+          "train_days": 14,
+          "alpha": 4.0
+        }
+      },
+      "ridge_aligned": {
+        "kind": "linear",
+        "params": {
+          "family": "global",
+          "train_days": 14,
+          "alpha": 4.0,
+          "clock_radius": null,
+          "solver": "lsqr"
+        },
+        "research_round": 1
+      },
+      "ridge_local_clock": {
+        "kind": "linear",
+        "params": {
+          "family": "global",
+          "train_days": 28,
+          "alpha": 20.0,
+          "clock_radius": 4,
+          "solver": "lsqr"
+        },
+        "research_round": 1
+      },
+      "ridge_per_route": {
+        "kind": "linear",
+        "params": {
+          "family": "per_route",
+          "train_days": 28,
+          "alpha": 100.0,
+          "clock_radius": null,
+          "solver": "lsqr"
+        },
+        "research_round": 1
+      },
+      "hgb_raw_sq": {
+        "kind": "boosting",
+        "params": {
+          "name": "hgb_raw_sq",
+          "normalize": false,
+          "loss": "squared_error",
+          "calibrate": false,
+          "train_days": 14,
+          "source_stride": 8,
+          "max_iter": 150,
+          "max_leaf_nodes": 31,
+          "learning_rate": 0.08,
+          "l2_regularization": 10.0
+        },
+        "research_round": 1
+      },
+      "hgb_norm_sq": {
+        "kind": "boosting",
+        "params": {
+          "name": "hgb_norm_sq",
+          "normalize": true,
+          "loss": "squared_error",
+          "calibrate": false,
+          "train_days": 14,
+          "source_stride": 8,
+          "max_iter": 150,
+          "max_leaf_nodes": 31,
+          "learning_rate": 0.08,
+          "l2_regularization": 10.0
+        },
+        "research_round": 1
+      },
+      "hgb_raw_mae_cal": {
+        "kind": "boosting",
+        "params": {
+          "name": "hgb_raw_mae_cal",
+          "normalize": false,
+          "loss": "absolute_error",
+          "calibrate": true,
+          "train_days": 14,
+          "source_stride": 8,
+          "max_iter": 150,
+          "max_leaf_nodes": 31,
+          "learning_rate": 0.08,
+          "l2_regularization": 10.0
+        },
+        "research_round": 1
+      },
+      "ridge_status_dynamics": {
+        "kind": "linear",
+        "params": {
+          "family": "global",
+          "train_days": 14,
+          "alpha": 4.0,
+          "clock_radius": null,
+          "status_dynamics": true,
+          "solver": "block_gram"
+        },
+        "research_round": 2
+      },
+      "ridge_clock_dynamics": {
+        "kind": "linear",
+        "params": {
+          "family": "global",
+          "train_days": 28,
+          "alpha": 20.0,
+          "clock_radius": 4,
+          "status_dynamics": true,
+          "solver": "block_gram"
+        },
+        "research_round": 2
+      },
+      "ridge_dynamics_aggregate": {
+        "kind": "linear",
+        "params": {
+          "family": "global",
+          "train_days": 14,
+          "alpha": 4.0,
+          "clock_radius": null,
+          "status_dynamics": true,
+          "aggregate_calibration": true,
+          "solver": "block_gram"
+        },
+        "research_round": 2
+      },
+      "hgb_direct_raw_advanced": {
+        "kind": "boosting",
+        "params": {
+          "name": "hgb_direct_raw_advanced",
+          "normalize": false,
+          "loss": "squared_error",
+          "calibrate": false,
+          "advanced": true,
+          "direct": true,
+          "residual": false,
+          "train_days": 28,
+          "source_stride": 4,
+          "max_iter": 180,
+          "max_leaf_nodes": 31,
+          "learning_rate": 0.08,
+          "l2_regularization": 10.0
+        },
+        "research_round": 2
+      },
+      "hgb_direct_norm_advanced": {
+        "kind": "boosting",
+        "params": {
+          "name": "hgb_direct_norm_advanced",
+          "normalize": true,
+          "loss": "squared_error",
+          "calibrate": false,
+          "advanced": true,
+          "direct": true,
+          "residual": false,
+          "train_days": 28,
+          "source_stride": 4,
+          "max_iter": 180,
+          "max_leaf_nodes": 31,
+          "learning_rate": 0.08,
+          "l2_regularization": 10.0
+        },
+        "research_round": 2
+      },
+      "hgb_direct_norm_residual": {
+        "kind": "boosting",
+        "params": {
+          "name": "hgb_direct_norm_residual",
+          "normalize": true,
+          "loss": "squared_error",
+          "calibrate": false,
+          "advanced": true,
+          "direct": true,
+          "residual": true,
+          "train_days": 28,
+          "source_stride": 4,
+          "max_iter": 180,
+          "max_leaf_nodes": 31,
+          "learning_rate": 0.08,
+          "l2_regularization": 10.0
+        },
+        "research_round": 2
+      }
+    },
+    "compute_threads": 2,
+    "control_note": "Additional historical windows not used for selection; earlier than research and contained within its fit histories, not an independent future holdout.",
+    "numerical_solver_note": "Linear round2 uses block-Gram rather than LSQR. Strict prediction-parity gate failed; all7folds were recomputed with one engine. Features, alpha and source windows unchanged. Baseline and linear round1 remain LSQR.",
+    "selection": "Lowest mean research score among12full candidate configurations; control scores not inspected.",
+    "promotion_rule": "Research and control means both strictly better than ridge_calendar; otherwise retain baseline.",
+    "target_mean_score": 0.32
+  },
+  "evaluated_models": [
+    "ridge_calendar",
+    "hgb_direct_norm_advanced"
+  ],
+  "dataset_sha256": "300aecbe2d3dc28be03bff957ba56ab20c7fa8ceb81b0301822d4bf6473bd076",
+  "source_sha256": {
+    "src/rwb_forecasting/__init__.py": "ebf5cb9c4602355f8596a4776aec62ef50651ee371633604d53cca2730af14db",
+    "src/rwb_forecasting/block_ridge.py": "0b69dc5e4ac89d6c0fbbefa778e247ef98fbcb745b639d6af9cf7fe26cfcc6b0",
+    "src/rwb_forecasting/boosting.py": "cd4f98beed20bc5defd73df45197ff8a2572a1f15ddde5ac302a670710d857f1",
+    "src/rwb_forecasting/candidates.py": "64cedb18e5bb3f9859a73738da34ffb1326ab509c9ead1b292a9110a5679a179",
+    "src/rwb_forecasting/data.py": "060486f5799443b6fab4b305242ad300a1e9d89e6547028b63df6a6d9e58e0be",
+    "src/rwb_forecasting/experiments.py": "28f293f87a2f81a93690e921d261ea764e3e1b1105838d1410ffe7f670c0996a",
+    "src/rwb_forecasting/features.py": "7d1027773ff735baaf1383f9238c6e83741f563c919cda8bf0d268708dcf655a",
+    "src/rwb_forecasting/linear_candidates.py": "d93b07ae659c469a1e52d3527f1b3021c87efe8f3055aa19f9534edef6474146",
+    "src/rwb_forecasting/metrics.py": "e6cd79c08ea13484cd3681ba10438afd540149445b7d4d545d621fc577ccebfc",
+    "src/rwb_forecasting/models.py": "26f0aecd937b0540990a6134c1a87b186320a88f3c5ca2a47f584404cde478dd",
+    "src/rwb_forecasting/submission.py": "838835f4c5a28e47ec310adddb3bdaaf8a2805ab543be300b95e402e993989c9",
+    "src/rwb_forecasting/validation.py": "96d84a4c702d38175147a1383285dd3116e7c2e10937adcf5619f5658a2913a5",
+    "scripts/run_comparison.py": "aefc322db6334ed2743ee3f1097af9c176018252cc9bd60be4d98b0b45700ba2",
+    "requirements.txt": "3e6287b08026819aec06dd1f9e18f24a614ed4e91267d44861b455bcc41c230f"
+  },
+  "config_sha256": "722bc1d224b9cd7608192a8b564714aef522c8d8e80f60e9a8234a00ab32a837",
+  "python": "3.14.6",
+  "libraries": {
+    "numpy": "2.5.4",
+    "pandas": "3.1.1",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1"
+  },
+  "primary_comparison": "arithmetic mean of per-origin WAPE + absolute relative bias",
+  "elapsed_seconds": 268.3416783340508,
+  "platform_submission": false
+}

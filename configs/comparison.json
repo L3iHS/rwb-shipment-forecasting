@@ -1,0 +1,215 @@
+{
+  "research_origins": [
+    "2025-10-25 10:30:00",
+    "2025-10-26 10:30:00",
+    "2025-10-27 10:30:00",
+    "2025-10-28 10:30:00",
+    "2025-10-29 10:30:00",
+    "2025-10-30 10:30:00",
+    "2025-10-31 10:30:00"
+  ],
+  "control_origins": [
+    "2025-10-18 10:30:00",
+    "2025-10-19 10:30:00",
+    "2025-10-20 10:30:00",
+    "2025-10-21 10:30:00",
+    "2025-10-22 10:30:00",
+    "2025-10-23 10:30:00",
+    "2025-10-24 10:30:00"
+  ],
+  "baseline": "ridge_calendar",
+  "selected_model": "hgb_direct_norm_advanced",
+  "metric": "WAPE + abs(sum(pred)/sum(true) - 1)",
+  "primary": "arithmetic mean of per-origin score",
+  "models": {
+    "ridge_calendar": {
+      "kind": "ridge",
+      "params": {
+        "feature_set": "calendar",
+        "train_days": 14,
+        "alpha": 4.0
+      }
+    },
+    "ridge_aligned": {
+      "kind": "linear",
+      "params": {
+        "family": "global",
+        "train_days": 14,
+        "alpha": 4.0,
+        "clock_radius": null,
+        "solver": "lsqr"
+      },
+      "research_round": 1
+    },
+    "ridge_local_clock": {
+      "kind": "linear",
+      "params": {
+        "family": "global",
+        "train_days": 28,
+        "alpha": 20.0,
+        "clock_radius": 4,
+        "solver": "lsqr"
+      },
+      "research_round": 1
+    },
+    "ridge_per_route": {
+      "kind": "linear",
+      "params": {
+        "family": "per_route",
+        "train_days": 28,
+        "alpha": 100.0,
+        "clock_radius": null,
+        "solver": "lsqr"
+      },
+      "research_round": 1
+    },
+    "hgb_raw_sq": {
+      "kind": "boosting",
+      "params": {
+        "name": "hgb_raw_sq",
+        "normalize": false,
+        "loss": "squared_error",
+        "calibrate": false,
+        "train_days": 14,
+        "source_stride": 8,
+        "max_iter": 150,
+        "max_leaf_nodes": 31,
+        "learning_rate": 0.08,
+        "l2_regularization": 10.0
+      },
+      "research_round": 1
+    },
+    "hgb_norm_sq": {
+      "kind": "boosting",
+      "params": {
+        "name": "hgb_norm_sq",
+        "normalize": true,
+        "loss": "squared_error",
+        "calibrate": false,
+        "train_days": 14,
+        "source_stride": 8,
+        "max_iter": 150,
+        "max_leaf_nodes": 31,
+        "learning_rate": 0.08,
+        "l2_regularization": 10.0
+      },
+      "research_round": 1
+    },
+    "hgb_raw_mae_cal": {
+      "kind": "boosting",
+      "params": {
+        "name": "hgb_raw_mae_cal",
+        "normalize": false,
+        "loss": "absolute_error",
+        "calibrate": true,
+        "train_days": 14,
+        "source_stride": 8,
+        "max_iter": 150,
+        "max_leaf_nodes": 31,
+        "learning_rate": 0.08,
+        "l2_regularization": 10.0
+      },
+      "research_round": 1
+    },
+    "ridge_status_dynamics": {
+      "kind": "linear",
+      "params": {
+        "family": "global",
+        "train_days": 14,
+        "alpha": 4.0,
+        "clock_radius": null,
+        "status_dynamics": true,
+        "solver": "block_gram"
+      },
+      "research_round": 2
+    },
+    "ridge_clock_dynamics": {
+      "kind": "linear",
+      "params": {
+        "family": "global",
+        "train_days": 28,
+        "alpha": 20.0,
+        "clock_radius": 4,
+        "status_dynamics": true,
+        "solver": "block_gram"
+      },
+      "research_round": 2
+    },
+    "ridge_dynamics_aggregate": {
+      "kind": "linear",
+      "params": {
+        "family": "global",
+        "train_days": 14,
+        "alpha": 4.0,
+        "clock_radius": null,
+        "status_dynamics": true,
+        "aggregate_calibration": true,
+        "solver": "block_gram"
+      },
+      "research_round": 2
+    },
+    "hgb_direct_raw_advanced": {
+      "kind": "boosting",
+      "params": {
+        "name": "hgb_direct_raw_advanced",
+        "normalize": false,
+        "loss": "squared_error",
+        "calibrate": false,
+        "advanced": true,
+        "direct": true,
+        "residual": false,
+        "train_days": 28,
+        "source_stride": 4,
+        "max_iter": 180,
+        "max_leaf_nodes": 31,
+        "learning_rate": 0.08,
+        "l2_regularization": 10.0
+      },
+      "research_round": 2
+    },
+    "hgb_direct_norm_advanced": {
+      "kind": "boosting",
+      "params": {
+        "name": "hgb_direct_norm_advanced",
+        "normalize": true,
+        "loss": "squared_error",
+        "calibrate": false,
+        "advanced": true,
+        "direct": true,
+        "residual": false,
+        "train_days": 28,
+        "source_stride": 4,
+        "max_iter": 180,
+        "max_leaf_nodes": 31,
+        "learning_rate": 0.08,
+        "l2_regularization": 10.0
+      },
+      "research_round": 2
+    },
+    "hgb_direct_norm_residual": {
+      "kind": "boosting",
+      "params": {
+        "name": "hgb_direct_norm_residual",
+        "normalize": true,
+        "loss": "squared_error",
+        "calibrate": false,
+        "advanced": true,
+        "direct": true,
+        "residual": true,
+        "train_days": 28,
+        "source_stride": 4,
+        "max_iter": 180,
+        "max_leaf_nodes": 31,
+        "learning_rate": 0.08,
+        "l2_regularization": 10.0
+      },
+      "research_round": 2
+    }
+  },
+  "compute_threads": 2,
+  "control_note": "Additional historical windows not used for selection; earlier than research and contained within its fit histories, not an independent future holdout.",
+  "numerical_solver_note": "Linear round2 uses block-Gram rather than LSQR. Strict prediction-parity gate failed; all7folds were recomputed with one engine. Features, alpha and source windows unchanged. Baseline and linear round1 remain LSQR.",
+  "selection": "Lowest mean research score among12full candidate configurations; control scores not inspected.",
+  "promotion_rule": "Research and control means both strictly better than ridge_calendar; otherwise retain baseline.",
+  "target_mean_score": 0.32
+}

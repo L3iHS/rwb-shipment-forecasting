@@ -82,3 +82,31 @@ def test_real_ridge_submission_has_exact_csv_contract(submission_inputs, tmp_pat
     assert set(restored["id"]) == set(test["id"])
     assert np.isfinite(restored["y_pred"]).all() and restored["y_pred"].ge(0).all()
     assert pd.Timestamp(audit["latest_label_timestamp"]) == data.timestamps[-1]
+
+
+def test_custom_predictor_receives_only_train_and_preserves_key_alignment(submission_inputs):
+    data, test = submission_inputs
+    def predictor(history):
+        assert history is data
+        return np.repeat(history.target[-1, :, None], HORIZON, axis=1), {"model": "last_value"}
+    output, audit = make_submission(data, test.sample(frac=1, random_state=19), predictor=predictor)
+    np.testing.assert_array_equal(output["y_pred"], np.repeat(data.target[-1], HORIZON))
+    assert audit["model"] == "last_value"
+
+
+def test_invalid_test_never_calls_custom_predictor(submission_inputs):
+    data, test = submission_inputs
+    def predictor(history):
+        pytest.fail("Invalid test must be rejected before fitting any predictor")
+    with pytest.raises(ValueError):
+        make_submission(data, test.iloc[1:], predictor=predictor)
+
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_submission_rejects_training_labels_after_origin(submission_inputs, nested):
+    data, test = submission_inputs
+    def predictor(history):
+        audit = {"latest_label_timestamp": str(history.timestamps[-1] + STEP)}
+        return np.ones((2, HORIZON)), {"aggregate_model": audit} if nested else audit
+    with pytest.raises(ValueError, match="labels exceed"):
+        make_submission(data, test, predictor=predictor)

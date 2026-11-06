@@ -1,15 +1,19 @@
 """Fit on known train history and map forecasts to competition test IDs."""
 
+from collections.abc import Callable
+
 import numpy as np
 import pandas as pd
 
 from .data import ForecastData, HORIZON, STEP
+from .experiments import validate_training_boundary
 from .models import predict_ridge
 
 
 def make_submission(
     data: ForecastData, test: pd.DataFrame, train_days: int = 14,
     alpha: float = 4.0, feature_set: str = "calendar",
+    *, predictor: Callable[[ForecastData], tuple[np.ndarray, dict]] | None = None,
 ) -> tuple[pd.DataFrame, dict]:
     required = ["id", "route_id", "timestamp"]
     if test.empty or not set(required).issubset(test.columns):
@@ -23,7 +27,11 @@ def make_submission(
     if len(actual) != len(expected) or not actual.is_unique or not actual.difference(expected).empty:
         raise ValueError("Test must contain exactly the next eight points for every known route")
 
-    prediction, audit = predict_ridge(data, train_days, alpha, feature_set)
+    prediction, audit = (
+        predict_ridge(data, train_days, alpha, feature_set)
+        if predictor is None else predictor(data)
+    )
+    validate_training_boundary(audit, origin)
     if prediction.shape != (len(data.routes), HORIZON):
         raise ValueError("Unexpected prediction shape")
     if not np.isfinite(prediction).all() or (prediction < 0).any():
