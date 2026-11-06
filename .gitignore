@@ -30,3 +30,11 @@ catboost_info/
 lightning_logs/
 mlruns/
 *.log
+
+# Claude Code: локальные настройки не храним, ориентир по проекту храним
+.claude/*
+!.claude/CLAUDE.md
+
+# Предсказания экспериментов по срезам (большие, пересчитываются скриптами)
+experiments/preds/
+!experiments/logs/*.log

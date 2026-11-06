@@ -1,0 +1,22 @@
+RESULT {"tag":"V3_l2","feats":"v3","clip":true,"route_cat":false} r=200: score 0.3328 std 0.0138 wape 0.3179 bias +0.0029 sat 0.3370 | k0.98:0.3358 k0.99:0.3311 k1.01:0.3385 k1.02:0.3458 k1.03:0.3556
+RESULT {"tag":"V3_l2","feats":"v3","clip":true,"route_cat":false} r=300: score 0.3326 std 0.0140 wape 0.3177 bias +0.0040 sat 0.3352 | k0.98:0.3351 k0.99:0.3312 k1.01:0.3390 k1.02:0.3463 k1.03:0.3563
+RESULT {"tag":"V3_l2","feats":"v3","clip":true,"route_cat":false} r=400: score 0.3327 std 0.0140 wape 0.3177 bias +0.0044 sat 0.3334 | k0.98:0.3352 k0.99:0.3314 k1.01:0.3389 k1.02:0.3462 k1.03:0.3561
+RESULT {"tag":"V3_l2","feats":"v3","clip":true,"route_cat":false} r=600: score 0.3335 std 0.0142 wape 0.3178 bias +0.0051 sat 0.3328 | k0.98:0.3356 k0.99:0.3318 k1.01:0.3395 k1.02:0.3468 k1.03:0.3567
+top imp {'known': 0.152, 's2_ratio': 0.098, 'h': 0.066, 'x0': 0.047, 'slotmean14': 0.038, 'h1_naive': 0.036, 'm3d': 0.022, 's1_ratio': 0.022, 's3_l0': 0.02, 'm7d': 0.02, 'lag0': 0.02, 'slot_t': 0.019}
+rows 3696000  time 345s
+RESULT {"tag":"V3_tw","feats":"v3","clip":true,"route_cat":false,"objective":"tweedie"} r=200: score 0.3297 std 0.0129 wape 0.3174 bias -0.0005 sat 0.3351 | k0.98:0.3372 k0.99:0.3306 k1.01:0.3347 k1.02:0.3420 k1.03:0.3517
+RESULT {"tag":"V3_tw","feats":"v3","clip":true,"route_cat":false,"objective":"tweedie"} r=300: score 0.3296 std 0.0130 wape 0.3172 bias -0.0005 sat 0.3325 | k0.98:0.3373 k0.99:0.3307 k1.01:0.3345 k1.02:0.3418 k1.03:0.3513
+RESULT {"tag":"V3_tw","feats":"v3","clip":true,"route_cat":false,"objective":"tweedie"} r=400: score 0.3297 std 0.0133 wape 0.3172 bias +0.0001 sat 0.3324 | k0.98:0.3368 k0.99:0.3306 k1.01:0.3349 k1.02:0.3421 k1.03:0.3516
+RESULT {"tag":"V3_tw","feats":"v3","clip":true,"route_cat":false,"objective":"tweedie"} r=600: score 0.3296 std 0.0131 wape 0.3172 bias -0.0001 sat 0.3318 | k0.98:0.3370 k0.99:0.3309 k1.01:0.3347 k1.02:0.3420 k1.03:0.3515
+top imp {'known': 0.146, 's2_ratio': 0.114, 'h': 0.081, 'x0': 0.056, 'h1_naive': 0.044, 'slotmean14': 0.039, 's3_l0': 0.031, 's1_ratio': 0.024, 'm3d': 0.021, 'slot_t': 0.02, 'lag0': 0.019, 'm1d': 0.019}
+rows 3696000  time 359s
+RESULT {"tag":"V3_xgb","feats":"v3","clip":true,"route_cat":false,"algo":"xgb","rounds":[200,400,600]} r=200: score 0.3321 std 0.0150 wape 0.3179 bias +0.0037 sat 0.3403 | k0.98:0.3347 k0.99:0.3309 k1.01:0.3384 k1.02:0.3469 k1.03:0.3568
+RESULT {"tag":"V3_xgb","feats":"v3","clip":true,"route_cat":false,"algo":"xgb","rounds":[200,400,600]} r=400: score 0.3356 std 0.0144 wape 0.3183 bias +0.0082 sat 0.3437 | k0.98:0.3328 k0.99:0.3320 k1.01:0.3422 k1.02:0.3509 k1.03:0.3610
+RESULT {"tag":"V3_xgb","feats":"v3","clip":true,"route_cat":false,"algo":"xgb","rounds":[200,400,600]} r=600: score 0.3383 std 0.0152 wape 0.3190 bias +0.0109 sat 0.3474 | k0.98:0.3336 k0.99:0.3336 k1.01:0.3451 k1.02:0.3542 k1.03:0.3644
+top imp {}
+rows 3696000  time 467s
+RESULT {"tag":"V3_cat","feats":"v3","clip":true,"route_cat":false,"algo":"cat","rounds":[400,800]} r=400: score 0.3327 std 0.0132 wape 0.3177 bias +0.0006 sat 0.3361 | k0.98:0.3375 k0.99:0.3329 k1.01:0.3367 k1.02:0.3435 k1.03:0.3517
+RESULT {"tag":"V3_cat","feats":"v3","clip":true,"route_cat":false,"algo":"cat","rounds":[400,800]} r=800: score 0.3398 std 0.0165 wape 0.3187 bias +0.0098 sat 0.3309 | k0.98:0.3366 k0.99:0.3361 k1.01:0.3451 k1.02:0.3520 k1.03:0.3624
+top imp {}
+rows 3696000  time 570s
+BATCH3 DONE

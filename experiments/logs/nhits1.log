@@ -1,0 +1,7 @@
+RESULT N1_mae dev(14) score 0.3437 wape 0.3230 bias -0.0066 | first cutoff 2025-10-11 10:30:00
+time 868s
+RESULT N2_huber dev(14) score 0.3399 wape 0.3214 bias -0.0081 | first cutoff 2025-10-11 10:30:00
+time 801s
+RESULT N3_mae_in672 dev(14) score 0.3950 wape 0.3279 bias -0.0671 | first cutoff 2025-10-11 10:30:00
+time 2225s
+NHITS1 DONE

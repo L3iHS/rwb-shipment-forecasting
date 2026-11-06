@@ -1,0 +1,9 @@
+RESULT N4_huber_s2 dev(14) score 0.3469 wape 0.3220 bias -0.0123 | first cutoff 2025-10-11 10:30:00
+time 821s
+RESULT N5_mse dev(14) score 0.3639 wape 0.3286 bias +0.0354 | first cutoff 2025-10-11 10:30:00
+time 810s
+RESULT N6_huber_cur dev(14) score 0.3442 wape 0.3199 bias -0.0038 | first cutoff 2025-10-11 10:30:00
+time 705s
+RESULT N7_huber_s3 dev(14) score 0.3635 wape 0.3232 bias -0.0403 | first cutoff 2025-10-11 10:30:00
+time 874s
+NHITS2 DONE

@@ -1,0 +1,43 @@
+RESULT {"tag":"A_v1"} r=200: score 0.3402 std 0.0155 wape 0.3232 bias -0.0055 sat 0.3521 | k0.98:0.3499 k0.99:0.3437 k1.01:0.3402 k1.02:0.3454 k1.03:0.3535
+RESULT {"tag":"A_v1"} r=300: score 0.3402 std 0.0150 wape 0.3229 bias -0.0067 sat 0.3524 | k0.98:0.3505 k0.99:0.3441 k1.01:0.3396 k1.02:0.3443 k1.03:0.3525
+RESULT {"tag":"A_v1"} r=400: score 0.3406 std 0.0145 wape 0.3227 bias -0.0077 sat 0.3526 | k0.98:0.3512 k0.99:0.3446 k1.01:0.3393 k1.02:0.3435 k1.03:0.3516
+RESULT {"tag":"A_v1"} r=600: score 0.3419 std 0.0150 wape 0.3228 bias -0.0092 sat 0.3550 | k0.98:0.3531 k0.99:0.3461 k1.01:0.3396 k1.02:0.3436 k1.03:0.3510
+top imp {'route_id': 0.327, 'lag0': 0.094, 'h': 0.072, 'slot_t': 0.046, 'cur_sum': 0.042, 'lag1': 0.04, 'slotmean7': 0.035, 'm3d': 0.031, 's2_l0': 0.027, 's2_l1': 0.024, 'm1d': 0.021, 's3_l0': 0.02}
+rows 3696000  time 66s
+RESULT {"tag":"B_v2","feats":"v2"} r=200: score 0.3371 std 0.0142 wape 0.3224 bias -0.0017 sat 0.3445 | k0.98:0.3440 k0.99:0.3386 k1.01:0.3403 k1.02:0.3464 k1.03:0.3554
+RESULT {"tag":"B_v2","feats":"v2"} r=300: score 0.3374 std 0.0131 wape 0.3218 bias -0.0040 sat 0.3430 | k0.98:0.3454 k0.99:0.3393 k1.01:0.3394 k1.02:0.3446 k1.03:0.3525
+RESULT {"tag":"B_v2","feats":"v2"} r=400: score 0.3374 std 0.0132 wape 0.3219 bias -0.0040 sat 0.3433 | k0.98:0.3455 k0.99:0.3393 k1.01:0.3395 k1.02:0.3448 k1.03:0.3528
+RESULT {"tag":"B_v2","feats":"v2"} r=600: score 0.3384 std 0.0132 wape 0.3222 bias -0.0039 sat 0.3442 | k0.98:0.3455 k0.99:0.3397 k1.01:0.3405 k1.02:0.3457 k1.03:0.3535
+top imp {'route_id': 0.304, 'lag0': 0.089, 's2_ratio': 0.074, 'h': 0.073, 'lag1': 0.034, 'slotmean14': 0.033, 'm3d': 0.03, 'cur_sum': 0.019, 's1_ratio': 0.019, 'slot_t': 0.017, 's3_l0': 0.017, 'g_slot7': 0.016}
+rows 3696000  time 194s
+RESULT {"tag":"C_v2clip","feats":"v2","clip":true} r=200: score 0.3371 std 0.0145 wape 0.3224 bias -0.0019 sat 0.3456 | k0.98:0.3443 k0.99:0.3388 k1.01:0.3404 k1.02:0.3461 k1.03:0.3551
+RESULT {"tag":"C_v2clip","feats":"v2","clip":true} r=300: score 0.3371 std 0.0139 wape 0.3215 bias -0.0029 sat 0.3452 | k0.98:0.3443 k0.99:0.3387 k1.01:0.3395 k1.02:0.3449 k1.03:0.3531
+RESULT {"tag":"C_v2clip","feats":"v2","clip":true} r=400: score 0.3373 std 0.0134 wape 0.3214 bias -0.0040 sat 0.3448 | k0.98:0.3451 k0.99:0.3388 k1.01:0.3393 k1.02:0.3442 k1.03:0.3520
+RESULT {"tag":"C_v2clip","feats":"v2","clip":true} r=600: score 0.3376 std 0.0140 wape 0.3216 bias -0.0034 sat 0.3455 | k0.98:0.3448 k0.99:0.3391 k1.01:0.3400 k1.02:0.3449 k1.03:0.3528
+top imp {'route_id': 0.308, 'lag0': 0.09, 's2_ratio': 0.073, 'h': 0.069, 'slotmean14': 0.035, 'lag1': 0.034, 'm3d': 0.02, 'cur_sum': 0.019, 's1_ratio': 0.018, 's3_l0': 0.017, 'slot_t': 0.016, 'g_slot7': 0.016}
+rows 3696000  time 182s
+RESULT {"tag":"D_v2clip_med","feats":"v2","clip":true,"level":"median"} r=200: score 0.3369 std 0.0148 wape 0.3219 bias -0.0027 sat 0.3455 | k0.98:0.3448 k0.99:0.3383 k1.01:0.3400 k1.02:0.3456 k1.03:0.3546
+RESULT {"tag":"D_v2clip_med","feats":"v2","clip":true,"level":"median"} r=300: score 0.3364 std 0.0146 wape 0.3214 bias -0.0029 sat 0.3441 | k0.98:0.3442 k0.99:0.3380 k1.01:0.3395 k1.02:0.3453 k1.03:0.3537
+RESULT {"tag":"D_v2clip_med","feats":"v2","clip":true,"level":"median"} r=400: score 0.3368 std 0.0144 wape 0.3214 bias -0.0041 sat 0.3442 | k0.98:0.3454 k0.99:0.3389 k1.01:0.3394 k1.02:0.3447 k1.03:0.3526
+RESULT {"tag":"D_v2clip_med","feats":"v2","clip":true,"level":"median"} r=600: score 0.3372 std 0.0147 wape 0.3215 bias -0.0040 sat 0.3447 | k0.98:0.3455 k0.99:0.3389 k1.01:0.3401 k1.02:0.3453 k1.03:0.3530
+top imp {'route_id': 0.279, 'lag0': 0.081, 'h': 0.066, 's2_ratio': 0.061, 'slotmean14': 0.039, 'lag1': 0.033, 'm3d': 0.032, 'cur_sum': 0.019, 'slot_t': 0.018, 's3_l0': 0.016, 'slotmean7': 0.015, 'm1d': 0.015}
+rows 3696000  time 440s
+RESULT {"tag":"E_v2clip_nocat","feats":"v2","clip":true,"route_cat":false} r=200: score 0.3352 std 0.0135 wape 0.3214 bias -0.0031 sat 0.3439 | k0.98:0.3440 k0.99:0.3369 k1.01:0.3389 k1.02:0.3446 k1.03:0.3533
+RESULT {"tag":"E_v2clip_nocat","feats":"v2","clip":true,"route_cat":false} r=300: score 0.3342 std 0.0132 wape 0.3205 bias -0.0041 sat 0.3422 | k0.98:0.3441 k0.99:0.3366 k1.01:0.3374 k1.02:0.3428 k1.03:0.3511
+RESULT {"tag":"E_v2clip_nocat","feats":"v2","clip":true,"route_cat":false} r=400: score 0.3339 std 0.0132 wape 0.3200 bias -0.0046 sat 0.3404 | k0.98:0.3440 k0.99:0.3364 k1.01:0.3367 k1.02:0.3424 k1.03:0.3502
+RESULT {"tag":"E_v2clip_nocat","feats":"v2","clip":true,"route_cat":false} r=600: score 0.3341 std 0.0129 wape 0.3198 bias -0.0046 sat 0.3409 | k0.98:0.3437 k0.99:0.3364 k1.01:0.3368 k1.02:0.3421 k1.03:0.3498
+top imp {'lag0': 0.12, 'h': 0.101, 's2_ratio': 0.088, 'lag1': 0.048, 'slotmean14': 0.047, 's1_ratio': 0.03, 's2_m3h': 0.029, 'm3d': 0.029, 'slot_t': 0.028, 's3_l0': 0.026, 'cur_sum': 0.025, 'm7d': 0.024}
+rows 3696000  time 322s
+RESULT {"tag":"F_v2clip_allslots","feats":"v2","clip":true,"origin_slots":[0,47],"train_days":28} r=200: score 0.3363 std 0.0155 wape 0.3214 bias +0.0007 sat 0.3471 | k0.98:0.3412 k0.99:0.3369 k1.01:0.3404 k1.02:0.3476 k1.03:0.3574
+RESULT {"tag":"F_v2clip_allslots","feats":"v2","clip":true,"origin_slots":[0,47],"train_days":28} r=300: score 0.3353 std 0.0148 wape 0.3206 bias +0.0002 sat 0.3430 | k0.98:0.3403 k0.99:0.3358 k1.01:0.3394 k1.02:0.3465 k1.03:0.3563
+RESULT {"tag":"F_v2clip_allslots","feats":"v2","clip":true,"origin_slots":[0,47],"train_days":28} r=400: score 0.3355 std 0.0145 wape 0.3203 bias -0.0017 sat 0.3425 | k0.98:0.3417 k0.99:0.3365 k1.01:0.3388 k1.02:0.3448 k1.03:0.3545
+RESULT {"tag":"F_v2clip_allslots","feats":"v2","clip":true,"origin_slots":[0,47],"train_days":28} r=600: score 0.3357 std 0.0139 wape 0.3202 bias -0.0027 sat 0.3428 | k0.98:0.3425 k0.99:0.3365 k1.01:0.3386 k1.02:0.3438 k1.03:0.3534
+top imp {'route_id': 0.242, 'lag0': 0.104, 's2_ratio': 0.098, 'h': 0.084, 'slotmean14': 0.074, 'lag1': 0.048, 's1_ratio': 0.021, 'g_slot7': 0.02, 's3_l0': 0.02, 'cur_sum': 0.019, 'slotmean7': 0.019, 'm3d': 0.017}
+rows 10760000  time 1426s
+RESULT {"tag":"G_v2clip_70d","feats":"v2","clip":true,"train_days":70} r=200: score 0.3377 std 0.0144 wape 0.3219 bias -0.0034 sat 0.3467 | k0.98:0.3456 k0.99:0.3392 k1.01:0.3396 k1.02:0.3452 k1.03:0.3539
+RESULT {"tag":"G_v2clip_70d","feats":"v2","clip":true,"train_days":70} r=300: score 0.3382 std 0.0134 wape 0.3214 bias -0.0055 sat 0.3460 | k0.98:0.3469 k0.99:0.3400 k1.01:0.3386 k1.02:0.3439 k1.03:0.3515
+RESULT {"tag":"G_v2clip_70d","feats":"v2","clip":true,"train_days":70} r=400: score 0.3382 std 0.0129 wape 0.3214 bias -0.0061 sat 0.3452 | k0.98:0.3473 k0.99:0.3403 k1.01:0.3385 k1.02:0.3434 k1.03:0.3509
+RESULT {"tag":"G_v2clip_70d","feats":"v2","clip":true,"train_days":70} r=600: score 0.3381 std 0.0132 wape 0.3215 bias -0.0053 sat 0.3453 | k0.98:0.3465 k0.99:0.3400 k1.01:0.3388 k1.02:0.3441 k1.03:0.3516
+top imp {'route_id': 0.291, 'lag0': 0.091, 'h': 0.071, 's2_ratio': 0.068, 'slotmean14': 0.037, 'lag1': 0.034, 'slot_t': 0.02, 'cur_sum': 0.019, 's1_ratio': 0.019, 'g_dowslot4': 0.018, 's3_l0': 0.017, 'm3d': 0.016}
+rows 4048000  time 432s
+BATCH1 DONE
