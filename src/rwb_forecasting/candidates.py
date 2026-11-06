@@ -18,6 +18,14 @@ def configured_predictor(spec: dict):
     if kind == "boosting":
         from .boosting import BoostConfig, predict_boosting
         return partial(predict_boosting, config=BoostConfig(**params))
+    if kind == "weighted_boosting":
+        from .boosting import BoostConfig
+        from .weighted_boosting import WeightedBoostConfig, predict_weighted_boosting
+        config = WeightedBoostConfig(
+            base=BoostConfig(**params["base"]),
+            scale_weight_power=params["scale_weight_power"],
+        )
+        return partial(predict_weighted_boosting, config=config)
     if kind == "latent":
         from .latent_models import predict_latent_ridge
         return partial(predict_latent_ridge, **params)

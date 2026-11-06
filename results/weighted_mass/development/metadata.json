@@ -1,0 +1,62 @@
+{
+  "model": "objective_scale1_mass50",
+  "config_sha256": "c9430334535570c2e3caf757aa7a5f42f9a31c3c0f7e7e18a04db663ef89f554",
+  "source_sha256": {
+    "src/rwb_forecasting/__init__.py": "ebf5cb9c4602355f8596a4776aec62ef50651ee371633604d53cca2730af14db",
+    "src/rwb_forecasting/block_ridge.py": "0b69dc5e4ac89d6c0fbbefa778e247ef98fbcb745b639d6af9cf7fe26cfcc6b0",
+    "src/rwb_forecasting/boosting.py": "a9cddcc4fb2b1aa6d4588b1af48a2e909b6943102e633b5cd9bf6317dda2392a",
+    "src/rwb_forecasting/candidates.py": "046cf4fce7b91232de29c6bf70601ebd6755aaebe83095188ccfc2c3d00520f1",
+    "src/rwb_forecasting/context_features.py": "ad622fc3d21cc973bfdf4e6f79e4e623724601fd67e3f377ea3ef7079c34b4d8",
+    "src/rwb_forecasting/data.py": "060486f5799443b6fab4b305242ad300a1e9d89e6547028b63df6a6d9e58e0be",
+    "src/rwb_forecasting/experiments.py": "28f293f87a2f81a93690e921d261ea764e3e1b1105838d1410ffe7f670c0996a",
+    "src/rwb_forecasting/features.py": "7d1027773ff735baaf1383f9238c6e83741f563c919cda8bf0d268708dcf655a",
+    "src/rwb_forecasting/halfhour.py": "0a5c6e032ba9559ae2121efc9b2341eaa3eed398e3cc68943e4a19c8903c90ef",
+    "src/rwb_forecasting/latent_models.py": "35b9d381bfd9666a83c3cea0ea638822eb26f14bfe130a7ca2dfad4da573f6d7",
+    "src/rwb_forecasting/latent_volume.py": "a5c0bea441ce3a034181ad46a9ab8a34ea7b1dafbe0140b5bbfbe5400028e711",
+    "src/rwb_forecasting/linear_candidates.py": "d93b07ae659c469a1e52d3527f1b3021c87efe8f3055aa19f9534edef6474146",
+    "src/rwb_forecasting/mass_preserving.py": "c0085888c2cc4c065c2f9bd18d1f4d52801531cbffd525ebca43462ac042d870",
+    "src/rwb_forecasting/metrics.py": "e6cd79c08ea13484cd3681ba10438afd540149445b7d4d545d621fc577ccebfc",
+    "src/rwb_forecasting/models.py": "26f0aecd937b0540990a6134c1a87b186320a88f3c5ca2a47f584404cde478dd",
+    "src/rwb_forecasting/submission.py": "838835f4c5a28e47ec310adddb3bdaaf8a2805ab543be300b95e402e993989c9",
+    "src/rwb_forecasting/validation.py": "96d84a4c702d38175147a1383285dd3116e7c2e10937adcf5619f5658a2913a5",
+    "src/rwb_forecasting/weighted_boosting.py": "78243b98ce762ccfed7dfee75c0f180af4066f8487f981341000b301067df4e4",
+    "scripts/make_candidate_submission.py": "f75643a621a3f53f3fe9142dcfdd75e7f932293aa039d5e474da783ff44fd48d",
+    "requirements.txt": "3e6287b08026819aec06dd1f9e18f24a614ed4e91267d44861b455bcc41c230f"
+  },
+  "train_sha256": "300aecbe2d3dc28be03bff957ba56ab20c7fa8ceb81b0301822d4bf6473bd076",
+  "python": "3.14.6",
+  "libraries": {
+    "numpy": "2.5.4",
+    "pandas": "3.1.1",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1"
+  },
+  "config": "configs/objective_scale1_mass50.json",
+  "development_origins": [
+    "2025-10-18 10:30:00",
+    "2025-10-19 10:30:00",
+    "2025-10-20 10:30:00",
+    "2025-10-21 10:30:00",
+    "2025-10-22 10:30:00",
+    "2025-10-23 10:30:00",
+    "2025-10-24 10:30:00",
+    "2025-10-25 10:30:00",
+    "2025-10-26 10:30:00",
+    "2025-10-27 10:30:00",
+    "2025-10-28 10:30:00",
+    "2025-10-29 10:30:00",
+    "2025-10-30 10:30:00",
+    "2025-10-31 10:30:00"
+  ],
+  "development_evaluation": "One fixed weight-0.5 mass-preserving transformation applied to verified causal weighted-HGB and latent-Ridge development forecasts; no additional fit for composition. Real test predictions freshly fitted with the published configuration.",
+  "component_prediction_sha256": [
+    "ae21d7a17f478cd8431303d72b6a2c4621dbf847ce00029d92a95bc47c9ca2cb",
+    "7137d7f4dd9a07969517e78239d04dc77795c1f18bdc128e250c51cd38dbf66a",
+    "e3e32fc16e1406400783ab42d91e85977c85e180ae379b98c524f023196ba961"
+  ],
+  "protocol_sha256": "06f7464c86fecdd4107baed16466f2f9b882cf84235e8abe4e8f04eccb241898",
+  "new_control_status": "not evaluated",
+  "public_score": null,
+  "submission_sha256": "a27f7f7dafc40c5001ed33ce4b0d218990bac6a0385238161d80af35abc75a90",
+  "tests_passed": 187
+}

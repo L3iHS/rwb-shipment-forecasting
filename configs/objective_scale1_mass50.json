@@ -1,0 +1,129 @@
+{
+  "round": 4,
+  "phase": "source-scale weighting plus fixed mass-preserving blend",
+  "baseline": "latent_mass_blend50",
+  "selected_model": "objective_scale1_mass50",
+  "models": {
+    "latent_mass_blend50": {
+      "kind": "mass_preserving",
+      "params": {
+        "weight": 0.5
+      },
+      "incumbent": {
+        "kind": "latent_hybrid",
+        "params": {
+          "train_days": 14,
+          "alpha": 4.0,
+          "rounding_tolerance": 0.5
+        },
+        "incumbent": {
+          "kind": "boosting",
+          "params": {
+            "name": "hgb_direct_norm_advanced",
+            "normalize": true,
+            "loss": "squared_error",
+            "calibrate": false,
+            "advanced": true,
+            "direct": true,
+            "residual": false,
+            "train_days": 28,
+            "source_stride": 4,
+            "max_iter": 180,
+            "max_leaf_nodes": 31,
+            "learning_rate": 0.08,
+            "l2_regularization": 10.0
+          },
+          "research_round": 2
+        }
+      },
+      "alternative": {
+        "kind": "latent",
+        "params": {
+          "train_days": 14,
+          "alpha": 4.0,
+          "rounding_tolerance": 0.5
+        }
+      }
+    },
+    "objective_scale1_mass50": {
+      "kind": "mass_preserving",
+      "params": {
+        "weight": 0.5
+      },
+      "incumbent": {
+        "kind": "latent_hybrid",
+        "params": {
+          "train_days": 14,
+          "alpha": 4.0,
+          "rounding_tolerance": 0.5
+        },
+        "incumbent": {
+          "kind": "weighted_boosting",
+          "params": {
+            "base": {
+              "normalize": true,
+              "loss": "squared_error",
+              "calibrate": false,
+              "advanced": true,
+              "direct": true,
+              "residual": false,
+              "global_context": false,
+              "halfhour": false,
+              "train_days": 28,
+              "source_stride": 4,
+              "max_iter": 180,
+              "max_leaf_nodes": 31,
+              "learning_rate": 0.08,
+              "l2_regularization": 10.0,
+              "name": "objective_sq_scale1"
+            },
+            "scale_weight_power": 1.0
+          }
+        }
+      },
+      "alternative": {
+        "kind": "latent",
+        "params": {
+          "train_days": 14,
+          "alpha": 4.0,
+          "rounding_tolerance": 0.5
+        }
+      }
+    }
+  },
+  "research_origins": [
+    "2025-10-18 10:30:00",
+    "2025-10-19 10:30:00",
+    "2025-10-20 10:30:00",
+    "2025-10-21 10:30:00",
+    "2025-10-22 10:30:00",
+    "2025-10-23 10:30:00",
+    "2025-10-24 10:30:00",
+    "2025-10-25 10:30:00",
+    "2025-10-26 10:30:00",
+    "2025-10-27 10:30:00",
+    "2025-10-28 10:30:00",
+    "2025-10-29 10:30:00",
+    "2025-10-30 10:30:00",
+    "2025-10-31 10:30:00"
+  ],
+  "control_origins": [
+    "2025-10-04 10:30:00",
+    "2025-10-05 10:30:00",
+    "2025-10-06 10:30:00",
+    "2025-10-07 10:30:00",
+    "2025-10-08 10:30:00",
+    "2025-10-09 10:30:00",
+    "2025-10-10 10:30:00"
+  ],
+  "comparison_models": [
+    "latent_mass_blend50",
+    "objective_scale1_mass50"
+  ],
+  "compute_threads": 2,
+  "metric": "WAPE + absolute relative bias",
+  "primary": "arithmetic mean of per-origin score",
+  "candidate_status": "exploratory development14 improvement; new control pending, public score unknown",
+  "selection": "One fixed composition of separately tested interventions; no blend-weight search. Same repeatedly used development dates.",
+  "control_note": "Historical robustness checks earlier than development, not independent future holdout. Raw descriptive analysis may have included these dates; forecast scores not previously used for selection."
+}
