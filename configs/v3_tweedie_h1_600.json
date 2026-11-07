@@ -1,0 +1,54 @@
+{
+  "model": "vlado_t_h1s600_reference",
+  "recipe": {
+    "tag": "T_h1s",
+    "h1_struct": true,
+    "algo": "lgb",
+    "level": "mean",
+    "clip": true,
+    "feats": "v3",
+    "train_days": 42,
+    "origin_slots": [
+      16,
+      26
+    ],
+    "objective": "tweedie",
+    "rounds": [
+      600
+    ],
+    "lr": 0.05,
+    "leaves": 63,
+    "min_leaf": 200,
+    "route_cat": false,
+    "per_h": false,
+    "seeds": [
+      42
+    ],
+    "tweedie_p": 1.3
+  },
+  "runtime": {
+    "native_threads": 2
+  },
+  "native_parameters": {
+    "objective": "tweedie",
+    "learning_rate": 0.05,
+    "num_leaves": 63,
+    "min_data_in_leaf": 200,
+    "feature_fraction": 0.8,
+    "bagging_fraction": 0.8,
+    "bagging_freq": 1,
+    "lambda_l2": 1.0,
+    "verbose": -1,
+    "num_threads": 2,
+    "tweedie_variance_power": 1.3,
+    "seed": 42
+  },
+  "lightgbm_version": "4.7.0",
+  "attribution": {
+    "author": "Vlado",
+    "commit": "bd61c6d560f4a838dc436fbc13139fa42ccb99be",
+    "git_blob": "d09105b0cf3f31c442d7743db24f50c554cd6786",
+    "source_sha256": "300d99ee8861bde092110ca72543d5be2e13c1343fbed567cfb95f4a58ae471f",
+    "url": "https://github.com/L3iHS/rwb-shipment-forecasting/blob/bd61c6d560f4a838dc436fbc13139fa42ccb99be/experiments/exp_gbm.py"
+  }
+}

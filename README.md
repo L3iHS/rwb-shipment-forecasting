@@ -71,6 +71,18 @@ python scripts/plot_backtest.py --run-dir .local/runs/ridge_features
 
 ## Готовый CSV для платформы
 
+Новый экспериментальный файл — **`submissions/v3_tweedie_h1_600.csv`**. Это воспроизведение модели Владо: локальный средний score **0,327937** против **0,332149** у `mae_share_mass25`, выигрыш на **11 из 14** дат. Новый контроль ещё не открыт, публичный результат неизвестен. [Модель, результаты и команды воспроизведения](docs/v3_tweedie_h1_600.md).
+
+```bash
+python scripts/run_v3.py submit --config configs/v3_tweedie_h1_600.json \
+  --train data/raw/train_solo_track.parquet --test data/raw/test_solo_track.parquet \
+  --output submissions/v3_tweedie_h1_600_reproduced.csv
+```
+
+Для модели требуется `lightgbm==4.7.0`, включённый в `requirements.txt`. Команда создаёт новый локальный CSV и не отправляет его на платформу.
+
+Лучший подтверждённый публичный результат пока относится к `latent_mass_blend50`:
+
 ```bash
 python scripts/make_candidate_submission.py --config configs/latent_mass_blend50.json
 ```
