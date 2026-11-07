@@ -1,0 +1,74 @@
+{
+  "candidate": "ensemble_v3_weekly50",
+  "stage": "preselected historical control",
+  "reference_commit": "3b7394a0afeab51ef7a819164c742bf5405c387d",
+  "origins": [
+    "2025-09-27 10:30:00",
+    "2025-09-28 10:30:00",
+    "2025-09-29 10:30:00",
+    "2025-09-30 10:30:00",
+    "2025-10-01 10:30:00",
+    "2025-10-02 10:30:00",
+    "2025-10-03 10:30:00"
+  ],
+  "points_per_origin": 8000,
+  "primary_metric": "Arithmetic mean of per-origin pooled WAPE + absolute relative bias",
+  "fixed_blend_shares": {
+    "teammate_v3": 0.5,
+    "weekly_v3_latent_half_shares": 0.5
+  },
+  "reference_fixed_member_shares": {
+    "xgb_blr_bag3": 0.8,
+    "lgbm_huber_blr": 0.1,
+    "lgbm_tweedie_lr12": 0.1
+  },
+  "reference_scalar": 1.0174999999999985,
+  "scalar_calibration_origins": [
+    "2025-09-13 10:30:00",
+    "2025-09-14 10:30:00",
+    "2025-09-15 10:30:00",
+    "2025-09-16 10:30:00",
+    "2025-09-17 10:30:00",
+    "2025-09-18 10:30:00",
+    "2025-09-19 10:30:00",
+    "2025-09-20 10:30:00",
+    "2025-09-21 10:30:00",
+    "2025-09-22 10:30:00",
+    "2025-09-23 10:30:00",
+    "2025-09-24 10:30:00",
+    "2025-09-25 10:30:00",
+    "2025-09-26 10:30:00"
+  ],
+  "scalar_calibration_latest_label": "2025-09-26 14:30:00",
+  "reference_fit_origin": "2025-09-27 10:30:00",
+  "weekly_fit_origin": "2025-09-27 10:30:00",
+  "all_fitted_targets_at_or_before_each_origin": true,
+  "each_predictor_receives_origin_prefix_only": true,
+  "all7_forecasts_completed_before_error_scoring": true,
+  "means": {
+    "ensemble_v3_weekly50": 0.33724420798634147,
+    "teammate_v3": 0.33918064859039904,
+    "weekly_v3_latent_half_shares": 0.33706941567137105
+  },
+  "paired_wins_out_of_7": {
+    "teammate_v3": 4,
+    "weekly_v3_latent_half_shares": 3
+  },
+  "improved_reference_mean": true,
+  "improved_both_member_means": false,
+  "weekly_model_training_mornings": 32,
+  "final_csv_weekly_model_training_mornings": 42,
+  "control_retired": true,
+  "interpretation": "Earlier historical robustness, new scoring feedback only after selection; dates occur in later October training histories. Not a platform score or prospective raw-data-independent holdout.",
+  "native_reference_backend": "XGBoost CPU4; upstream final CSV was CUDA. Same source statistical recipe.",
+  "weekly_backend": "LightGBM4.7.0 CPU2; daily compact MLP PyTorch2.15.0 CPU2 in isolated process",
+  "submission_csv_sha256": "e24f49a8cf0c748db20c92392f64c8735ed7857a00b9501c0fefd41bcc3ee484",
+  "reference_v3_csv_sha256": "d6dd6761e814cebd6608d73c25313019bad8ad6200ba6dd4c2bf189a428a894d",
+  "weekly_csv_sha256": "2d870aa472552265864b43fe13bb6c683b5d879cc4d887be568dc4741ea046a1",
+  "raw_train_sha256": "300aecbe2d3dc28be03bff957ba56ab20c7fa8ceb81b0301822d4bf6473bd076",
+  "control_prediction_sha256": "e6e8f6899aa4ac44a1975ff203bd4f4aca96ce5f69eb9e9da5cf4f19dcbf1ec8",
+  "selection_before_control_sha256": "d1fdb92bdf527530ae30152912d5dfd4640cc7fd66fcf7eb6ad2f56258b89436",
+  "prefix_scalar_receipt_sha256": "166ca2140302d864a5430f7644abe99838cdcdb81430ed3ea9babbeb4bef7ab1",
+  "public_score": null,
+  "platform_submission": false
+}
