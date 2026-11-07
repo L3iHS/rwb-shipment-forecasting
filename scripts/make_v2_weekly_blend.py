@@ -83,7 +83,8 @@ def main():
         if hashes != {name: sha256(path) for name, path in inputs.items()}:
             raise RuntimeError("An input changed during generation")
         record = dict(
-            model="ensemble_v2_weekly50",
+            model=args.output.stem,
+            recipe="equal_weight_peer_weekly",
             rows=len(result),
             input_sha256=hashes,
             weights=dict(peer=0.5, weekly=0.5),

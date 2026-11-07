@@ -1,0 +1,30 @@
+{
+  "reference_commit": "3b7394a0afeab51ef7a819164c742bf5405c387d",
+  "reference_models": [
+    "xgb_blr_bag3",
+    "lgbm_huber_blr",
+    "lgbm_tweedie_lr12"
+  ],
+  "fixed_reference_shares": [
+    0.8,
+    0.1,
+    0.1
+  ],
+  "reference_development_scale": 1.0074999999999987,
+  "reference_forward_scale_fitted_on_Oct18_24": 1.0074999999999987,
+  "development_means": {
+    "teammate_v3": 0.32485803401940644,
+    "v3_weekly50": 0.32439601890466935,
+    "weekly_v3_latent_half_shares": 0.3260693936281687
+  },
+  "forward_means": {
+    "teammate_v3_forward": 0.3253048846864125,
+    "v3_weekly50_forward": 0.3240732145747911,
+    "weekly_v3_latent_half_shares": 0.32441347797553016
+  },
+  "evidence": "October18-31 reused development dates. Forward scores fit only reference scale on older week and evaluate on newer week. No fresh reserve score in these records.",
+  "csv_sha256": "e24f49a8cf0c748db20c92392f64c8735ed7857a00b9501c0fefd41bcc3ee484",
+  "public_score": null,
+  "own_platform_submission": false,
+  "source_test_reproduction_max_abs_error": 2.3283064365386963e-10
+}
