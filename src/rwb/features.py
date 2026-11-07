@@ -5,6 +5,7 @@ the same builder serves training, backtests and the final test forecast.
 Rows are ordered origin-major: row ``i * R + r`` is origin ``origins[i]``, route ``r``.
 """
 
+import re
 from dataclasses import dataclass
 
 import numpy as np
@@ -93,9 +94,57 @@ def base_forecast(panel: Panel, cums: Cumsums, origins: np.ndarray, h: int) -> n
     return 0.5 * rm48 + 0.5 * slot7
 
 
+EXTRA_SETS = ("res", "ratio", "sdiff", "lowrank", "xlowrank")
+# "lowrank" and "xlowrank" take an optional rank and profile length, e.g. "lowrank12" or "lowrank12d42";
+# rank 0 keeps only the raw profile.
+_EXTRA_RE = re.compile(r"^(res|ratio|sdiff|(x?lowrank)(\d*)(?:d(\d+))?)$")
+PROFILE_DAYS = 28
+PROFILE_RANK = 6
+
+
+def _day_chain_cumsum(y: np.ndarray) -> np.ndarray:
+    """cs[:, t] = sum over k >= 0 of y[:, t - k*DAY]: running total along the same clock slot."""
+    R, T = y.shape
+    n = -(-T // DAY)
+    pad = np.zeros((R, n * DAY))
+    pad[:, :T] = np.nan_to_num(y.astype(np.float64))
+    return pad.reshape(R, n, DAY).cumsum(axis=1).reshape(R, n * DAY)[:, :T]
+
+
+def lowrank_profiles(y: np.ndarray, origins: np.ndarray, rank: int = PROFILE_RANK,
+                     days: int = PROFILE_DAYS) -> tuple[np.ndarray, np.ndarray]:
+    """Next-day profile per route from the last ``days`` days, raw and rank-reduced across routes.
+
+    Returns two (n_o, R, DAY) arrays indexed by step ahead j-1 for j = 1..DAY. The rank-reduced
+    version keeps the intraday shapes shared by many routes and drops route-specific noise.
+    """
+    if origins.min() < days * DAY:
+        raise ValueError(f"Origin too early for a {days}-day profile")
+    cs = _day_chain_cumsum(y)
+    j = np.arange(1, DAY + 1)
+    idx = origins[:, None] + j[None, :]  # (n_o, DAY) future slots
+    # cs at a negative index would wrap around; the slot k=days back is idx - days*DAY >= 1 here.
+    prof = (cs[:, idx - DAY] - np.where(idx - (days + 1) * DAY >= 0, cs[:, np.maximum(idx - (days + 1) * DAY, 0)], 0.0)) / days
+    prof = np.transpose(prof, (1, 0, 2)).astype(np.float32)
+    if rank == 0:
+        return prof, prof
+    level = prof.mean(axis=2, keepdims=True) + 1.0
+    u, s, vt = np.linalg.svd(prof / level, full_matrices=False)
+    k = rank
+    smooth = np.einsum("nrk,nk,nkd->nrd", u[:, :, :k], s[:, :k], vt[:, :k, :]) * level
+    return prof, smooth
+
+
 def build(panel: Panel, cums: Cumsums, origins: np.ndarray, h: int,
-          global_feats: bool = False, flow_feats: bool = False) -> tuple[np.ndarray, list[str], np.ndarray]:
-    """Return X (n_o*R, F) float32, feature names and base (n_o*R,) for horizon ``h``."""
+          global_feats: bool = False, flow_feats: bool = False,
+          extra: tuple[str, ...] = ()) -> tuple[np.ndarray, list[str], np.ndarray]:
+    """Return X (n_o*R, F) float32, feature names and base (n_o*R,) for horizon ``h``.
+
+    ``extra`` switches on optional feature sets from ``EXTRA_SETS``.
+    """
+    unknown = [e for e in extra if not _EXTRA_RE.match(e)]
+    if unknown:
+        raise ValueError(f"Unknown feature sets: {sorted(unknown)}")
     if origins.min() < MAX_LOOKBACK:
         raise ValueError("Origin too early for the lookback window")
     y = panel.y
@@ -197,6 +246,54 @@ def build(panel: Panel, cums: Cumsums, origins: np.ndarray, h: int,
                 flow = ratio * _roll_mean(sc[k], origins, w) - _roll_mean(cums.xc, origins, w)
                 cols[f"bl{k + 1}_{w}"] = w * flow / scale
 
+    if "res" in extra:
+        # How far off the seasonal base was for this route: at the same target slot on past days,
+        # and for the last few hours. Persistent level shifts show up here before the base adapts.
+        errs = np.stack([y[:, t - k * DAY] - base_forecast(panel, cums, origins - k * DAY, h) for k in range(1, 8)])
+        cols["res_d1"] = errs[0] / scale
+        cols["res_w1"] = errs[6] / scale
+        cols["res_mean7"] = errs.mean(axis=0) / scale
+        cols["res_med7"] = np.median(errs, axis=0) / scale
+        recent_err = np.stack([y[:, origins - j] - base_forecast(panel, cums, origins - j - h, h) for j in range(4)])
+        cols["res_recent1"] = recent_err[0] / scale
+        cols["res_recent4"] = recent_err.mean(axis=0) / scale
+
+    if "ratio" in extra:
+        # Today's level against yesterday / last week over longer spans than ratio_* (4 hours).
+        for w in [16, 24, 48]:
+            now = _roll_mean(cums.y, origins, w)
+            for back, nm in [(DAY, "yday"), (WEEK, "lweek")]:
+                cols[f"ratio_{nm}_{w}"] = (now + 1) / (_roll_mean(cums.y, origins - back, w) + 1)
+
+    if "sdiff" in extra:
+        # Step-level dynamics of the pipeline statuses that lead shipments, relative to their own level.
+        for k in range(3):
+            s_k = np.nan_to_num(panel.s[k].astype(np.float64))
+            lvl = _roll_mean(sc[k], origins, WEEK) + 1.0
+            for j in [1, 2, 4]:
+                cols[f"s{k + 1}_diff{j}"] = (s_k[:, origins] - s_k[:, origins - j]) / lvl
+            for j in [1, 2, 3]:
+                cols[f"s{k + 1}_lag{j}"] = s_k[:, origins - j] / lvl
+
+    for e in extra:
+        m = _EXTRA_RE.match(e)
+        if not m or not m.group(2):
+            continue
+        # 28-day same-slot profile (longer than slot7/slot14) and its cross-route low-rank smoothing.
+        is_x = m.group(2) == "xlowrank"
+        rank = int(m.group(3)) if m.group(3) else PROFILE_RANK
+        days = int(m.group(4)) if m.group(4) else PROFILE_DAYS
+        src, tag = (cums.x, f"xprof{days}") if is_x else (y, f"prof{days}")
+        prof, smooth = lowrank_profiles(src, origins, rank, days)
+        # For x the target hour is x[t] + x[t-1], i.e. steps h and h-1 of the half-hour profile.
+        steps = [h - 1, h - 2] if is_x else [h - 1]
+        p_h = sum(prof[:, :, j] for j in steps if j >= 0).T
+        s_h = sum(smooth[:, :, j] for j in steps if j >= 0).T
+        cols[tag] = p_h / scale
+        if rank > 0:
+            cols[f"{tag}_lr"] = s_h / scale
+            cols[f"{tag}_lr_ratio"] = (s_h + 1) / (p_h + 1)
+
     cols["base"] = base / scale
     names = list(cols)
     X = np.empty((len(origins) * R, len(names)), dtype=np.float32)
@@ -207,6 +304,11 @@ def build(panel: Panel, cums: Cumsums, origins: np.ndarray, h: int,
 
 def flat_scale(cums: Cumsums, origins: np.ndarray) -> np.ndarray:
     return _flat(_roll_mean(cums.y, origins, WEEK) + 1.0)
+
+
+def flat_day_mean(cums: Cumsums, origins: np.ndarray) -> np.ndarray:
+    """Trailing 24-hour mean of y, the level half of the seasonal base."""
+    return _flat(_roll_mean(cums.y, origins, DAY))
 
 
 def flat_target(panel: Panel, origins: np.ndarray, h: int) -> np.ndarray:

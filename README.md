@@ -23,8 +23,9 @@
 | `scripts/` | Проверка данных и построение обзорного графика |
 | `notebooks/solution_v1.ipynb` | Решение с пояснениями и результатами: от данных до посылки `ensemble_v1.csv` (лидерборд 0.324) |
 | `notebooks/solution_v2.ipynb` | Версия 2: усреднение seed'ов и Tweedie, посылка `ensemble_v2.csv` (лидерборд 0.323) |
-| `submissions/` | Генерируемые CSV для загрузки на платформу, исключены из Git |
-| `models/` | Генерируемые модели, исключены из Git |
+| `notebooks/solution_v3.ipynb` | Версия 3: сглаженные профили маршрутов, посылка `ensemble_v3.csv` (валидация 0.3249) |
+| `submissions/` | Генерируемые CSV для загрузки на платформу; в Git — только итоговые посылки версий |
+| `models/` | Генерируемые модели; в Git — только сохранённые предсказания моделей версий (см. ниже) |
 
 Train содержит 4 630 000 строк за 28.07.2025–01.11.2025 10:30. Test — 8000 строк за 01.11.2025 11:00–14:30. Времена не содержат часового пояса. Исходные данные включены в Git.
 
@@ -43,11 +44,11 @@ python scripts/profile_data.py
 
 ## Решение
 
-Код — в `src/rwb/`, запуск — из `scripts/`. Разбор с результатами — в `notebooks/solution_v1.ipynb` и `notebooks/solution_v2.ipynb` (тонкий ноутбук поверх этих модулей; тяжёлые шаги берут сохранённые предсказания из `models/oof/`, `RETRAIN = True` пересчитывает всё заново). Все признаки строятся только из данных до точки прогноза; это проверяет `tests/test_features.py`, подменяя будущее мусором.
+Код — в `src/rwb/`, запуск — из `scripts/`. Разбор с результатами — в `notebooks/solution_v1.ipynb`, `solution_v2.ipynb` и `solution_v3.ipynb` (тонкий ноутбук поверх этих модулей; тяжёлые шаги берут сохранённые предсказания из `models/oof/`, `RETRAIN = True` пересчитывает всё заново). Все признаки строятся только из данных до точки прогноза; это проверяет `tests/test_features.py`, подменяя будущее мусором.
 
 - `data.py` — данные как матрицы «маршрут × время», метрика, сборка посылки.
-- `features.py` — признаки: лаги, окна, тот же слот в прошлые дни/недели, статусы, время. Плюс восстановленные получасовые отгрузки `x`: `target_1h[t] = x[t] + x[t-1]`, поэтому `x` получается знакопеременной суммой с одной константой на маршрут, которую ограничивает `x ≥ 0`.
-- `models.py` — бустинги (XGBoost GPU / LightGBM / CatBoost), прямая стратегия: модель на каждый горизонт учит поправку к сезонной базе в долях недельного уровня маршрута. Взвешенный L1 по этой поправке совпадает с числителем WAPE. Варианты цели `--target`: `x`/`x1` — получасовые отгрузки со склейкой в часы, `ratio` — неотрицательная доля уровня для Tweedie.
+- `features.py` — признаки: лаги, окна, тот же слот в прошлые дни/недели, статусы, время. Плюс восстановленные получасовые отгрузки `x`: `target_1h[t] = x[t] + x[t-1]`, поэтому `x` получается знакопеременной суммой с одной константой на маршрут, которую ограничивает `x ≥ 0`. Дополнительные наборы признаков `--feat_sets`: `lowrank12` — профиль дня маршрута за 28 дней и его сглаживание SVD ранга 12 по всем маршрутам (главный прирост v3); `res`, `ratio`, `sdiff` — проверены, прироста не дали.
+- `models.py` — бустинги (XGBoost GPU / LightGBM / CatBoost), прямая стратегия: модель на каждый горизонт учит поправку к сезонной базе в долях недельного уровня маршрута. Взвешенный L1 по этой поправке совпадает с числителем WAPE. Варианты цели `--target`: `x`/`x1` — получасовые отгрузки со склейкой в часы, `ratio` — неотрицательная доля уровня для Tweedie. `--base lowrank` — в сезонной базе 7-дневное среднее заменено сглаженным 28-дневным профилем.
 - `nn.py` — MLP или GRU (`--arch gru`) на GPU, батчи собираются прямо из тензоров панели.
 - `backtest.py` — валидация как в тесте: точки прогноза в 10:30 за 14 прошлых дней (2 фолда по неделе), обучение только на метках до первой точки фолда.
 
@@ -58,7 +59,18 @@ python scripts/experiment.py --name huber --lib lgbm --objective huber --leaves 
 python scripts/ensemble.py xgb huber --final --out ensemble          # веса и множитель подбираются перекрёстно по фолдам
 ```
 
-Текущая посылка `ensemble_v2.csv` (лидерборд 0.323; v1 с тремя моделями — 0.324). Модели обучаются с `--final`, затем seed'ы усредняются и собирается ансамбль:
+Текущая посылка — `ensemble_v3.csv`: валидация 0.3249 (по 14 дням и перекрёстно), у v2 — 0.3268 / 0.3288. Профиль маршрута и в признаках, и в базе; доли фиксированы 0.8 / 0.1 / 0.1, подбирается только множитель:
+
+```bash
+XGB="--lib xgb --days 28 --stride 2 --rounds 900 --lr 0.02 --leaves 63 --min_child 200 --feat_sets lowrank12 --base lowrank --final"
+for s in 0 1 2; do python scripts/experiment.py --name xgb_lr_blr_s$s --seed $s $XGB; done
+python scripts/experiment.py --name lgbm_huber_blr --lib lgbm --days 28 --stride 4 --rounds 400 --leaves 31 --min_child 1000 --objective huber --feat_sets lowrank12 --base lowrank --extra '{"alpha":1.0}' --final
+python scripts/experiment.py --name lgbm_tweedie_lr12 --lib lgbm --days 28 --stride 4 --rounds 600 --leaves 31 --min_child 1000 --objective tweedie --target ratio --feat_sets lowrank12 --extra '{"tweedie_variance_power":1.5}' --final
+python scripts/bag_oof.py xgb_lr_blr_s0 xgb_lr_blr_s1 xgb_lr_blr_s2 --out xgb_blr_bag3
+python scripts/ensemble.py xgb_blr_bag3 lgbm_huber_blr lgbm_tweedie_lr12 --shares 0.8,0.1,0.1 --final --out ensemble_v3
+```
+
+Посылка v2 (лидерборд 0.323; v1 с тремя моделями — 0.324):
 
 ```bash
 XGB="--lib xgb --days 28 --stride 2 --rounds 900 --lr 0.02 --leaves 63 --min_child 200 --final"
@@ -79,16 +91,19 @@ python scripts/organizer_baseline.py                                  # baseline
 
 ### Сохранённые предсказания
 
-Обучение всех моделей v2 занимает около 2.5 часов на RTX 4060 Laptop, поэтому их результаты лежат в репозитории (остальное содержимое `models/` и `submissions/` по-прежнему исключено из Git):
+Обучение всех моделей одной версии занимает 1.5–2.5 часа на RTX 4060 Laptop, поэтому их результаты лежат в репозитории (остальное содержимое `models/` и `submissions/` по-прежнему исключено из Git):
 
-- `models/oof/<имя>.npz` — прогнозы на 14 днях валидации (`pred_fold0/1`) и истинные значения (`truth_fold0/1`) для `xgb_lr`, `xgb_lr_s1`, `xgb_lr_s2`, `lgbm_huber`, `lgbm_tweedie`, `mlp_big`, `mlp_big_s1`, `mlp_big_s2` и усреднённых `xgb_lr_bag3`, `mlp_bag3`;
+- `models/oof/<имя>.npz` — прогнозы на 14 днях валидации (`pred_fold0/1`) и истинные значения (`truth_fold0/1`):
+  - v1/v2: `xgb_lr`, `xgb_lr_s1`, `xgb_lr_s2`, `lgbm_huber`, `lgbm_tweedie`, `mlp_big`, `mlp_big_s1`, `mlp_big_s2` и усреднённые `xgb_lr_bag3`, `mlp_bag3`;
+  - v3: `xgb_lr_blr_s0..s2`, усреднённый `xgb_blr_bag3`, `lgbm_huber_blr`, `lgbm_tweedie_lr12`;
+  - проверка на третьей неделе (`pred_fold2`): `xgb_base3`, `xgb_lowrank3`, `xgb_blr3`;
 - `models/oof/<имя>_test.npy` — их прогнозы на тест, массив маршрут × 8 шагов;
-- `submissions/ensemble_v1.*`, `submissions/ensemble_v2.*` — посылки (лидерборд 0.324 и 0.323) и их коэффициенты;
+- `submissions/ensemble_v1/v2/v3.*` — посылки и их коэффициенты;
 - `models/results.jsonl` — журнал всех прогонов с конфигурациями и результатами.
 
-С ними ноутбуки `solution_v1/v2.ipynb` выполняются за минуту без обучения. Чтобы проверить новую модель на тех же днях, достаточно обучить только её и смешать с готовыми:
+С ними ноутбуки `solution_v1/v2/v3.ipynb` выполняются за минуту без обучения. Чтобы проверить новую модель на тех же днях, достаточно обучить только её и смешать с готовыми:
 
 ```bash
 python scripts/experiment.py --name my_model ... --final
-python scripts/ensemble.py xgb_lr_bag3 lgbm_huber mlp_bag3 lgbm_tweedie my_model
+python scripts/ensemble.py xgb_blr_bag3 lgbm_huber_blr lgbm_tweedie_lr12 my_model
 ```

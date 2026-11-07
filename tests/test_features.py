@@ -8,7 +8,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from rwb.data import HORIZON, Panel, wape_rbias
-from rwb.features import MAX_LOOKBACK, build, cumsums
+from rwb.features import EXTRA_SETS, MAX_LOOKBACK, build, cumsums
 
 
 def _panel(seed: int = 0, R: int = 5, T: int = MAX_LOOKBACK + 200) -> Panel:
@@ -24,14 +24,15 @@ def _panel(seed: int = 0, R: int = 5, T: int = MAX_LOOKBACK + 200) -> Panel:
 def test_features_ignore_future(h: int, glob: bool) -> None:
     panel = _panel()
     origins = np.array([MAX_LOOKBACK + 50, MAX_LOOKBACK + 120])
-    X, names, base = build(panel, cumsums(panel), origins, h, glob, glob)
+    extra = EXTRA_SETS if glob else ()
+    X, names, base = build(panel, cumsums(panel), origins, h, glob, glob, extra)
 
     # Corrupt everything strictly after the earliest origin; its rows must not change.
     o = origins[0]
     corrupted = Panel(panel.times, panel.routes, panel.y.copy(), panel.s.copy(), panel.test)
     corrupted.y[:, o + 1 :] = 1e6
     corrupted.s[:, :, o + 1 :] = 1e6
-    X2, _, base2 = build(corrupted, cumsums(corrupted), origins, h, glob, glob)
+    X2, _, base2 = build(corrupted, cumsums(corrupted), origins, h, glob, glob, extra)
     R = panel.n_routes
     np.testing.assert_allclose(X[:R], X2[:R], rtol=1e-5, err_msg=str(names))
     np.testing.assert_allclose(base[:R], base2[:R], rtol=1e-6)

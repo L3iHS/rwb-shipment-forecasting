@@ -1,6 +1,7 @@
 """Forecasters. Each returns predictions shaped (n_origins, R, HORIZON)."""
 
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -14,10 +15,14 @@ from rwb.features import (
     Cumsums,
     base_forecast,
     build,
+    flat_day_mean,
     flat_scale,
     flat_target,
     flat_x,
+    lowrank_profiles,
 )
+
+BASE_RANK = 12
 
 log = logging.getLogger(__name__)
 
@@ -72,6 +77,16 @@ class GBMConfig:
     pooled: bool = False
     global_feats: bool = False
     flow_feats: bool = False
+    # Comma-separated optional feature sets, see rwb.features.EXTRA_SETS.
+    feat_sets: str = ""
+    # Regex of feature names to leave out (e.g. statuses with no measured importance).
+    drop: str = ""
+    # >1: separate models per volume tier of routes; averaging with the all-routes model adds diversity.
+    route_tiers: int = 1
+    # "default": 0.5 * day mean + 0.5 * same slot over 7 days; "lowrank": the 7-day slot mean is
+    # replaced by the 28-day cross-route smoothed profile, so the model learns a smaller correction.
+    base: str = "default"
+    base_days: int = 28  # profile length for the low-rank base
     decay: float = 1.0
     # "y": hourly target directly. "x": half-hour shipments, hourly forecast = x[o+h] + x[o+h-1]
     # with x[o] known exactly, so adjacent horizons share their half-hour estimates.
@@ -144,6 +159,29 @@ def _fit_one(X: np.ndarray, y: np.ndarray, w: np.ndarray, names: list[str], cfg:
     raise ValueError(cfg.lib)
 
 
+def _extra(cfg: GBMConfig) -> tuple[str, ...]:
+    return tuple(s.strip() for s in cfg.feat_sets.split(",") if s.strip())
+
+
+def _features(panel: Panel, cums: Cumsums, origins: np.ndarray, h: int,
+              cfg: GBMConfig) -> tuple[np.ndarray, list[str], np.ndarray]:
+    X, names, base = build(panel, cums, origins, h, cfg.global_feats, cfg.flow_feats, _extra(cfg))
+    if cfg.base in ("lowrank", "lowrank_mult"):
+        smooth = lowrank_profiles(panel.y, origins, BASE_RANK, cfg.base_days)[1]  # (n_o, R, DAY), origin-major
+        day = flat_day_mean(cums, origins)
+        if cfg.base == "lowrank":
+            base = 0.5 * day + 0.5 * smooth[:, :, h - 1].ravel()
+        else:
+            # Shape from the profile, height from the last 24 hours (multiplicative seasonal model).
+            base = smooth[:, :, h - 1].ravel() * (day + 1.0) / (smooth.mean(axis=2).ravel() + 1.0)
+    elif cfg.base != "default":
+        raise ValueError(cfg.base)
+    if cfg.drop:
+        keep = [j for j, n in enumerate(names) if not re.search(cfg.drop, n)]
+        X, names = X[:, keep], [names[j] for j in keep]
+    return X, names, base
+
+
 def _half_hour_label(cfg: GBMConfig, h: int) -> bool:
     return cfg.target == "x" or (cfg.target == "x1" and h == 1)
 
@@ -165,7 +203,7 @@ def _train_set(panel: Panel, cums: Cumsums, label_cutoff: int, anchor: int, h: i
     hi -= (hi - anchor) % cfg.stride
     lo = max(MAX_LOOKBACK, hi - cfg.days * DAY)
     tr = np.arange(hi, lo - 1, -cfg.stride)[::-1]
-    X, names, base = build(panel, cums, tr, h, cfg.global_feats, cfg.flow_feats)
+    X, names, base = _features(panel, cums, tr, h, cfg)
     scale = flat_scale(cums, tr)
     y = flat_target(panel, tr, h)
     if cfg.label_smooth > 0:
@@ -187,7 +225,7 @@ def _train_set(panel: Panel, cums: Cumsums, label_cutoff: int, anchor: int, h: i
 
 def _predict_h(model: Any, panel: Panel, cums: Cumsums, pred_origins: np.ndarray, h: int,
                cfg: GBMConfig, pooled: bool) -> np.ndarray:
-    Xp, names, base_p = build(panel, cums, pred_origins, h, cfg.global_feats, cfg.flow_feats)
+    Xp, names, base_p = _features(panel, cums, pred_origins, h, cfg)
     if pooled:
         Xp = np.column_stack([Xp, np.full(len(Xp), h, dtype=np.float32)])
         names = names + ["h"]
@@ -197,6 +235,16 @@ def _predict_h(model: Any, panel: Panel, cums: Cumsums, pred_origins: np.ndarray
         base_p = np.zeros_like(base_p)
     pred = base_p + flat_scale(cums, pred_origins) * _predict_one(model, Xp, names, cfg)
     return _unflat(np.clip(pred, 0, None), len(pred_origins), panel.n_routes)
+
+
+def _route_groups(panel: Panel, label_cutoff: int, tiers: int) -> list[np.ndarray]:
+    """Split routes into volume tiers by their mean over the 4 weeks up to the cutoff (no future data)."""
+    if tiers <= 1:
+        return [np.ones(panel.n_routes, dtype=bool)]
+    level = np.nan_to_num(panel.y[:, label_cutoff - 4 * WEEK + 1 : label_cutoff + 1]).mean(axis=1)
+    edges = np.quantile(level, np.linspace(0, 1, tiers + 1)[1:-1])
+    tier = np.searchsorted(edges, level, side="right")
+    return [tier == k for k in range(tiers)]
 
 
 def gbm_fit_predict(panel: Panel, cums: Cumsums, label_cutoff: int, pred_origins: np.ndarray,
@@ -209,8 +257,8 @@ def gbm_fit_predict(panel: Panel, cums: Cumsums, label_cutoff: int, pred_origins
     """
     out = np.empty((len(pred_origins), panel.n_routes, HORIZON))
     anchor = int(pred_origins[0])
-    if cfg.pooled and cfg.target == "x":
-        raise ValueError("target='x' needs one model per horizon")
+    if cfg.pooled and (cfg.target == "x" or cfg.route_tiers > 1):
+        raise ValueError("target='x' and route_tiers need one model per horizon")
     if cfg.pooled:
         parts = [_train_set(panel, cums, label_cutoff, anchor, h, cfg) for h in range(1, HORIZON + 1)]
         X = np.concatenate([np.column_stack([p[0], np.full(len(p[0]), h, dtype=np.float32)])
@@ -225,12 +273,16 @@ def gbm_fit_predict(panel: Panel, cums: Cumsums, label_cutoff: int, pred_origins
         for h in range(1, HORIZON + 1):
             out[:, :, h - 1] = _predict_h(model, panel, cums, pred_origins, h, cfg, True)
         return out
+    groups = _route_groups(panel, label_cutoff, cfg.route_tiers)
     for h in range(1, HORIZON + 1):
         X, target, w, names = _train_set(panel, cums, label_cutoff, anchor, h, cfg)
-        model = _fit_one(X, target, w, names, cfg)
+        n_tr = len(target) // panel.n_routes
+        for g in groups:
+            rows = np.tile(g, n_tr)
+            model = _fit_one(X[rows], target[rows], w[rows], names, cfg)
+            out[:, g, h - 1] = _predict_h(model, panel, cums, pred_origins, h, cfg, False)[:, g]
         del X
-        out[:, :, h - 1] = _predict_h(model, panel, cums, pred_origins, h, cfg, False)
-        log.info("h=%d trained on %d rows", h, len(target))
+        log.info("h=%d trained on %d rows in %d route group(s)", h, len(target), len(groups))
     x0 = cums.x[:, pred_origins].T  # (n_o, R), known at the origin
     if cfg.target == "x":
         # out holds half-hour estimates; the known x[o] completes the first hour.
