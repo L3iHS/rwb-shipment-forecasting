@@ -22,6 +22,8 @@
 
 ## Сборка CSV
 
+Для работы в Jupyter доступен [ноутбук решения](../notebooks/ensemble_v3_weekly50.ipynb). Его входы включены в Git; он пересчитывает метрики из сохранённых проверочных прогнозов и собирает тот же CSV. Ссылки на полное обучение компонентов находятся в конце ноутбука.
+
 Сохраните [исходный файл v3](https://github.com/L3iHS/rwb-shipment-forecasting/blob/3b7394a0afeab51ef7a819164c742bf5405c387d/submissions/ensemble_v3.csv) как `submissions/teammate_ensemble_v3.csv`. Затем выполните ту же команду усреднения с новым входом и выходом.
 
 ```bash

@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "model": "ensemble_v3_weekly50",
+  "recipe": {
+    "peer": 0.5,
+    "weekly": 0.5
+  },
+  "origin": "2025-11-01 10:30:00",
+  "test": {
+    "path": "data/raw/test_solo_track.parquet",
+    "sha256": "62442611ead0ed9eaad187b461c6c6d4584c17016f827663084e1d4f9b5c3ad6"
+  },
+  "output": {
+    "path": "submissions/ensemble_v3_weekly50.csv",
+    "rows": 8000,
+    "sha256": "e24f49a8cf0c748db20c92392f64c8735ed7857a00b9501c0fefd41bcc3ee484"
+  },
+  "files": {
+    "control.npz": {
+      "sha256": "a0a75cd1916fab884492105772eadc574b8cc355f726a0e7405872fffeb04d57",
+      "bytes": 1043334
+    },
+    "development.npz": {
+      "sha256": "54442f96dc3cdc04bba5173883d2a9049b3d398d85c0eb87ba2edd2a912bd638",
+      "bytes": 2081479
+    },
+    "teammate_v3.csv": {
+      "sha256": "d6dd6761e814cebd6608d73c25313019bad8ad6200ba6dd4c2bf189a428a894d",
+      "bytes": 186542
+    },
+    "weekly.csv": {
+      "sha256": "2d870aa472552265864b43fe13bb6c683b5d879cc4d887be568dc4741ea046a1",
+      "bytes": 190018
+    }
+  },
+  "blend_script": {
+    "path": "scripts/make_v2_weekly_blend.py",
+    "sha256": "b067fe3f71339e4f1f4150abc0ded3046f388b9ecc030395b887a10e03167990"
+  },
+  "provenance": {
+    "peer_source_commit": "3b7394a0afeab51ef7a819164c742bf5405c387d",
+    "peer_source_notebook": "https://github.com/L3iHS/rwb-shipment-forecasting/blob/3b7394a0afeab51ef7a819164c742bf5405c387d/notebooks/solution_v3.ipynb",
+    "weekly_recipe": "configs/weekly_v3_latent_half_shares.json",
+    "implementation_base_commit": "0a575779e0b4c6c092e1d8b53a8024b71ec8b2a6",
+    "development": "Completed historical predictions; peer scalar1.0075 fitted on these14 dates. Selection/development, not independent calibration validation.",
+    "control": "Selected fixed50/50 before scoring Sep27-Oct3; cold fits; peer scalar1.0175 fitted only on Sep13-26. Earlier-period robustness, not a prospective raw-data-independent holdout.",
+    "control_peer_backend": "XGBoost CPU4; submitted source peer forecast trained on CUDA.",
+    "cached_predictions_are_not_model_checkpoints": true
+  },
+  "public_score": null,
+  "platform_submission": false
+}

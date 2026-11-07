@@ -1,4 +1,4 @@
-"""Create the fixed equal-weight blend of the team's v2 and weekly forecasts."""
+"""Create the fixed equal-weight blend of a peer forecast and the weekly forecast."""
 
 import argparse
 import hashlib
