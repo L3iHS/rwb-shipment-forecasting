@@ -1,0 +1,3 @@
+# Original competition files must stay byte-identical to data/manifest.json (no CRLF conversion).
+data/raw/** -text
+data/reference/** -text

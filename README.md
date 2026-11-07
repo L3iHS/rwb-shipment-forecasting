@@ -38,3 +38,23 @@ python scripts/profile_data.py
 ```
 
 Одна установка включает зависимости проекта, тестов и запуска notebook через JupyterLab. Аудит не изменяет исходники; его отчёты сохраняются локально в `.local/reports/data_audit/`.
+
+## Решение
+
+Код — в `src/rwb/`, запуск — из `scripts/`. Все признаки строятся только из данных до точки прогноза; это проверяет `tests/test_features.py`, подменяя будущее мусором.
+
+- `data.py` — данные как матрицы «маршрут × время», метрика, сборка посылки.
+- `features.py` — признаки: лаги, окна, тот же слот в прошлые дни/недели, статусы, время. Плюс восстановленные получасовые отгрузки `x`: `target_1h[t] = x[t] + x[t-1]`, поэтому `x` получается знакопеременной суммой с одной константой на маршрут, которую ограничивает `x ≥ 0`.
+- `models.py` — бустинги (XGBoost GPU / LightGBM / CatBoost), прямая стратегия: модель на каждый горизонт учит поправку к сезонной базе в долях недельного уровня маршрута. Взвешенный L1 по этой поправке совпадает с числителем WAPE.
+- `nn.py` — MLP на GPU, батчи собираются прямо из тензоров панели.
+- `backtest.py` — валидация как в тесте: точки прогноза в 10:30 за 14 прошлых дней (2 фолда по неделе), обучение только на метках до первой точки фолда.
+
+```bash
+python scripts/experiment.py --naive                                   # опорные прогнозы
+python scripts/experiment.py --name xgb --lib xgb --min_child 500 --leaves 31 --final
+python scripts/experiment.py --name huber --lib lgbm --objective huber --leaves 31 --min_child 1000 --rounds 400 --extra '{"alpha":1.0}' --final
+python scripts/ensemble.py xgb huber --final --out ensemble          # веса и множитель подбираются перекрёстно по фолдам
+python scripts/organizer_baseline.py                                  # baseline организаторов на тех же фолдах
+```
+
+Результаты прогонов пишутся в `models/results.jsonl`, предсказания фолдов — в `models/oof/`, посылки — в `submissions/`.
