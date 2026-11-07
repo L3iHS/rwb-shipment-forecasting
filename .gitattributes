@@ -1,3 +1,5 @@
 # Original competition files must stay byte-identical to data/manifest.json (no CRLF conversion).
 data/raw/** -text
 data/reference/** -text
+# Saved LightGBM models must load byte-for-byte on every OS.
+models/prod/** -text

@@ -1,0 +1,36 @@
+{
+  "cfg": {
+    "lib": "lgbm",
+    "days": 28,
+    "stride": 4,
+    "rounds": 400,
+    "lr": 0.05,
+    "leaves": 31,
+    "min_child": 1000,
+    "feature_fraction": 0.7,
+    "bagging": 0.7,
+    "l2": 1.0,
+    "objective": "huber",
+    "tod_weight": 0.0,
+    "tod_center": 21,
+    "tod_width": 4.0,
+    "route_cat": false,
+    "clip_q": 0.0,
+    "label_smooth": 0.0,
+    "pooled": false,
+    "global_feats": false,
+    "flow_feats": false,
+    "feat_sets": "lowrank12",
+    "drop": "",
+    "route_tiers": 1,
+    "base": "lowrank",
+    "base_days": 28,
+    "decay": 1.0,
+    "target": "y",
+    "seed": 0,
+    "extra": {
+      "alpha": 1.0
+    }
+  },
+  "label_cutoff": 4629
+}

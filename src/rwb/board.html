@@ -1,0 +1,473 @@
+<title>Пульт отгрузок</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: control-room console. Summary strip, then the route queue beside the selected route, then the network and the evidence. */
+:root {
+  --bg: #f3f5f7;
+  --surface: #ffffff;
+  --ink: #15212c;
+  --muted: #5a6875;
+  --line: #dce2e7;
+  --accent: #1d5fa8;
+  --band: rgba(29, 95, 168, 0.15);
+  --signal: #c77d00;
+  --signal-soft: rgba(199, 125, 0, 0.13);
+  --risk: #c23b12;
+  --ok: #2e7a4d;
+  --font-body: "Golos Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-data: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e141a; --surface: #151d25; --ink: #e5ecf2; --muted: #93a2b0; --line: #26313c;
+    --accent: #69a6ff; --band: rgba(105, 166, 255, 0.18); --signal: #f0b03a; --signal-soft: rgba(240, 176, 58, 0.15);
+    --risk: #ff7b4f; --ok: #55c58c; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e141a; --surface: #151d25; --ink: #e5ecf2; --muted: #93a2b0; --line: #26313c;
+  --accent: #69a6ff; --band: rgba(105, 166, 255, 0.18); --signal: #f0b03a; --signal-soft: rgba(240, 176, 58, 0.15);
+  --risk: #ff7b4f; --ok: #55c58c; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1280px; margin: 0 auto; padding-block: 24px 48px; display: grid; gap: 28px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; font-weight: 600; }
+h1 { font-size: 26px; letter-spacing: -0.01em; }
+h2 { font-size: 19px; }
+h3 { font-size: 15px; }
+.eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 500; }
+.muted { color: var(--muted); }
+.num { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; justify-content: space-between; }
+header .meta { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 13px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--muted); white-space: nowrap; }
+.chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; display: grid; gap: 2px; }
+.kpi .v { font: 600 30px/1.15 var(--font-body); font-variant-numeric: tabular-nums; }
+.kpi.call { border-color: var(--signal); background: linear-gradient(var(--signal-soft), var(--signal-soft)), var(--surface); }
+.kpi.call .v { color: var(--signal); }
+.kpi .s { font-size: 13px; color: var(--muted); }
+
+.console { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; align-items: start; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.filters button, .seg button {
+  font: 500 13px var(--font-body); color: var(--ink); background: transparent; border: 1px solid var(--line);
+  border-radius: 999px; padding: 4px 11px; cursor: pointer;
+}
+.filters button[aria-pressed="true"], .seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.filters input { flex: 1 1 120px; min-width: 0; font: 13px var(--font-data); padding: 5px 10px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+button:focus-visible, input:focus-visible, .row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.queue-head, .row { display: grid; grid-template-columns: 64px minmax(0, 1fr) 46px 96px; gap: 10px; align-items: center; }
+.queue-head { font-size: 12px; color: var(--muted); padding: 0 8px; }
+.queue { max-height: 600px; overflow-y: auto; display: grid; gap: 2px; align-content: start; }
+.row { width: 100%; text-align: left; font: inherit; color: inherit; background: transparent; border: 0; border-radius: 8px; padding: 7px 8px; cursor: pointer; }
+.row:hover { background: var(--bg); }
+.row[aria-selected="true"] { background: var(--band); }
+.bar { height: 8px; border-radius: 4px; background: var(--bg); position: relative; overflow: hidden; border: 1px solid var(--line); }
+.bar i { position: absolute; inset: 0 auto 0 0; background: var(--accent); border-radius: 4px; }
+.bar.over i { background: var(--risk); }
+.bar b { position: absolute; top: -1px; bottom: -1px; left: 50%; width: 1px; background: var(--muted); }
+.when { justify-self: end; font: 500 12px var(--font-data); padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.when.now { background: var(--signal); color: #1b1300; }
+.when.soon { border: 1px solid var(--signal); color: var(--signal); }
+.when.later { color: var(--ink); border: 1px solid var(--line); }
+.when.none { color: var(--muted); }
+.count { color: var(--muted); font-size: 12px; }
+
+.detail h2 { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.fact { border-top: 1px solid var(--line); padding-top: 6px; }
+.fact .v { font: 500 18px var(--font-data); }
+.advice { padding: 10px 12px; border-radius: 8px; background: var(--signal-soft); border-left: 3px solid var(--signal); }
+.advice.calm { background: var(--bg); border-left-color: var(--line); }
+.charts { display: grid; gap: 14px; }
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+svg text { font: 11px var(--font-data); fill: var(--muted); }
+svg .lbl { font: 500 11px var(--font-body); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 6px; background: var(--c); border-radius: 2px; }
+.legend .band::before { height: 9px; background: var(--band); }
+
+.evidence { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 16px; align-items: start; }
+.bars { display: grid; gap: 10px; }
+.brow { display: grid; grid-template-columns: minmax(0, 210px) minmax(0, 1fr) 64px; gap: 10px; align-items: center; font-size: 14px; }
+.btrack { height: 14px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+.btrack i { display: block; height: 100%; background: var(--muted); border-radius: 4px; }
+.brow.model .btrack i { background: var(--accent); }
+.brow.model { font-weight: 600; }
+.brow.ideal .btrack i { background: var(--ok); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+th:first-child, td:first-child { text-align: left; }
+th { font-weight: 500; color: var(--muted); font-size: 12px; }
+td { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+.tbl { overflow-x: auto; }
+.pill { font: 500 12px var(--font-body); padding: 1px 8px; border-radius: 999px; }
+.pill.ok { color: var(--ok); border: 1px solid var(--ok); }
+.pill.warn { color: var(--risk); border: 1px solid var(--risk); }
+.note { font-size: 13px; color: var(--muted); max-width: 72ch; }
+footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; display: grid; gap: 6px; }
+
+@media (max-width: 960px) {
+  .console, .evidence { grid-template-columns: minmax(0, 1fr); }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 460px) {
+  .facts { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .brow { grid-template-columns: minmax(0, 1fr) 56px; }
+  .brow .btrack { grid-column: 1 / -1; grid-row: 2; }
+  .kpi .v { font-size: 24px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bar i, .btrack i { transition: width 0.3s ease; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Отгрузки без простоев · 1000 маршрутов</div>
+      <h1>Пульт отгрузок</h1>
+      <div class="muted" id="asof"></div>
+    </div>
+    <div class="meta" id="model"></div>
+  </header>
+
+  <section class="kpis" id="kpis" aria-label="Сводка"></section>
+
+  <section class="console">
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap">
+        <h2>Очередь вызовов</h2><span class="count" id="count"></span>
+      </div>
+      <div class="filters" role="group" aria-label="Фильтр маршрутов">
+        <button id="f-all" data-f="all" aria-pressed="true">Все</button>
+        <button id="f-now" data-f="now" aria-pressed="false">Вызвать сейчас</button>
+        <button id="f-hour" data-f="hour" aria-pressed="false">В течение часа</button>
+        <button id="f-jam" data-f="jam" aria-pressed="false">Груз ждёт</button>
+        <input id="search" type="search" inputmode="numeric" placeholder="Маршрут №" aria-label="Найти маршрут">
+      </div>
+      <div class="queue-head"><span>Маршрут</span><span>У ворот, кузовов</span><span>В пути</span><span style="justify-self:end">Вызвать</span></div>
+      <div class="queue" id="queue" role="listbox" aria-label="Маршруты"></div>
+    </div>
+
+    <div class="panel detail" id="detail" aria-live="polite"></div>
+  </section>
+
+  <section class="panel">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap">
+      <h2>Вся сеть: отгрузки за час</h2>
+      <div class="legend"><span style="--c:var(--ink)">факт</span><span style="--c:var(--accent)">прогноз</span><span class="band">80% сетевого диапазона</span></div>
+    </div>
+    <div id="net"></div>
+    <p class="note" id="net-note"></p>
+  </section>
+
+  <section>
+    <div style="display:grid;gap:4px;margin-bottom:12px">
+      <div class="eyebrow" id="bt-week"></div>
+      <h2>Проверка на истории</h2>
+      <p class="note">Каждые полчаса недели модель, обученная до её начала, давала прогноз, а симулятор проигрывал реальные отгрузки при разных правилах вызова. Модель не видела эту неделю при обучении.</p>
+    </div>
+    <div class="evidence">
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+          <h3>Потери на одну машину, минут</h3>
+          <div class="seg" role="group" aria-label="Время подачи машины" id="lead"></div>
+        </div>
+        <p class="note">Простой машины у ворот плюс ожидание полного кузова, пока машины нет.</p>
+        <div class="bars" id="bars"></div>
+        <div class="tbl"><table id="partial"></table></div>
+      </div>
+      <div class="panel">
+        <h3>Честность диапазонов</h3>
+        <p class="note">Доля фактов, попавших в диапазон прогноза на проверочной неделе.</p>
+        <div class="tbl"><table id="cov"></table></div>
+        <h3>Контроль качества, 10:30 каждого дня</h3>
+        <div class="tbl"><table id="mon"></table></div>
+        <p class="note" id="alerts"></p>
+      </div>
+    </div>
+  </section>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>
+const D = /*__DATA__*/null;
+const STEP = D.step_min;
+const NOW = new Date(D.now);
+const R = D.routes;
+const M = D.model;
+const LEAD = Math.round(M.lead_h * 60 / STEP);
+
+const nf1 = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 1 });
+const nf2 = new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const nf3 = new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+function vol(v) {
+  const a = Math.abs(v);
+  if (a >= 1e9) return nf2.format(v / 1e9) + " млрд";
+  if (a >= 1e6) return nf1.format(v / 1e6) + " млн";
+  if (a >= 1e3) return Math.round(v / 1e3).toLocaleString("ru-RU") + " тыс.";
+  return Math.round(v).toLocaleString("ru-RU");
+}
+function at(k) { return new Date(NOW.getTime() + k * STEP * 60000); }
+function hhmm(d) { return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }); }
+function plural(n, one, few, many) {
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+  return many;
+}
+const routesWord = n => plural(n, "маршрут", "маршрута", "маршрутов");
+const pct = v => nf1.format(v * 100) + "%";
+const signed = v => (v > 0 ? "+" : v < 0 ? "−" : "") + nf1.format(Math.abs(v) * 100) + "%";
+
+// Header
+document.getElementById("asof").textContent =
+  NOW.toLocaleDateString("ru-RU", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" }) +
+  ", данные на " + hhmm(NOW) + " · прогноз до " + hhmm(at(8));
+document.getElementById("model").innerHTML =
+  `<span class="chip"><span class="dot"></span>Модель обучена на данных до ${new Date(M.trained_until).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>` +
+  `<span class="chip">LightGBM, ${M.objective === "huber" ? "Huber" : M.objective}</span>` +
+  `<span class="chip">Подача машины ${nf1.format(M.lead_h)} ч</span>`;
+
+// Summary
+const loadsAt = (r, k, key) => r.bl + r[key][k] / r.cap;
+const callNow = R.filter(r => r.call === 0).length;
+const callHour = R.filter(r => r.call > 0 && r.call <= 2).length;
+const fleet50 = R.reduce((s, r) => s + Math.max(0, Math.floor(loadsAt(r, 7, "c50")) - r.way - r.dock), 0);
+const fleet90 = R.reduce((s, r) => s + Math.max(0, Math.floor(loadsAt(r, 7, "c90")) - r.way - r.dock), 0);
+const waiting = R.filter(r => r.bl >= 1 && r.way + r.dock === 0).length;
+const vol4 = R.reduce((s, r) => s + r.c50[7], 0);
+const vol4hi = R.reduce((s, r) => s + r.c90[7], 0);
+document.getElementById("kpis").innerHTML = [
+  ["call", "Вызвать сейчас", callNow.toLocaleString("ru-RU"), `${routesWord(callNow)}, ещё ${callHour} в течение часа`],
+  ["", "Новых машин до " + hhmm(at(8)), fleet50.toLocaleString("ru-RU"), `при осторожном прогнозе до ${fleet90.toLocaleString("ru-RU")}`],
+  ["", "Объём к отгрузке за 4 ч", vol(vol4), `с вероятностью 90% не больше ${vol(vol4hi)} по маршрутам`],
+  ["", "Груз ждёт без машины", waiting.toLocaleString("ru-RU"), `${routesWord(waiting)} с полным кузовом у ворот`],
+].map(([c, t, v, s]) => `<div class="kpi ${c}"><div class="eyebrow">${t}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
+
+// Queue
+let filter = "all", query = "", selected = null;
+const order = [...R].sort((a, b) => (a.call < 0 ? 99 : a.call) - (b.call < 0 ? 99 : b.call) || b.bl - a.bl);
+function whenChip(r) {
+  if (r.call === 0) return `<span class="when now">сейчас</span>`;
+  if (r.call > 0 && r.call <= 2) return `<span class="when soon">через ${r.call * STEP} мин</span>`;
+  if (r.call > 0) return `<span class="when later">${hhmm(at(r.call))}</span>`;
+  return `<span class="when none">не нужно</span>`;
+}
+function rowHtml(r) {
+  const w = Math.min(r.bl / 2, 1) * 100;
+  const over = r.bl >= 1 && r.way + r.dock === 0;
+  return `<button class="row" role="option" id="r-${r.id}" data-id="${r.id}" aria-selected="${selected === r.id}">
+    <span class="num">№ ${r.id}</span>
+    <span class="bar ${over ? "over" : ""}" title="${nf2.format(r.bl)} кузова"><i style="width:${w}%"></i><b></b></span>
+    <span class="num muted">${r.way + r.dock || "—"}</span>
+    ${whenChip(r)}</button>`;
+}
+function visible() {
+  return order.filter(r => {
+    if (query && !String(r.id).startsWith(query)) return false;
+    if (filter === "now") return r.call === 0;
+    if (filter === "hour") return r.call >= 0 && r.call <= 2;
+    if (filter === "jam") return r.bl >= 1 && r.way + r.dock === 0;
+    return true;
+  });
+}
+function renderQueue() {
+  const v = visible();
+  document.getElementById("queue").innerHTML = v.map(rowHtml).join("") ||
+    `<p class="muted" style="padding:8px">Нет маршрутов под этот фильтр.</p>`;
+  document.getElementById("count").textContent = `${v.length} из ${R.length}`;
+}
+document.querySelectorAll(".filters button").forEach(b => b.addEventListener("click", () => {
+  filter = b.dataset.f;
+  document.querySelectorAll(".filters button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+  renderQueue();
+}));
+document.getElementById("search").addEventListener("input", e => { query = e.target.value.trim(); renderQueue(); });
+document.getElementById("queue").addEventListener("click", e => {
+  const b = e.target.closest(".row");
+  if (b) select(+b.dataset.id);
+});
+
+// Charts
+const SVGNS = "http://www.w3.org/2000/svg";
+function niceMax(v) {
+  if (v <= 0) return 1;
+  const p = Math.pow(10, Math.floor(Math.log10(v)));
+  for (const m of [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (m * p >= v) return m * p;
+  return 10 * p;
+}
+function fan(el, hist, p50, lo, hi, opts = {}) {
+  const W = 640, H = 220, L = 58, Rm = 12, T = 12, B = 28;
+  const n0 = hist.length - 1, n = n0 + p50.length;
+  const ymax = niceMax(Math.max(...hist, ...hi) * 1.05);
+  const x = i => L + (i / n) * (W - L - Rm);
+  const y = v => T + (1 - v / ymax) * (H - T - B);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${opts.label || ""}">`;
+  for (let k = 0; k <= 4; k++) {
+    const v = (ymax * k) / 4;
+    s += `<line x1="${L}" x2="${W - Rm}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/>`;
+    s += `<text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${vol(v).replace(" тыс.", "т").replace(" млн", "м").replace(" млрд", "млрд")}</text>`;
+  }
+  for (let i = 0; i <= n; i += 4) {
+    s += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${hhmm(at(i - n0))}</text>`;
+  }
+  const bandTop = hi.map((v, k) => `${x(n0 + 1 + k)},${y(v)}`);
+  const bandBot = lo.map((v, k) => `${x(n0 + 1 + k)},${y(v)}`).reverse();
+  s += `<polygon points="${x(n0)},${y(hist[n0])} ${bandTop.join(" ")} ${bandBot.join(" ")}" fill="var(--band)"/>`;
+  s += `<line x1="${x(n0)}" x2="${x(n0)}" y1="${T}" y2="${H - B}" stroke="var(--muted)" stroke-dasharray="3 4"/>`;
+  s += `<text class="lbl" x="${x(n0) + 4}" y="${T + 10}">сейчас</text>`;
+  s += `<polyline points="${hist.map((v, i) => `${x(i)},${y(v)}`).join(" ")}" fill="none" stroke="var(--ink)" stroke-width="2"/>`;
+  s += `<polyline points="${[[n0, hist[n0]], ...p50.map((v, k) => [n0 + 1 + k, v])].map(([i, v]) => `${x(i)},${y(v)}`).join(" ")}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>`;
+  s += `<circle cx="${x(n)}" cy="${y(p50[p50.length - 1])}" r="3.5" fill="var(--accent)"/>`;
+  el.innerHTML = s + `</svg>`;
+}
+function dockChart(el, r) {
+  const W = 640, H = 210, L = 58, Rm = 12, T = 12, B = 28, n = 8;
+  const inbound = r.way + r.dock;
+  const p50 = [r.bl, ...r.c50.map(c => r.bl + c / r.cap)];
+  const p90 = [r.bl, ...r.c90.map(c => r.bl + c / r.cap)];
+  const ymax = Math.max(Math.ceil(Math.max(...p90, inbound + 1) + 0.3), 2);
+  const x = i => L + (i / n) * (W - L - Rm);
+  const y = v => T + (1 - v / ymax) * (H - T - B);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Накопление груза у ворот">`;
+  if (inbound > 0) s += `<rect x="${L}" y="${y(inbound)}" width="${W - L - Rm}" height="${y(0) - y(inbound)}" fill="var(--band)" opacity="0.6"/>`;
+  for (let k = 0; k <= ymax; k++) {
+    s += `<line x1="${L}" x2="${W - Rm}" y1="${y(k)}" y2="${y(k)}" stroke="var(--line)"/>`;
+    s += `<text x="${L - 8}" y="${y(k) + 4}" text-anchor="end">${k}</text>`;
+  }
+  for (let i = 0; i <= n; i += 2) s += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${hhmm(at(i))}</text>`;
+  s += `<polygon points="${p90.map((v, i) => `${x(i)},${y(v)}`).join(" ")} ${p50.map((v, i) => `${x(i)},${y(v)}`).reverse().join(" ")}" fill="var(--band)"/>`;
+  s += `<polyline points="${p50.map((v, i) => `${x(i)},${y(v)}`).join(" ")}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>`;
+  s += `<polyline points="${p90.map((v, i) => `${x(i)},${y(v)}`).join(" ")}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+  if (inbound > 0) s += `<text class="lbl" x="${W - Rm - 4}" y="${y(inbound) + 14}" text-anchor="end">покрыто вызванными: ${inbound}</text>`;
+  if (r.call >= 0) {
+    const c = r.call, a = r.call + LEAD;
+    s += `<line x1="${x(c)}" x2="${x(c)}" y1="${T}" y2="${H - B}" stroke="var(--signal)" stroke-width="2"/>`;
+    s += `<text class="lbl" x="${x(c) + 5}" y="${T + 10}" style="fill:var(--signal)">вызов ${hhmm(at(c))}</text>`;
+    if (a <= n) {
+      s += `<line x1="${x(a)}" x2="${x(a)}" y1="${T + 16}" y2="${H - B}" stroke="var(--signal)" stroke-dasharray="3 4"/>`;
+      s += `<text class="lbl" x="${x(a) + 5}" y="${T + 26}" style="fill:var(--signal)">прибытие</text>`;
+    }
+  }
+  el.innerHTML = s + `</svg>`;
+}
+
+function advice(r) {
+  const inbound = r.way + r.dock;
+  if (r.call === 0) {
+    return `<div class="advice"><b>Вызвать машину сейчас.</b> К ${hhmm(at(LEAD))}, когда она доедет, у ворот наберётся ` +
+      `полный кузов${inbound ? `, считая ${inbound} уже вызванн${inbound === 1 ? "ую" : "ых"}` : ""}.</div>`;
+  }
+  if (r.call > 0) {
+    return `<div class="advice"><b>Вызвать в ${hhmm(at(r.call))}.</b> Полный кузов наберётся примерно к ${hhmm(at(r.call + LEAD))}, ` +
+      `а машина едет ${nf1.format(M.lead_h)} ч. Раньше вызывать — машина будет стоять.</div>`;
+  }
+  return `<div class="advice calm"><b>Новый вызов до ${hhmm(at(8))} не нужен.</b> ` +
+    (inbound ? `Вызванных машин хватает на ожидаемый груз.` : `Груза на полный кузов за это время не наберётся.`) + `</div>`;
+}
+function select(id) {
+  selected = id;
+  const r = R.find(q => q.id === id);
+  document.querySelectorAll(".row").forEach(b => b.setAttribute("aria-selected", String(+b.dataset.id === id)));
+  const el = document.getElementById("detail");
+  el.innerHTML = `
+    <h2>Маршрут <span class="num">№ ${r.id}</span> ${whenChip(r)}</h2>
+    <div class="facts">
+      <div class="fact"><div class="eyebrow">У ворот</div><div class="v">${nf2.format(r.bl)}</div><div class="muted">кузова</div></div>
+      <div class="fact"><div class="eyebrow">Вызвано машин</div><div class="v">${r.way + r.dock}</div><div class="muted">${r.dock ? "одна у ворот" : "в пути"}</div></div>
+      <div class="fact"><div class="eyebrow">Кузов</div><div class="v">${vol(r.cap)}</div><div class="muted">ед. объёма</div></div>
+    </div>
+    ${advice(r)}
+    <div class="charts">
+      <div>
+        <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><h3>Отгрузки за час</h3>
+        <div class="legend"><span style="--c:var(--ink)">факт</span><span style="--c:var(--accent)">прогноз</span><span class="band">80% диапазон</span></div></div>
+        <div id="ch1"></div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><h3>Груз у ворот, кузовов</h3>
+        <div class="legend"><span style="--c:var(--accent)">по прогнозу</span><span class="band">до 90% сценария</span></div></div>
+        <div id="ch2"></div>
+      </div>
+    </div>`;
+  fan(document.getElementById("ch1"), r.h, r.p50, r.p10, r.p90, { label: "Отгрузки маршрута за час: факт и прогноз" });
+  dockChart(document.getElementById("ch2"), r);
+}
+
+// Network
+const N = D.network;
+fan(document.getElementById("net"), N.hist, N.p50, N.lo, N.hi, { label: "Отгрузки всей сети за час" });
+const netSum = N.p50.reduce((a, b) => a + b, 0), netLo = N.lo.reduce((a, b) => a + b, 0), netHi = N.hi.reduce((a, b) => a + b, 0);
+document.getElementById("net-note").textContent =
+  `Сумма часовых значений до ${hhmm(at(8))}: ${vol(netSum)}, диапазон ${vol(netLo)} – ${vol(netHi)}. ` +
+  `Ошибка в общем уровне сети стоит столько же, сколько ошибки по всем маршрутам вместе: на проверке её дневной разброс около 2%, ` +
+  `поэтому уровень отслеживается отдельно (контроль качества ниже).`;
+
+// Evidence
+const BT = D.backtest;
+document.getElementById("bt-week").textContent = "Неделя " + BT.week.map(d => new Date(d).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" })).join(" – ");
+const RULES = [
+  ["reactive", "Вызов, когда кузов полон", ""],
+  ["last_2h_pace", "По темпу последних 2 часов", ""],
+  ["same_time_last_week", "Как в это время неделю назад", ""],
+  ["model_p50", "Модель", "model"],
+  ["oracle", "Идеальный прогноз (предел)", "ideal"],
+];
+const leads = [...new Set(BT.sensitivity.map(s => s.lead_h))];
+let lead = M.lead_h;
+function renderBars() {
+  const row = BT.sensitivity.find(s => s.lead_h === lead && s.fill_hours === M.fill_hours);
+  const mx = Math.max(...RULES.map(([k]) => row[k]));
+  document.getElementById("bars").innerHTML = RULES.map(([k, name, cls]) =>
+    `<div class="brow ${cls}"><span>${name}</span><span class="btrack"><i style="width:${Math.max(row[k] / mx * 100, 0.6)}%"></i></span>` +
+    `<span class="num" style="text-align:right">${nf1.format(row[k])}</span></div>`).join("");
+}
+document.getElementById("lead").innerHTML = leads.map(l =>
+  `<button id="lead-${String(l).replace(".", "_")}" data-l="${l}" aria-pressed="${l === lead}">${l < 1 ? l * 60 + " мин" : nf1.format(l) + " ч"}</button>`).join("");
+document.getElementById("lead").addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  lead = +b.dataset.l;
+  document.querySelectorAll("#lead button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+  renderBars();
+});
+renderBars();
+const PD = BT.per_day;
+document.getElementById("partial").innerHTML =
+  `<tr><th>Правило</th><th>Недогруженных машин в день</th><th>Простой, ч/день</th><th>Ожидание груза, ч/день</th></tr>` +
+  RULES.slice(1, 4).map(([k, name]) => `<tr><td style="font-family:var(--font-body)">${name}</td><td>${nf1.format(PD[k].partial)}</td>` +
+    `<td>${Math.round(PD[k].idle_h).toLocaleString("ru-RU")}</td><td>${Math.round(PD[k].late_h).toLocaleString("ru-RU")}</td></tr>`).join("");
+document.getElementById("cov").innerHTML = `<tr><th>Диапазон</th><th>Должно попасть</th><th>Попало</th></tr>` +
+  ["50%", "80%", "90%"].map(k => `<tr><td style="font-family:var(--font-body)">${k} центральный</td><td>${k}</td><td>${pct(BT.intervals[k])}</td></tr>`).join("");
+const alertDays = new Set(D.alerts.map(a => a.day));
+document.getElementById("mon").innerHTML = `<tr><th>День</th><th>WAPE</th><th>Перекос суммы</th><th>В 80% диапазоне</th><th>Статус</th></tr>` +
+  D.monitor.map(m => `<tr><td>${m.day}</td><td>${nf3.format(m.wape)}</td><td>${signed(m.bias)}</td><td>${pct(m.cov)}</td>` +
+    `<td>${alertDays.has(m.day) ? '<span class="pill warn">тревога</span>' : '<span class="pill ok">норма</span>'}</td></tr>`).join("");
+document.getElementById("alerts").textContent = D.alerts.length
+  ? D.alerts.map(a => `${a.day}: ${a.detail} — ${a.action}`).join("; ")
+  : "Тревог за неделю нет. Правило: если 3 дня подряд средний перекос суммы больше 2%, уровень перекалибруется; если WAPE дня на 15% выше обычного, проверяются данные.";
+
+document.getElementById("foot").innerHTML =
+  `<div>Допущения симуляции, которых нет в данных: кузов вмещает ${nf1.format(M.fill_hours)} ч среднего потока маршрута, машина едет ${nf1.format(M.lead_h)} ч после вызова, ждёт груз не дольше ${nf1.format(M.max_wait_h)} ч. Меняются в конфиге сервиса; на проверке модель лучше простых правил при любом времени подачи от 30 минут до 2 часов.</div>` +
+  `<div>Груз у ворот восстановлен из отгрузок: в работе его берут из складской системы. Объёмы — в единицах данных соревнования.</div>`;
+
+renderQueue();
+select(order[0].id);
+</script>
