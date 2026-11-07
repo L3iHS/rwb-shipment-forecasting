@@ -75,6 +75,7 @@ python scripts/plot_backtest.py --run-dir .local/runs/ridge_features
 
 | Файл в `submissions/` | Публичный score | Локально, 14 дат | Воспроизведение |
 |---|---:|---:|---|
+| `weekly_v3_latent_half_shares.csv` | Пока неизвестен | 0,326069 | [Недельный бустинг по получасовым отгрузкам](docs/weekly_latent.md) |
 | `v3_totals_mlp_shares50.csv` | 0,328 | 0,327433 | [Доли маршрутов из MLP](docs/latent_mlp.md) |
 | `v3_mlp_full_known_h1.csv` | 0,328 | 0,326405 | [Уточнение первого часа](docs/full-known-h1.md) |
 | `h1_centered_stage_flow.csv` | 0,329 | 0,326326 | [Поток между этапами](docs/stage-flow.md) |

@@ -1,0 +1,56 @@
+{
+  "model": "weekly_v3_latent_half_shares",
+  "recipe": {
+    "base_v3_recipe": {
+      "tag": "T_h1s",
+      "h1_struct": true,
+      "algo": "lgb",
+      "level": "mean",
+      "clip": true,
+      "feats": "v3",
+      "train_days": 42,
+      "origin_slots": [
+        16,
+        26
+      ],
+      "objective": "tweedie",
+      "rounds": [
+        600
+      ],
+      "lr": 0.05,
+      "leaves": 63,
+      "min_leaf": 200,
+      "route_cat": false,
+      "per_h": false,
+      "seeds": [
+        42
+      ],
+      "tweedie_p": 1.3
+    },
+    "fit": "Saturday10:30; reuse for less than7days",
+    "half_features": "Full forward-only feasible midpoint/width; hourly observation tolerance0.5",
+    "label": "Eight disjoint future half-hour midpoints/source V3 level",
+    "native_rounds": 600,
+    "sample_weight": "Source V3 level, repeated over8horizons",
+    "decode": "Nonnegative half predictions, adjacent sums, current inferred half added toH1",
+    "composition": "Fixed0.5 route-share redistribution of anchor residual at all8horizons; inferred current half reserved inH1"
+  },
+  "runtime": {
+    "native_threads": 2
+  },
+  "native_parameters": {
+    "objective": "tweedie",
+    "learning_rate": 0.05,
+    "num_leaves": 63,
+    "min_data_in_leaf": 200,
+    "feature_fraction": 0.8,
+    "bagging_fraction": 0.8,
+    "bagging_freq": 1,
+    "lambda_l2": 1.0,
+    "verbose": -1,
+    "num_threads": 2,
+    "tweedie_variance_power": 1.3,
+    "seed": 42
+  },
+  "lightgbm_version": "4.7.0"
+}
