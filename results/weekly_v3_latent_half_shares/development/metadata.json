@@ -75,5 +75,12 @@
     "latest_label_timestamp": "2025-10-31 17:00:00",
     "training_sources": 462,
     "rows": 3696000
+  },
+  "production_reproduction": {
+    "fresh_fit_from_raw_train": true,
+    "checkpoint_loaded": false,
+    "test_keys_verified": 8000,
+    "identical_csv_sha256": "2d870aa472552265864b43fe13bb6c683b5d879cc4d887be568dc4741ea046a1",
+    "identical_booster_sha256": "c9d65dddc00dbd6a6b54d7d1c841269caffe79c4cfed4366d800a6bf706c42ff"
   }
 }
