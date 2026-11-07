@@ -1,0 +1,17 @@
+{
+  "stage": "development",
+  "candidate": "phase8_h1_full_causal_known_offset",
+  "points": 112000,
+  "model_mean": 0.326405186936159,
+  "reference_mean": 0.3274325624835123,
+  "wins": 11,
+  "prediction_sha256": "7afce1451a855b63c6675e49da94f9428b1eae1584bda53d1d8f8212b82e41b8",
+  "public_score": null,
+  "platform_submission": false,
+  "model": "v3_mlp_full_known_h1",
+  "reference": "v3_totals_mlp_shares50",
+  "origins": "2025-10-18 through 2025-10-31 at 10:30",
+  "metric": "Mean per-origin WAPE + absolute relative bias",
+  "submission_sha256": "27a47563cf8a9aed162b0cd9666d633af49bbfab525ef2b0d820270bfc0ca209",
+  "interpretation": "Development comparison; held-out historical validation and public score unknown at export."
+}
