@@ -1,7 +1,7 @@
 {
   "model": "vlado_t_h1s600_reference",
   "model_config": "configs/v3_tweedie_h1_600.json",
-  "status": "experimental; development improvement verified; new control pending",
+  "status": "Development evaluation complete; subsequent historical control reported separately",
   "origins": [
     "2025-10-18 10:30:00",
     "2025-10-19 10:30:00",
@@ -86,12 +86,13 @@
     "origin": "2025-11-01 10:30:00",
     "latest_fitted_label": "2025-10-31 17:00:00"
   },
-  "new_control_status": "not_opened",
   "public_score": null,
   "platform_submission": false,
   "limitations": [
     "Development dates reused across model research.",
     "Six-origin screening preceded full14; all14 outcomes retained.",
-    "No new control or public-score claim."
-  ]
+    "Development scores are separate from the later historical control and platform scores."
+  ],
+  "new_control_status_at_development_export": "not_opened",
+  "subsequent_control": "../control/metadata.json"
 }
