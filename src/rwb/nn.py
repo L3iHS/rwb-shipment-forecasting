@@ -33,6 +33,9 @@ class NNConfig:
     weight_decay: float = 1e-5
     epochs: int = 6
     batch: int = 4096
+    # "mlp" flattens the recent history; "gru" reads it as a sequence before the same MLP head.
+    arch: str = "mlp"
+    rnn_hidden: int = 128
     seed: int = 0
 
 
@@ -59,11 +62,13 @@ class Data:
         return self.scale[r, o - WEEK + 1]
 
     def inputs(self, r: torch.Tensor, o: torch.Tensor, cfg: NNConfig) -> tuple[torch.Tensor, ...]:
+        """Returns (seq (B, L, 8) oldest first, static (B, S), route, slot, dow, scale)."""
         sc = self._scale_at(r, o)[:, None]
         k = torch.arange(cfg.recent, device=self.device)
         idx = (o[:, None] - k[None, :])  # (B, L)
         yx = self.ch[:2][:, r[:, None], idx] / sc[None]  # (2, B, L)
         ss = self.ch[2:][:, r[:, None], idx] / self.s_scale[:, r, o - WEEK + 1][:, :, None]  # (6, B, L)
+        seq = torch.flip(torch.cat([yx, ss], dim=0).permute(1, 2, 0), dims=[1])
         # Same clock slots as the target window (and 4 steps before it) on previous days.
         j = torch.arange(-4, HORIZON + 1, device=self.device)
         d = torch.arange(1, cfg.slot_days + 1, device=self.device)
@@ -72,11 +77,9 @@ class Data:
         wk = torch.arange(1, 5, device=self.device)
         widx = (o[:, None, None] + j[None, :, None] - WEEK * wk[None, None, :]).reshape(len(o), -1)
         weeks = self.ch[:1][:, r[:, None], widx] / sc[None]
-        flat = torch.cat([yx.permute(1, 0, 2).reshape(len(o), -1), ss.permute(1, 0, 2).reshape(len(o), -1),
-                          slots.permute(1, 0, 2).reshape(len(o), -1), weeks.permute(1, 0, 2).reshape(len(o), -1),
-                          torch.log(sc)], dim=1)
-        flat = torch.clamp(flat, 0, 20)
-        return flat, r, self.slot[o], self.dow[o], sc[:, 0]
+        static = torch.cat([slots.permute(1, 0, 2).reshape(len(o), -1), weeks.permute(1, 0, 2).reshape(len(o), -1),
+                            torch.log(sc)], dim=1)
+        return torch.clamp(seq, 0, 20), torch.clamp(static, 0, 20), r, self.slot[o], self.dow[o], sc[:, 0]
 
     def base(self, r: torch.Tensor, o: torch.Tensor) -> torch.Tensor:
         """Seasonal reference (B, H) in units of scale, same as the tree baseline."""
@@ -93,12 +96,21 @@ class Data:
 
 
 class Net(nn.Module):
-    def __init__(self, n_in: int, n_routes: int, cfg: NNConfig) -> None:
+    def __init__(self, seq_shape: tuple[int, int], n_static: int, n_routes: int, cfg: NNConfig) -> None:
         super().__init__()
         self.er = nn.Embedding(n_routes, cfg.emb_route)
         self.es = nn.Embedding(48, 8)
         self.ed = nn.Embedding(7, 4)
-        dims = [n_in + cfg.emb_route + 12] + [cfg.hidden] * cfg.layers
+        seq_len, n_ch = seq_shape
+        self.rnn: nn.GRU | None = None
+        if cfg.arch == "gru":
+            self.rnn = nn.GRU(n_ch, cfg.rnn_hidden, batch_first=True)
+            n_seq = cfg.rnn_hidden
+        elif cfg.arch == "mlp":
+            n_seq = seq_len * n_ch
+        else:
+            raise ValueError(cfg.arch)
+        dims = [n_seq + n_static + cfg.emb_route + 12] + [cfg.hidden] * cfg.layers
         blocks: list[nn.Module] = []
         for a, b in itertools.pairwise(dims):
             blocks += [nn.Linear(a, b), nn.LayerNorm(b), nn.GELU(), nn.Dropout(cfg.dropout)]
@@ -107,8 +119,10 @@ class Net(nn.Module):
         nn.init.zeros_(self.head.weight)
         nn.init.zeros_(self.head.bias)
 
-    def forward(self, flat: torch.Tensor, r: torch.Tensor, slot: torch.Tensor, dow: torch.Tensor) -> torch.Tensor:
-        z = torch.cat([flat, self.er(r), self.es(slot), self.ed(dow)], dim=1)
+    def forward(self, seq: torch.Tensor, static: torch.Tensor, r: torch.Tensor, slot: torch.Tensor,
+                dow: torch.Tensor) -> torch.Tensor:
+        s = self.rnn(seq)[1][-1] if self.rnn is not None else seq.flatten(1)
+        z = torch.cat([s, static, self.er(r), self.es(slot), self.ed(dow)], dim=1)
         return self.head(self.body(z))
 
 
@@ -126,8 +140,8 @@ def nn_fit_predict(panel: Panel, cums: Cumsums, label_cutoff: int, pred_origins:
     pairs_o = np.repeat(origins, R)
     n = len(pairs_o)
 
-    probe = data.inputs(torch.zeros(2, dtype=torch.long, device=dev), torch.full((2,), hi, device=dev), cfg)[0]
-    net = Net(probe.shape[1], R, cfg).to(dev)
+    seq0, static0 = data.inputs(torch.zeros(2, dtype=torch.long, device=dev), torch.full((2,), hi, device=dev), cfg)[:2]
+    net = Net(tuple(seq0.shape[1:]), static0.shape[1], R, cfg).to(dev)
     opt = torch.optim.AdamW(net.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
     steps = cfg.epochs * (n // cfg.batch)
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=cfg.lr, total_steps=steps, pct_start=0.1)
@@ -141,8 +155,8 @@ def nn_fit_predict(panel: Panel, cums: Cumsums, label_cutoff: int, pred_origins:
         for b in range(n // cfg.batch):
             ib = perm[b * cfg.batch : (b + 1) * cfg.batch]
             r, o = pr[ib], po[ib]
-            flat, rr, sl, dw, sc = data.inputs(r, o, cfg)
-            pred = (data.base(r, o) + net(flat, rr, sl, dw)) * sc[:, None]
+            seq, static, rr, sl, dw, sc = data.inputs(r, o, cfg)
+            pred = (data.base(r, o) + net(seq, static, rr, sl, dw)) * sc[:, None]
             y = data.target(r, o)
             loss = (pred - y).abs().sum() / y.sum().clamp_min(1.0)
             opt.zero_grad(set_to_none=True)
@@ -160,7 +174,7 @@ def nn_fit_predict(panel: Panel, cums: Cumsums, label_cutoff: int, pred_origins:
         for i, o_ in enumerate(pred_origins):
             r = torch.arange(R, device=dev)
             o = torch.full((R,), int(o_), device=dev)
-            flat, rr, sl, dw, sc = data.inputs(r, o, cfg)
-            pred = (data.base(r, o) + net(flat, rr, sl, dw)) * sc[:, None]
+            seq, static, rr, sl, dw, sc = data.inputs(r, o, cfg)
+            pred = (data.base(r, o) + net(seq, static, rr, sl, dw)) * sc[:, None]
             out[i] = pred.clamp_min(0).cpu().numpy()
     return out

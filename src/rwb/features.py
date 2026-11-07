@@ -211,3 +211,8 @@ def flat_scale(cums: Cumsums, origins: np.ndarray) -> np.ndarray:
 
 def flat_target(panel: Panel, origins: np.ndarray, h: int) -> np.ndarray:
     return _flat(panel.y[:, origins + h].astype(np.float64))
+
+
+def flat_x(cums: Cumsums, origins: np.ndarray, h: int) -> np.ndarray:
+    """Reconstructed half-hour shipments x[o+h] in origin-major order."""
+    return _flat(cums.x[:, origins + h].astype(np.float64))

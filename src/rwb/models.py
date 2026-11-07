@@ -16,6 +16,7 @@ from rwb.features import (
     build,
     flat_scale,
     flat_target,
+    flat_x,
 )
 
 log = logging.getLogger(__name__)
@@ -72,6 +73,11 @@ class GBMConfig:
     global_feats: bool = False
     flow_feats: bool = False
     decay: float = 1.0
+    # "y": hourly target directly. "x": half-hour shipments, hourly forecast = x[o+h] + x[o+h-1]
+    # with x[o] known exactly, so adjacent horizons share their half-hour estimates.
+    # "x1": only the first horizon learns the unknown half-hour; later ones learn y as usual.
+    # "ratio": non-negative y/scale without the seasonal base, for Tweedie-style objectives.
+    target: str = "y"
     seed: int = 0
     extra: dict[str, Any] = field(default_factory=dict)
 
@@ -126,7 +132,20 @@ def _fit_one(X: np.ndarray, y: np.ndarray, w: np.ndarray, names: list[str], cfg:
         m = CatBoostRegressor(**params)
         m.fit(Pool(X, y, weight=w, feature_names=names))
         return m
+    if cfg.lib == "ridge":
+        from sklearn.linear_model import Ridge
+        from sklearn.pipeline import make_pipeline
+        from sklearn.preprocessing import StandardScaler
+
+        # Linear reference on the same features; a differently biased member for the blend.
+        m = make_pipeline(StandardScaler(), Ridge(alpha=cfg.l2))
+        m.fit(X, y, ridge__sample_weight=w)
+        return m
     raise ValueError(cfg.lib)
+
+
+def _half_hour_label(cfg: GBMConfig, h: int) -> bool:
+    return cfg.target == "x" or (cfg.target == "x1" and h == 1)
 
 
 def _predict_one(model: Any, X: np.ndarray, names: list[str], cfg: GBMConfig) -> np.ndarray:
@@ -156,6 +175,11 @@ def _train_set(panel: Panel, cums: Cumsums, label_cutoff: int, anchor: int, h: i
         # Per-route cap estimated on the training window only.
         cap = np.quantile(panel.y[:, lo : label_cutoff + 1], cfg.clip_q, axis=1)
         y = np.minimum(y, np.tile(cap, len(tr)))
+    if _half_hour_label(cfg, h):
+        y = flat_x(cums, tr, h)
+        base = 0.5 * base  # the hourly base split evenly over its two half-hours
+    elif cfg.target == "ratio":
+        base = np.zeros_like(base)  # non-negative label y/scale, for Tweedie/Poisson-style objectives
     target = (y - base) / scale
     w = scale * np.repeat(_origin_weights(panel, tr, cfg), R)
     return X, target, w, names
@@ -167,6 +191,10 @@ def _predict_h(model: Any, panel: Panel, cums: Cumsums, pred_origins: np.ndarray
     if pooled:
         Xp = np.column_stack([Xp, np.full(len(Xp), h, dtype=np.float32)])
         names = names + ["h"]
+    if _half_hour_label(cfg, h):
+        base_p = 0.5 * base_p
+    elif cfg.target == "ratio":
+        base_p = np.zeros_like(base_p)
     pred = base_p + flat_scale(cums, pred_origins) * _predict_one(model, Xp, names, cfg)
     return _unflat(np.clip(pred, 0, None), len(pred_origins), panel.n_routes)
 
@@ -181,6 +209,8 @@ def gbm_fit_predict(panel: Panel, cums: Cumsums, label_cutoff: int, pred_origins
     """
     out = np.empty((len(pred_origins), panel.n_routes, HORIZON))
     anchor = int(pred_origins[0])
+    if cfg.pooled and cfg.target == "x":
+        raise ValueError("target='x' needs one model per horizon")
     if cfg.pooled:
         parts = [_train_set(panel, cums, label_cutoff, anchor, h, cfg) for h in range(1, HORIZON + 1)]
         X = np.concatenate([np.column_stack([p[0], np.full(len(p[0]), h, dtype=np.float32)])
@@ -201,4 +231,11 @@ def gbm_fit_predict(panel: Panel, cums: Cumsums, label_cutoff: int, pred_origins
         del X
         out[:, :, h - 1] = _predict_h(model, panel, cums, pred_origins, h, cfg, False)
         log.info("h=%d trained on %d rows", h, len(target))
+    x0 = cums.x[:, pred_origins].T  # (n_o, R), known at the origin
+    if cfg.target == "x":
+        # out holds half-hour estimates; the known x[o] completes the first hour.
+        xs = np.concatenate([x0[:, :, None], out], axis=2)
+        out = xs[:, :, 1:] + xs[:, :, :-1]
+    elif cfg.target == "x1":
+        out[:, :, 0] += x0
     return out

@@ -20,3 +20,4 @@ models/*
 !models/.gitkeep
 submissions/*
 !submissions/.gitkeep
+catboost_info/
