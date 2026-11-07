@@ -1,5 +1,9 @@
 import hashlib
 import os
+from importlib.util import find_spec
+from pathlib import Path
+import subprocess
+import sys
 import numpy as np
 import pytest
 
@@ -46,7 +50,17 @@ def test_failure_cleans_memmaps_and_invalid_runtime_fails(tmp_path):
 
 @pytest.mark.skipif(os.environ.get("RWB_V3_NATIVE_TESTS") != "1", reason="optional generated600-tree native smoke")
 def test_optional_native600_generated_panel(tmp_path):
-    pytest.importorskip("lightgbm")
+    if find_spec("lightgbm") is None:
+        pytest.skip("Optional LightGBM backend is required")
+    # The full suite can already have loaded PyTorch's OpenMP runtime on macOS.
+    # Use the same native-only process layout as the real tree-training command.
+    env = dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1] / "src"))
+    subprocess.run([sys.executable, str(Path(__file__).resolve()), str(tmp_path)],
+                   env=env, check=True, timeout=90)
+
+
+if __name__ == "__main__":
+    tmp_path = Path(sys.argv[1])
     prediction, audit = predict(random_panel(), tmp_path, RuntimeConfig(native_threads=2))
     assert prediction.shape == (3, 8) and np.isfinite(prediction).all() and (prediction >= 0).all()
     assert audit["n_estimators"] == 600 and audit["training_sources"] == 44
