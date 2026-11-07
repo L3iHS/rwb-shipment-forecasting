@@ -61,14 +61,34 @@ python scripts/ensemble.py xgb huber --final --out ensemble          # веса 
 Текущая посылка `ensemble_v2.csv` (лидерборд 0.323; v1 с тремя моделями — 0.324). Модели обучаются с `--final`, затем seed'ы усредняются и собирается ансамбль:
 
 ```bash
-for s in 0 1 2; do python scripts/experiment.py --name xgb_lr_s$s --seed $s --lib xgb --days 28 --stride 2 --rounds 900 --lr 0.02 --leaves 63 --min_child 200 --final; done
+XGB="--lib xgb --days 28 --stride 2 --rounds 900 --lr 0.02 --leaves 63 --min_child 200 --final"
+python scripts/experiment.py --name xgb_lr $XGB                       # seed 0
+for s in 1 2; do python scripts/experiment.py --name xgb_lr_s$s --seed $s $XGB; done
 python scripts/experiment.py --name lgbm_huber --lib lgbm --days 28 --stride 4 --rounds 400 --leaves 31 --min_child 1000 --objective huber --extra '{"alpha":1.0}' --final
 python scripts/experiment.py --name lgbm_tweedie --lib lgbm --days 28 --stride 4 --rounds 600 --leaves 31 --min_child 1000 --objective tweedie --target ratio --extra '{"tweedie_variance_power":1.5}' --final
-for s in 0 1 2; do python scripts/experiment_nn.py --name mlp_big_s$s --seed $s --epochs 12 --days 84 --hidden 1024 --dropout 0.2 --recent 192 --final; done
-python scripts/bag_oof.py xgb_lr_s0 xgb_lr_s1 xgb_lr_s2 --out xgb_lr_bag3
-python scripts/bag_oof.py mlp_big_s0 mlp_big_s1 mlp_big_s2 --out mlp_bag3
+MLP="--epochs 12 --days 84 --hidden 1024 --dropout 0.2 --recent 192 --final"
+python scripts/experiment_nn.py --name mlp_big $MLP                   # seed 0
+for s in 1 2; do python scripts/experiment_nn.py --name mlp_big_s$s --seed $s $MLP; done
+python scripts/bag_oof.py xgb_lr xgb_lr_s1 xgb_lr_s2 --out xgb_lr_bag3
+python scripts/bag_oof.py mlp_big mlp_big_s1 mlp_big_s2 --out mlp_bag3
 python scripts/ensemble.py xgb_lr_bag3 lgbm_huber mlp_bag3 lgbm_tweedie --final --out ensemble_v2
 python scripts/organizer_baseline.py                                  # baseline организаторов на тех же фолдах
 ```
 
 Результаты прогонов пишутся в `models/results.jsonl`, предсказания фолдов — в `models/oof/`, посылки — в `submissions/`.
+
+### Сохранённые предсказания
+
+Обучение всех моделей v2 занимает около 2.5 часов на RTX 4060 Laptop, поэтому их результаты лежат в репозитории (остальное содержимое `models/` и `submissions/` по-прежнему исключено из Git):
+
+- `models/oof/<имя>.npz` — прогнозы на 14 днях валидации (`pred_fold0/1`) и истинные значения (`truth_fold0/1`) для `xgb_lr`, `xgb_lr_s1`, `xgb_lr_s2`, `lgbm_huber`, `lgbm_tweedie`, `mlp_big`, `mlp_big_s1`, `mlp_big_s2` и усреднённых `xgb_lr_bag3`, `mlp_bag3`;
+- `models/oof/<имя>_test.npy` — их прогнозы на тест, массив маршрут × 8 шагов;
+- `submissions/ensemble_v1.*`, `submissions/ensemble_v2.*` — посылки (лидерборд 0.324 и 0.323) и их коэффициенты;
+- `models/results.jsonl` — журнал всех прогонов с конфигурациями и результатами.
+
+С ними ноутбуки `solution_v1/v2.ipynb` выполняются за минуту без обучения. Чтобы проверить новую модель на тех же днях, достаточно обучить только её и смешать с готовыми:
+
+```bash
+python scripts/experiment.py --name my_model ... --final
+python scripts/ensemble.py xgb_lr_bag3 lgbm_huber mlp_bag3 lgbm_tweedie my_model
+```
