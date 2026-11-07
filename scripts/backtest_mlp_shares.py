@@ -15,7 +15,7 @@ from rwb_forecasting.candidates import configured_comparison
 from rwb_forecasting.data import ForecastData
 from rwb_forecasting.experiments import compare_models
 from rwb_forecasting.known_offset import CANDIDATE as H1, replace_h1_offset
-from rwb_forecasting.mlp_model import predict_latent_mlp
+from rwb_forecasting.mlp_isolation import predict_latent_mlp_isolated
 from rwb_forecasting.mlp_submission import CANDIDATE, compose_v3_mlp
 from rwb_forecasting.v3_boosting import CANDIDATE as RAW, predict as predict_v3
 
@@ -35,7 +35,7 @@ def predictors(directory, include_known_h1=False):
             v3, v3_audit = predict_v3(history, directory)
             mae, mae_audit = refs[MAE](history)
             mass, mass_audit = refs[MASS](history)
-            raw_mlp, mlp_audit = predict_latent_mlp(history)
+            raw_mlp, mlp_audit = predict_latent_mlp_isolated(history)
             result, blend = compose_v3_mlp(np.ascontiguousarray(mae), np.ascontiguousarray(v3), raw_mlp)
             forecasts = {RAW: (v3, v3_audit), MAE: (mae, mae_audit), MASS: (mass, mass_audit),
                          CANDIDATE: (result, {"v3": v3_audit, "mae25": mae_audit,
