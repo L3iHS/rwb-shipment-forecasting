@@ -71,15 +71,16 @@ python scripts/plot_backtest.py --run-dir .local/runs/ridge_features
 
 ## Готовый CSV для платформы
 
-Лучший средний score на 14 датах разработки у `submissions/weekly_route_window_l1.csv`. На этих же датах доступны предыдущие варианты.
+Две модели получили **0,328** на публичном лидерборде. В таблице приведены оценки, показанные платформой участнику 7 ноября, и средние локальные результаты за 18–31 октября. [История ручных загрузок](results/public_scores.csv).
 
-| CSV в `submissions/` | Средний score | Воспроизведение |
-|---|---:|---|
-| `weekly_route_window_l1.csv` | 0,326236 | [Объём маршрута за окно](docs/route-window.md) |
-| `h1_centered_stage_flow.csv` | 0,326326 | [Поток между этапами](docs/stage-flow.md) |
-| `v3_mlp_full_known_h1.csv` | 0,326405 | [Уточнение первого часа](docs/full-known-h1.md) |
+| Файл в `submissions/` | Публичный score | Локально, 14 дат | Воспроизведение |
+|---|---:|---:|---|
+| `v3_totals_mlp_shares50.csv` | 0,328 | 0,327433 | [Доли маршрутов из MLP](docs/latent_mlp.md) |
+| `v3_mlp_full_known_h1.csv` | 0,328 | 0,326405 | [Уточнение первого часа](docs/full-known-h1.md) |
+| `h1_centered_stage_flow.csv` | 0,329 | 0,326326 | [Поток между этапами](docs/stage-flow.md) |
+| `weekly_route_window_l1.csv` | 0,329 | 0,326236 | [Объём маршрута за окно](docs/route-window.md) |
 
-Основа трёх прогнозов — `submissions/v3_totals_mlp_shares50.csv`. На 14 датах разработки — **0,327433** против **0,327937** у исходной V3 (лучше на 13 датах). Сеть перераспределяет объём по маршрутам, сохраняя прогноз V3 на первый горизонт и её суммы на следующих семи. [Воспроизведение](docs/latent_mlp.md) · [Результаты по датам](results/v3_totals_mlp_shares50/development/folds.csv). Публичный score этого CSV неизвестен.
+На отдельной неделе с 30 августа по 5 сентября уточнение первого часа снизило средний score с 0,330840 до 0,330071. У модели MAE25 на той же неделе было 0,328463. [Все пять моделей по датам](results/v3_mlp_full_known_h1/control/folds.csv).
 
 Новый экспериментальный файл — **`submissions/v3_tweedie_h1_600.csv`**. Это воспроизведение модели Владо: локальный средний score **0,327937** против **0,332149** у `mae_share_mass25`, выигрыш на **11 из 14** дат. На семи контрольных датах score **0,333661** против **0,336162** у `mae_share_mass25` и **0,336857** у `latent_mass_blend50`: выигрыш у обоих на **6 из 7** дат. Публичный результат неизвестен. [Модель, результаты и команды воспроизведения](docs/v3_tweedie_h1_600.md).
 
@@ -91,7 +92,7 @@ python scripts/run_v3.py submit --config configs/v3_tweedie_h1_600.json \
 
 Для модели требуется `lightgbm==4.7.0`, включённый в `requirements.txt`. Команда создаёт новый локальный CSV и не отправляет его на платформу.
 
-Лучший подтверждённый публичный результат пока относится к `latent_mass_blend50`:
+Команда сборки предыдущего прогноза `latent_mass_blend50.csv`
 
 ```bash
 python scripts/make_candidate_submission.py --config configs/latent_mass_blend50.json
