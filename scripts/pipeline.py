@@ -117,8 +117,8 @@ def cmd_monitor(a: argparse.Namespace) -> None:
     log.info("alerts:\n%s", al.to_string(index=False) if len(al) else "none")
 
 
-def cmd_report(a: argparse.Namespace) -> None:
-    """Self-contained dispatcher board (one HTML file, works offline) for the forecast origin."""
+def board_data(a: argparse.Namespace) -> dict:
+    """Everything the dispatcher board shows for the forecast origin: plan, bands, monitor, backtest."""
     svc = Service.load(BUNDLE)
     panel = load_panel()
     cums = cumsums(panel)
@@ -146,6 +146,7 @@ def cmd_report(a: argparse.Namespace) -> None:
         "p10": np.round(fc["p10"][r]).astype(int).tolist(), "p50": np.round(fc["p50"][r]).astype(int).tolist(),
         "p90": np.round(fc["p90"][r]).astype(int).tolist(),
         "c50": np.round(fc["inflow"][r]).astype(int).tolist(), "c90": np.round(fc["inflow_p90"][r]).astype(int).tolist(),
+        "cr": np.round(fc["inflow_risk"][r]).astype(int).tolist(),  # inflow the call rule uses
     } for r in range(panel.n_routes)]
     p50_total = fc["p50"].sum(axis=0)
     data = {
@@ -165,12 +166,26 @@ def cmd_report(a: argparse.Namespace) -> None:
                      "point": bt["point"]["all_origins"], "week": [str(panel.times[ev["origins"][0]].date()),
                                                                    str(panel.times[ev["origins"][-1]].date())]},
     }
+    return data
+
+
+def cmd_report(a: argparse.Namespace) -> None:
+    """Self-contained dispatcher board (one HTML file, works offline) for the forecast origin."""
+    data = board_data(a)
     html = (ROOT / "src/rwb/board.html").read_text(encoding="utf-8")
     html = html.replace("/*__DATA__*/null", json.dumps(data, ensure_ascii=False, separators=(",", ":")))
     OUT.mkdir(exist_ok=True)
     out = OUT / "dispatch_board.html"
     out.write_text(html, encoding="utf-8")
     log.info("board %s (%.0f KB)", out, out.stat().st_size / 1024)
+
+
+def cmd_export(a: argparse.Namespace) -> None:
+    """The board data as JSON for the React dispatcher console (frontend/)."""
+    out = Path(a.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(board_data(a), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    log.info("board data %s (%.0f KB)", out, out.stat().st_size / 1024)
 
 
 def main() -> None:
@@ -188,9 +203,14 @@ def main() -> None:
     r = sub.add_parser("report")
     r.add_argument("--at", default=None)
     r.add_argument("--name", default="lean")
+    e = sub.add_parser("export")
+    e.add_argument("--at", default=None)
+    e.add_argument("--name", default="lean")
+    e.add_argument("--out", default=str(ROOT / "frontend/public/board.json"))
     a = p.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s", datefmt="%H:%M:%S")
-    {"train": cmd_train, "forecast": cmd_forecast, "monitor": cmd_monitor, "report": cmd_report}[a.cmd](a)
+    {"train": cmd_train, "forecast": cmd_forecast, "monitor": cmd_monitor, "report": cmd_report,
+     "export": cmd_export}[a.cmd](a)
 
 
 if __name__ == "__main__":
