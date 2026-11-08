@@ -25,10 +25,12 @@ from rwb.features import DAY, cumsums
 from rwb.forecaster import LEAN, Forecaster
 from rwb.intervals import Conformal
 from rwb.monitor import alerts, daily_metrics
+from rwb.model_audit import available_calibration_mask
 from rwb.service import Service, ServiceConfig, forecast_table, route_level
+from rwb.snapshot import SnapshotStore
 
 log = logging.getLogger("pipeline")
-BUNDLE = ROOT / "models/prod/service"
+BUNDLE = ROOT / "models/prod/service_v2"
 ROLL = ROOT / "models/rolling"
 OUT = ROOT / "outputs"
 
@@ -66,41 +68,39 @@ def cmd_forecast(a: argparse.Namespace) -> None:
     panel = load_panel()
     cums = cumsums(panel)
     o = origin_index(panel, a.at)
-    if o < svc.forecaster.label_cutoff and a.at is not None:
-        log.warning("forecasting from %s with a model trained up to %s: in-sample, for demo only",
-                    panel.times[o], panel.times[svc.forecaster.label_cutoff])
     t1 = time.time()
-    fc = svc.forecast(panel, cums, o)
-    t_fc = time.time()
-    dock = svc.dock_state(panel, cums, o)  # a live system reads it from the warehouse instead
-    plan = svc.plan(panel, o, fc, dock)
+    snapshot, hit = SnapshotStore(ROOT / ".local/colhound/snapshots", ROOT / "reports/colhound/service_v2/report.json").get_or_create(svc, panel, cums, o)
     t2 = time.time()
     OUT.mkdir(exist_ok=True)
     stamp = panel.times[o].strftime("%Y%m%d_%H%M")
-    forecast_table(panel, o, fc).to_csv(OUT / f"forecast_{stamp}.csv", index=False)
-    plan.to_csv(OUT / f"trucks_{stamp}.csv", index=False)
+    records = [{"route_id": row["route_id"], "timestamp": timestamp,
+                **{name: row["forecast"][name][h] for name in ("point_forecast", "p10", "p50", "p90")}}
+               for row in snapshot["routes"] for h, timestamp in enumerate(snapshot["forecast_times"])]
+    pd.DataFrame(records).to_csv(OUT / f"forecast_{stamp}.csv", index=False)
+    pd.DataFrame([{k: v for k, v in row.items() if k not in ("forecast", "history", "evidence_ids")}
+                  for row in snapshot["routes"]]).to_csv(OUT / f"trucks_{stamp}.csv", index=False)
+    (OUT / f"snapshot_{stamp}.json").write_text(json.dumps(snapshot, ensure_ascii=False, allow_nan=False), encoding="utf-8")
     if o == panel.n_times - 1:
-        make_submission(panel, fc["p50"]).to_csv(OUT / "submission_service.csv", index=False)
-    log.info("forecast from %s: load %.1fs, forecast %.1fs, dock replay + plan %.1fs",
-             panel.times[o], t1 - t0, t_fc - t1, t2 - t_fc)
-    log.info("routes: call a truck now %d, within 4h %d, stale data %d; 4h volume %.3g (p90 %.3g)",
-             int(plan["call_now"].sum()), int(plan["call_at"].notna().sum()), int(plan["stale_data"].sum()),
-             fc["inflow"][:, -1].sum(), fc["inflow_p90"][:, -1].sum())
+        point = np.array([r["forecast"]["point_forecast"] for r in snapshot["routes"]])
+        make_submission(panel, point).to_csv(OUT / "submission_service.csv", index=False)
+    log.info("forecast from %s: load %.1fs, shared snapshot %.1fs, cache_hit=%s, snapshot_id=%s",
+             panel.times[o], t1 - t0, t2 - t1, hit, snapshot["snapshot_id"])
 
 
 def truth_at(panel, origins: np.ndarray) -> np.ndarray:
-    return np.nan_to_num(np.stack([panel.y[:, o + 1 : o + 1 + HORIZON] for o in origins]))
+    return np.stack([panel.y[:, o + 1 : o + 1 + HORIZON] for o in origins])
 
 
 def monitor_frame(panel, cums, name: str, daily: bool) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Forecast log of the latest week (bands calibrated on the week before) against actuals."""
     cal, ev = np.load(ROLL / f"{name}_fold1.npz"), np.load(ROLL / f"{name}_fold0.npz")
-    bands = Conformal().fit(cal["pred"].astype(np.float64), truth_at(panel, cal["origins"]),
+    keep_cal = available_calibration_mask(cal["origins"], int(ev["origins"][0]), HORIZON)
+    bands = Conformal().fit(cal["pred"][keep_cal].astype(np.float64), truth_at(panel, cal["origins"][keep_cal]),
                             route_level(cums, int(cal["origins"][0])))
     o = ev["origins"]
     keep = (o - o[0]) % DAY == 0 if daily else np.ones(len(o), dtype=bool)
     o, pred = o[keep], ev["pred"][keep].astype(np.float64)
-    lvl = route_level(cums, int(ev["origins"][0]))
+    lvl = route_level(cums, int(cal["origins"][0]))
     df = daily_metrics(pred, truth_at(panel, o), panel.times[o],
                        bands.quantile(pred, lvl, 0.1), bands.quantile(pred, lvl, 0.9))
     return df, alerts(df)
@@ -123,38 +123,31 @@ def cmd_report(a: argparse.Namespace) -> None:
     panel = load_panel()
     cums = cumsums(panel)
     o = origin_index(panel, a.at)
-    fc = svc.forecast(panel, cums, o)
-    dock = svc.dock_state(panel, cums, o)
-    plan = svc.plan(panel, o, fc, dock)
+    snapshot, cache_hit = SnapshotStore(ROOT / ".local/colhound/snapshots", ROOT / "reports/colhound/service_v2/report.json").get_or_create(svc, panel, cums, o)
     df, al = monitor_frame(panel, cums, a.name, daily=True)
-    bt = json.loads((ROOT / f"reports/service/{a.name}.json").read_text(encoding="utf-8"))
-
-    # Network band: ratio actual / forecast of the all-route total per horizon over the latest week.
+    bt = json.loads((ROOT / "reports/colhound/service_v2/report.json").read_text(encoding="utf-8"))
     ev = np.load(ROLL / f"{a.name}_fold0.npz")
-    ratio = truth_at(panel, ev["origins"]).sum(axis=1) / ev["pred"].astype(np.float64).sum(axis=1)  # (n_o, H)
-    net_lo, net_hi = np.quantile(ratio, 0.1, axis=0), np.quantile(ratio, 0.9, axis=0)
 
     now = panel.times[o]
     hist_n = 16
     hist = np.nan_to_num(panel.y[:, o - hist_n + 1 : o + 1])
-    cap = svc.capacity
-    wait = [-1 if pd.isna(c) else int((c - now) / STEP) for c in plan["call_at"]]
-    routes = [{
-        "id": int(panel.routes[r]), "cap": round(float(cap[r])), "bl": round(float(dock.backlog[r] / cap[r]), 3),
-        "way": int(dock.on_the_way[r]), "dock": int(dock.at_dock[r]), "call": wait[r],
-        "h": np.round(hist[r]).astype(int).tolist(),
-        "p10": np.round(fc["p10"][r]).astype(int).tolist(), "p50": np.round(fc["p50"][r]).astype(int).tolist(),
-        "p90": np.round(fc["p90"][r]).astype(int).tolist(),
-        "c50": np.round(fc["inflow"][r]).astype(int).tolist(), "c90": np.round(fc["inflow_p90"][r]).astype(int).tolist(),
-    } for r in range(panel.n_routes)]
-    p50_total = fc["p50"].sum(axis=0)
+    routes = []
+    for row in snapshot["routes"]:
+        fc = row["forecast"]
+        routes.append({"id": row["route_id"], "cap": row["capacity"], "bl": row["backlog_loads"],
+            "way": row["trucks_on_the_way"], "dock": row["trucks_at_dock"],
+            "call": -1 if row["call_at"] is None else int((pd.Timestamp(row["call_at"]) - now) / STEP),
+            "h": row["history"], "point": fc["point_forecast"], "p10": fc["p10"], "p50": fc["p50"], "p90": fc["p90"],
+            "cpoint": fc["inflow_point"], "c50": fc["inflow_p50"], "c90": fc["inflow_p90"], "stale": row["stale_data"]})
+    net = snapshot["network"]
     data = {
         "now": now.isoformat(), "step_min": 30, "hist_n": hist_n,
+        "snapshot_id": snapshot["snapshot_id"], "dock_state_source": snapshot["dock_state_source"],
         "model": {"trained_until": str(panel.times[svc.forecaster.label_cutoff]), "lib": svc.forecaster.cfg.lib,
                   "objective": svc.forecaster.cfg.objective, "lead_h": svc.cfg.lead / 2,
                   "fill_hours": svc.cfg.fill_hours, "max_wait_h": svc.cfg.max_wait / 2, "risk": svc.cfg.risk},
-        "network": {"hist": np.round(hist.sum(axis=0)).tolist(), "p50": np.round(p50_total).tolist(),
-                    "lo": np.round(p50_total * net_lo).tolist(), "hi": np.round(p50_total * net_hi).tolist()},
+        "network": {"hist": np.round(hist.sum(axis=0)).tolist(), "point": net["point_forecast"], "p50": net["p50"],
+                    "lo": net["p10"], "hi": net["p90"], "inflow_point": net["inflow_point"], "inflow_p90": net["inflow_p90"]},
         "routes": routes,
         "monitor": [{"day": r.origin.strftime("%d.%m"), "wape": r.wape, "bias": r.bias, "cov": r.coverage}
                     for r in df.itertuples()],
@@ -166,7 +159,7 @@ def cmd_report(a: argparse.Namespace) -> None:
                                                                    str(panel.times[ev["origins"][-1]].date())]},
     }
     html = (ROOT / "src/rwb/board.html").read_text(encoding="utf-8")
-    html = html.replace("/*__DATA__*/null", json.dumps(data, ensure_ascii=False, separators=(",", ":")))
+    html = html.replace("/*__DATA__*/null", json.dumps(data, ensure_ascii=False, separators=(",", ":"), allow_nan=False))
     OUT.mkdir(exist_ok=True)
     out = OUT / "dispatch_board.html"
     out.write_text(html, encoding="utf-8")

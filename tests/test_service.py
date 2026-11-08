@@ -104,3 +104,10 @@ def test_forecaster_survives_save_and_load(tmp_path):
     after = Forecaster.load(tmp_path / "bundle").predict(panel, cums, origins)
     assert before.shape == (2, R, 8) and np.isfinite(before).all()
     np.testing.assert_allclose(after, before, rtol=1e-6)
+    from rwb.service import Service, ServiceConfig
+
+    service = Service.calibrate(fc, cums, panel, origins[:1], before[:1], ServiceConfig())
+    service.save(tmp_path / "service_v2")
+    loaded = Service.load(tmp_path / "service_v2")
+    np.testing.assert_array_equal(loaded.forecast(panel, cums, cut)["point_forecast"], before[0])
+    assert loaded.calibration_metadata == service.calibration_metadata

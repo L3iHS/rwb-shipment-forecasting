@@ -32,12 +32,21 @@ class Conformal:
 
     def fit(self, pred: np.ndarray, truth: np.ndarray, level: np.ndarray) -> "Conformal":
         """pred, truth: (n_origins, R, H); level: (R,) route volume measured before the calibration data."""
+        if pred.ndim != 3 or pred.shape != truth.shape or level.shape != (pred.shape[1],):
+            raise ValueError("Invalid calibration shapes")
+        if not np.isfinite(pred).all() or not np.isfinite(truth).all() or not np.isfinite(level).all():
+            raise ValueError("Calibration requires finite data; missing facts are not zeros")
+        if (pred < 0).any() or (truth < 0).any() or (level < 0).any() or not len(pred):
+            raise ValueError("Calibration requires nonnegative data and at least one origin")
         groups, self.edges = size_groups(level)
         rel = truth / (pred + self.eps) - 1.0
         H = pred.shape[2]
         self.table = np.empty((H, N_GROUPS, len(self.probs)))
         for g in range(N_GROUPS):
             r = rel[:, groups == g, :]
+            if not r.shape[1]:
+                # Network calibration (one series) and small panels have empty size groups.
+                r = rel
             for h in range(H):
                 v = r[:, :, h].ravel()
                 self.table[h, g] = np.quantile(v[np.isfinite(v)], self.probs)
@@ -51,6 +60,14 @@ class Conformal:
         k = self.probs.index(p)
         q = self.table[:, groups, k].T  # (R, H)
         return np.clip((pred + self.eps) * (1.0 + q), 0, None)
+
+    def cumulative_quantile(self, pred: np.ndarray, level: np.ndarray, p: float) -> np.ndarray:
+        """Monotone rearrangement over horizons; coverage must be evaluated after this step.
+
+        Sorting each horizon sequence preserves quantile order between probabilities.
+        These remain marginal horizon bands, not simultaneous path guarantees.
+        """
+        return np.sort(self.quantile(pred, level, p), axis=-1)
 
 
 def coverage(lo: np.ndarray, hi: np.ndarray, truth: np.ndarray) -> float:

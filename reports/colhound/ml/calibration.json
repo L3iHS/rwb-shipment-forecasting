@@ -1,0 +1,38 @@
+{
+  "lgbm_huber": {
+    "scale": 1.0075,
+    "fit_fold": "fold1",
+    "evaluate_fold": "fold0"
+  },
+  "lgbm_huber_blr": {
+    "scale": 0.995,
+    "fit_fold": "fold1",
+    "evaluate_fold": "fold0"
+  },
+  "lgbm_tweedie": {
+    "scale": 1.0025,
+    "fit_fold": "fold1",
+    "evaluate_fold": "fold0"
+  },
+  "ensemble_v2": {
+    "weights": [
+      0.5482962369948899,
+      0.10478479204948755,
+      0.254499738974472,
+      0.11491923198114898
+    ],
+    "h_scale": [
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fit_fold": "fold1",
+    "evaluate_fold": "fold0",
+    "weight_fit_seconds": 4.9671762003563344
+  }
+}

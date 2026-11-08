@@ -2,6 +2,10 @@
 
 План ближайшей сдачи в ветке `Colhound`: [реализация на 48 часов](docs/implementation_plan.md), [протокол ML](docs/ml_validation_protocol.md), [контракт фронта и агента](docs/agent_contract.md), [журнал работы](docs/work_log.md). Новые задачи и статусы фиксируются там.
 
+Первый этап выполнен: [ML-аудит и замеры сервиса](docs/ml_audit_results.md). Сравнение воспроизводится через `python scripts/compare_service_models.py --output .local/colhound/ml_new_run --benchmark --threads 4`; каталог результатов должен быть новым. У кэша данных добавлена проверка исходного train по SHA-256.
+
+Текущая версия сервиса в `Colhound`: [v2 — результаты, подготовка пакета и запуск](docs/service_v2_results.md), [ноутбук v2](notebooks/service_v2.ipynb). Проверенные отчёты включены в репозиторий. После клонирования этой ветки и установки `requirements-service.txt` выполните `python scripts/prepare_service_v2.py`, затем `python scripts/pipeline.py forecast` и `python scripts/pipeline.py report`. Подготовка использует сохранённые модели без переобучения и требует отсутствующего/пустого каталога `models/prod/service_v2`. Для повторной оценки используйте новый каталог: `python scripts/validate_service_v2.py --output .local/colhound/reproduce_service_v2`. Старые разделы ниже и `solution_service.ipynb` описывают историческую версию v1; показатели эффекта/скорости берите из нового отчёта.
+
 Решение кейса RWB «Отгрузки без простоев» для кейс-чемпионата Т1, 2026.
 
 [Соревнование WB Space](https://wbspace.wb.ru/competitions/kejs-chempionat) · [Техническое задание](docs/task.md) · [Данные и исходные материалы](data/README.md)

@@ -1,0 +1,35 @@
+{
+  "benchmark": {
+    "inference_threads": 4,
+    "raw_load_no_cache_seconds": 1.3801187998615205,
+    "cumsums_seconds": 3.237963099963963,
+    "bundle_load_seconds": 2.740069500170648,
+    "prediction_seconds_3_runs": [
+      2.9282045997679234,
+      3.127342900261283,
+      2.7947732000611722
+    ],
+    "reload_and_predict_seconds": 3.1466761003248394,
+    "reload_predictions_identical": true,
+    "matches_archived_test_forecast": true,
+    "archived_test_max_abs_difference": 0.0,
+    "service_forecast_seconds": 3.0590421999804676,
+    "dock_replay_seconds": 25.5712830000557,
+    "plan_seconds": 0.016109199728816748,
+    "cold_pipeline_components_seconds": 36.00458579976112,
+    "bundle_bytes": 12065761,
+    "model_count": 8,
+    "memory": {
+      "peak_rss_bytes": 1766420480,
+      "measurement": "Windows PeakWorkingSetSize, entire audit process"
+    },
+    "scope": "One local dataset/snapshot; includes simulated dock state, excludes HTTP and LLM. Full-audit peak is not isolated inference RAM.",
+    "service_semantics": {
+      "point_outside_p10_p90_count": 0,
+      "decreasing_cumulative_inflow_count": 2
+    }
+  },
+  "archive_audit_seconds": 8.805149900261313,
+  "total_audit_seconds": 56.91162480041385,
+  "forecast_models_retrained": false
+}

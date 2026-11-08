@@ -1,0 +1,47 @@
+{
+  "status": "complete",
+  "created_utc": "2026-11-08T18:51:43.055542+00:00",
+  "commit": "ff5d3800ea7175eab95802fe4bff1da3fd0ebfe2",
+  "files": {
+    "src/rwb/__init__.py": "6e80968d6be94d149fac104306f99402befcec1884d54ae25cf15d920a00149f",
+    "src/rwb/backtest.py": "37782bf48606ee2e1db393996e88f0eaaebc6ab01fffebe51840e2c642ed7dd0",
+    "src/rwb/data.py": "0cb0992ef2ad5a497f2c5be97682862094b5c4a100c9341f77e594045ca94079",
+    "src/rwb/dispatch.py": "aec953c9bd0cdbf6b8955dfe3522c471a128e3157e1884fc7ff12df991aec366",
+    "src/rwb/features.py": "d6cb7850eb715f0b6f8faadd83dbfa78d3951405f683df18d1150f7f65fb4eed",
+    "src/rwb/flows.py": "224fd495cabc89c843fde02446db948e7fc4e75ee28060f7d3aaf45c7d1e8d5c",
+    "src/rwb/forecaster.py": "aad78286e1d54f3a639de75086ac5ffd965b4981bc83ca758056ab831cfe341c",
+    "src/rwb/intervals.py": "bba0a0d20fd71ea8c4e689b1433f62eca92831ef06ab76378c1353f8b6ad87d0",
+    "src/rwb/model_audit.py": "86c6e64d55857698afc5bf2c89ecdd692045f54e1bb08f53ca6a8b23ba68a0b9",
+    "src/rwb/models.py": "527b6021c4bfe8260146f49e2ccac4066deff960d1b8457a844e03bc8adb1641",
+    "src/rwb/monitor.py": "9b0a061fcf09bd64e45a610eca6945e8e0ed2c98d6a5c49bcd53922065195e4c",
+    "src/rwb/nn.py": "2a0446d9112080d64dd623ddefd6334c0b598fc92eaeeeff6dd9f6f0b770bfea",
+    "src/rwb/service.py": "eb1cf191f82b23d74604e8a3c63a8ddf3437eee1295e3aec01a47c4f0279d618",
+    "src/rwb/snapshot.py": "0a6b2a05df54180600fd3f29a04c80d4a353195c87bd486706e8ad8d1437ee34",
+    "scripts/validate_service_v2.py": "e8cf324ac8dfec8ffc774c4be88f93fc611b757b02cff5df83beabeba605184a",
+    "models/rolling/lean_fold0.npz": "c47e9ce71a95079733dbabb86fc20660cf968509298dfd13a63a6500614be30f",
+    "models/rolling/lean_fold1.npz": "591c7380d0298543db74a379da4ab12d4e71e95e492345ff0aa3e1455b75a9d6",
+    "data/raw/train_solo_track.parquet": "300aecbe2d3dc28be03bff957ba56ab20c7fa8ceb81b0301822d4bf6473bd076",
+    "docs/next_stage_plan.md": "5f906b1d3982ddbaebb18207a811a49c736b164bd76fcf0f2dba517c0bc7aa5f"
+  },
+  "plan": {
+    "fit": "fold1, retaining only origins whose final label is known at first evaluation origin",
+    "evaluate": "fold0",
+    "weights": "fixed equal least-squares weights",
+    "quantile_projection": "sort horizons",
+    "methods": [
+      "legacy_v1",
+      "nonnegative_hourly_least_squares_v1"
+    ],
+    "dispatch": "lead 1/2/4 steps; capacity 1/2/4 hours of mean flow; max_wait 4 steps",
+    "independent_holdout": false,
+    "future_model_training": false,
+    "acceptance": "physical invariants mandatory; quantify WAPE, coverage and simulation changes without claiming uniform improvement"
+  },
+  "outputs": {
+    "dispatch_per_day.csv": "e6f7027478bfc8ba319b7da05f4d6f44ad68bcf3bb60a0793cfe893402a20632",
+    "intervals.csv": "82ece4fcaa0500b27790cc15f46148ffe1619c0010499ade7fa11249a6b63e46",
+    "report.json": "30981788543a541c35cfe8c339e8e327874be667056ed3140d7f8675895ab911",
+    "sensitivity.csv": "db4f5b4ed33608371199905a5067b8d80c78e6fdf7d143b05372b53f0013f3d5",
+    "summary.csv": "62a7ff356a418d5cf56bd4d512d48bc6057904a4d017945f2394cd998a233c20"
+  }
+}
