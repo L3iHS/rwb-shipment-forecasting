@@ -1,5 +1,7 @@
 # RWB Shipment Forecasting
 
+План ближайшей сдачи в ветке `Colhound`: [реализация на 48 часов](docs/implementation_plan.md), [протокол ML](docs/ml_validation_protocol.md), [контракт фронта и агента](docs/agent_contract.md), [журнал работы](docs/work_log.md). Новые задачи и статусы фиксируются там.
+
 Решение кейса RWB «Отгрузки без простоев» для кейс-чемпионата Т1, 2026.
 
 [Соревнование WB Space](https://wbspace.wb.ru/competitions/kejs-chempionat) · [Техническое задание](docs/task.md) · [Данные и исходные материалы](data/README.md)
