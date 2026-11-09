@@ -34,6 +34,50 @@ export function callStep(r: Route, lead: number, risk: Risk): number {
 export const loadsAt = (r: Route, k: number, risk: Risk) => r.bl + (risk === "p90" ? r.c90 : r.c50)[k] / r.cap;
 
 export const inbound = (r: Route) => r.way + r.dock;
+/** Truckloads at the dock that no called truck will take: the cargo that is actually waiting for a decision. */
+export const uncovered = (r: Route) => Math.max(0, r.bl - inbound(r));
+
+/** Trucks to call right now so the route stops being urgent; 0 when it is not time to call yet. */
+export function trucksDue(r: Route, lead: number, risk: Risk): number {
+  if (callStep(r, lead, risk) !== 0) return 0;
+  let n = 1;
+  while (n < 10 && callStep({ ...r, way: r.way + n }, lead, risk) === 0) n++;
+  return n;
+}
+
+/** Step at which the dock holds `level` full truckloads (0 = already), or null if not within the horizon. */
+export function fillStep(r: Route, level: number, risk: Risk): number | null {
+  if (r.bl >= level) return 0;
+  const k = (risk === "p90" ? r.c90 : r.cr).findIndex((c) => r.bl + c / r.cap >= level);
+  return k < 0 ? null : k + 1;
+}
+
+export interface Idle {
+  steps: number; // steps the trucks called here stand at the dock waiting for their load, in total
+  open: boolean; // at least one of them is not loaded within the horizon, so the real figure is larger
+  early: number; // how many of them wait at all
+  lastFill: number | null; // step at which the last one gets its load; null = beyond the horizon
+}
+
+/**
+ * The price of calling ahead of the rule. A truck called now arrives after `lead` steps; it stands idle until the dock
+ * holds a full load for it. `r` already counts the `calledHere` trucks in `way`. A call the rule asked for costs nothing.
+ */
+export function calledIdle(r: Route, calledHere: number, lead: number, risk: Risk): Idle {
+  const base = inbound(r) - calledHere, horizon = r.cr.length;
+  const idle: Idle = { steps: 0, open: false, early: 0, lastFill: 0 };
+  for (let i = 1; i <= calledHere; i++) {
+    const fill = fillStep(r, base + i, risk);
+    const wait = fill == null ? horizon - lead : fill - lead;
+    idle.lastFill = fill;
+    if (fill == null) idle.open = true;
+    if (wait > 0) {
+      idle.steps += wait;
+      idle.early++;
+    }
+  }
+  return idle;
+}
 export const waitsWithoutTruck = (r: Route) => r.bl >= 1 && inbound(r) === 0;
 
 /** Relative width of the 80% band: how sure the forecast is for this route. */

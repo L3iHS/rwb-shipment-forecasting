@@ -1,10 +1,10 @@
 import { AnimatePresence, motion } from "motion/react";
-import { Check, Undo2 } from "lucide-react";
+import { Check, Clock, Undo2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { Board, Route } from "../data";
 import { dec2, hhmm, leadLabel, plural, vol } from "../format";
 import { base } from "../motion";
-import { clock, inbound, loadsAt, spread, type Risk } from "../plan";
+import { calledIdle, clock, fillStep, inbound, loadsAt, spread, trucksDue, type Idle, type Risk } from "../plan";
 import { Dock, Fan, Meter, TruckGauge } from "./charts";
 import { Segmented } from "./Segmented";
 
@@ -18,17 +18,27 @@ function confidence(r: Route, cuts: [number, number]): { label: string; level: 1
   return { label: "неуверенный", level: 1, note: "Широкий коридор: держите резервную машину" };
 }
 
-type Tone = "act" | "done" | "plain";
+type Tone = "act" | "done" | "warn" | "plain";
+const TONE: Record<Tone, string> = { act: "text-signal", done: "text-forecast", warn: "text-alert", plain: "" };
 
-/** The headline of the card. After a call made here it reports the call first, then what comes next. */
-function verdict(board: Board, r: Route, call: number, lead: number, leadH: number, calledHere: number): { title: string; why: string; tone: Tone } {
-  const n = inbound(r);
-  const end = hhmm(clock(board, 8));
+/** "30 мин", "1,5 ч", "больше 3 ч" for a number of forecast steps. */
+const span = (board: Board, steps: number, open = false) => `${open ? "больше " : ""}${leadLabel((steps * board.step_min) / 60)}`;
+
+/** The headline of the card. After a call made here it reports the call first: when the truck comes and what it costs. */
+function verdict(board: Board, call: number, lead: number, leadH: number, n: number, calledHere: number, idle: Idle): { title: string; why: string; tone: Tone } {
+  const end = hhmm(clock(board, 8)), at = hhmm(clock(board, lead));
+  if (calledHere && idle.steps > 0) {
+    const wait = span(board, idle.steps, idle.open);
+    if (calledHere > 1) return { title: "Вызваны раньше", tone: "warn", why: `Вызвано ${calledHere}, приедут в ${at}. Без груза простоят ${wait}.` };
+    return { title: "Вызвана раньше", tone: "warn", why: idle.lastFill == null
+      ? `Приедет в ${at}, а кузов до ${end} не наберётся. Простоит ${wait}.`
+      : `Приедет в ${at}, кузов наберётся к ${hhmm(clock(board, idle.lastFill))}. Простоит ${wait}.` };
+  }
   if (calledHere) {
-    const arrives = `${calledHere > 1 ? `Вызвано ${calledHere}, приедут` : "Приедет"} в ${hhmm(clock(board, lead))}.`;
+    const arrives = `${calledHere > 1 ? `Вызвано ${calledHere}, приедут` : "Приедет"} в ${at}.`;
     if (call === 0) return { title: "Нужна ещё одна", tone: "act", why: `${arrives} Груза уже больше, чем ${calledHere > 1 ? "они увезут" : "она увезёт"}.` };
-    if (call > 0) return { title: "Машина вызвана", tone: "done", why: `${arrives} Следующую вызывать в ${hhmm(clock(board, call))}.` };
-    return { title: "Машина вызвана", tone: "done", why: `${arrives} До ${end} больше не нужно.` };
+    if (call > 0) return { title: calledHere > 1 ? "Машины вызваны" : "Машина вызвана", tone: "done", why: `${arrives} Следующую вызывать в ${hhmm(clock(board, call))}.` };
+    return { title: calledHere > 1 ? "Машины вызваны" : "Машина вызвана", tone: "done", why: `${arrives} До ${end} больше не нужно.` };
   }
   return { ...plan(board, call, lead, leadH, n, end), tone: call === 0 ? "act" : "plain" };
 }
@@ -70,7 +80,13 @@ export function RouteCard({ board, r, call, lead, leadH, risk, cuts, calledHere,
   const cautious = line.map((v, k) => (k === 0 ? v : Math.max(v, loadsAt(r, k - 1, "p90"))));
   const h0 = r.h.length - 1;
   const flowTimes = Array.from({ length: r.h.length + r.p50.length }, (_, i) => hhmm(clock(board, i - h0)));
-  const v = verdict(board, r, call, lead, leadH, calledHere);
+  const idle = calledIdle(r, calledHere, lead, risk);
+  const v = verdict(board, call, lead, leadH, inbound(r), calledHere, idle);
+  const due = trucksDue(r, lead, risk); // trucks the rule asks for now; 0 = any call would be ahead of the rule
+  // What one more truck called right now would cost: it arrives after the lead time and waits for its load.
+  const nextFill = fillStep(r, inbound(r) + 1, risk);
+  const nextWait = nextFill == null ? 8 - lead : nextFill - lead;
+  const canEarly = idle.early < 5 && lead <= 8; // a few are a decision, a dozen is a mistake
   const conf = confidence(r, cuts);
   const n = inbound(r);
   return (
@@ -83,24 +99,32 @@ export function RouteCard({ board, r, call, lead, leadH, risk, cuts, calledHere,
           <div className="eyebrow">Маршрут № {r.id}</div>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div key={v.title} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-              <h2 className={`mt-1 whitespace-nowrap font-display text-[34px] font-semibold leading-[1.08] sm:text-[40px] ${v.tone === "act" ? "text-signal" : v.tone === "done" ? "text-forecast" : ""}`}>{v.title}</h2>
-              {/* Two lines are reserved on a phone, so the tiles below never move when the wording changes. */}
-              <p className="mt-1.5 min-h-[46px] text-ink-2 sm:min-h-[23px]">{v.why}</p>
+              <h2 className={`mt-1 whitespace-nowrap font-display text-[34px] font-semibold leading-[1.08] sm:text-[40px] ${TONE[v.tone]}`}>{v.title}</h2>
+              {/* Two lines are always reserved, so the tiles below never move when the wording changes. */}
+              <p className="mt-1.5 min-h-[46px] text-ink-2">{v.why}</p>
             </motion.div>
           </AnimatePresence>
           </div>
-          {/* Both controls always keep their place: the button is live only when it is time to call,
-              the undo only after a call made here. */}
-          <div className="flex shrink-0 items-center gap-2 sm:flex-col sm:items-end sm:pt-1">
-            <motion.button onClick={onCalled} disabled={call !== 0} whileTap={{ scale: 0.96 }}
-              className={`inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-[10px] bg-signal px-5 text-[16px] font-semibold text-on-signal transition-colors disabled:bg-raised sm:flex-none ${calledHere ? "disabled:text-forecast" : "disabled:text-muted"}`}
-              title={call === 0 ? "Отметить, что машина вызвана: план маршрута пересчитается" : calledHere ? "Машина уже вызвана" : "Пока вызывать рано"}>
-              <Check size={18} strokeWidth={2.25} />
-              <span className="whitespace-nowrap">{call === 0 ? (calledHere ? "Вызвать ещё" : "Вызвать машину") : calledHere ? "Вызвана" : "Вызвать машину"}</span>
-            </motion.button>
+          {/* The controls always keep their place. When the rule asks for a truck the button is the coral action and
+              calls as many as are due; otherwise it is a quiet "call early" that names its price first. */}
+          <div className="flex shrink-0 items-start gap-2 sm:flex-col sm:items-end sm:pt-1">
+            <div className="flex flex-1 flex-col sm:flex-none sm:items-end">
+              <motion.button onClick={onCalled} disabled={!due && !canEarly} whileTap={{ scale: 0.96 }}
+                className={`inline-flex h-11 w-full items-center justify-center gap-2 rounded-[10px] px-5 text-[16px] font-semibold transition-colors disabled:text-muted sm:w-auto ${
+                  due ? "bg-signal text-on-signal" : "text-ink ring-1 ring-inset ring-line hover:bg-raised"}`}
+                title={due ? "Отметить, что машины вызваны: план маршрута пересчитается" : canEarly ? "Вызвать машину раньше, чем просит прогноз" : "Сверх плана вызвано уже достаточно"}>
+                {due ? <Check size={18} strokeWidth={2.25} /> : <Clock size={16} strokeWidth={2} />}
+                <span className="whitespace-nowrap">
+                  {due > 1 ? `Вызвать ${due} ${plural(due, "машину", "машины", "машин")}` : due ? (calledHere ? "Вызвать ещё" : "Вызвать машину") : canEarly ? "Вызвать раньше" : "Машин хватает"}
+                </span>
+              </motion.button>
+              <div className="mt-1 h-5 whitespace-nowrap text-[13px] leading-5 text-alert sm:text-right">
+                {!due && canEarly && (nextWait > 0 ? `простоит ${span(board, nextWait, nextFill == null)}` : "")}
+              </div>
+            </div>
             <motion.button onClick={onUndo} disabled={!calledHere} aria-hidden={!calledHere} initial={false}
               animate={{ opacity: calledHere ? 1 : 0 }} transition={base}
-              className="inline-flex h-11 items-center gap-1.5 rounded-[10px] px-3 text-[14px] text-ink-2 ring-1 ring-inset ring-line hover:text-ink disabled:pointer-events-none sm:h-8 sm:ring-0"
+              className="inline-flex h-11 items-center gap-1.5 rounded-[10px] px-3 text-[14px] text-ink-2 ring-1 ring-inset ring-line hover:text-ink disabled:pointer-events-none sm:h-7 sm:ring-0"
               title="Отменить последний вызов по этому маршруту">
               <Undo2 size={14} />
               <span className="whitespace-nowrap">отменить{calledHere > 1 ? ` (${calledHere})` : ""}</span>
@@ -136,7 +160,10 @@ export function RouteCard({ board, r, call, lead, leadH, risk, cuts, calledHere,
           exit={{ opacity: 0, transition: { duration: 0.1 } }} transition={base}>
           {view === "dock" ? (
             <Dock times={times} line={line} hi={cautious} need={n + 1} runKey={`${r.id}-${call}-${lead}`}
-              made={calledHere && lead <= 8 ? { arriveK: lead, count: calledHere } : undefined}
+              made={calledHere && lead <= 8 ? {
+                arriveK: lead, count: calledHere,
+                wait: idle.steps > 0 ? { untilK: idle.lastFill, label: `ждёт ${span(board, idle.steps, idle.open)}` } : undefined,
+              } : undefined}
               callK={call >= 0 ? call : undefined} arriveK={call >= 0 && call + lead <= 8 ? call + lead : undefined} />
           ) : (
             <Fan zero height={210} times={flowTimes} hist={r.h} fc={r.p50} lo={r.p10} hi={r.p90} />

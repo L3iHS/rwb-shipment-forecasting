@@ -306,7 +306,9 @@ interface DockProps {
   callK?: number; // step of the call; undefined when no call is needed within the horizon
   arriveK?: number;
   runKey: string; // changes when the truck should drive again: route, call or lead time
-  made?: { arriveK: number; count: number }; // trucks the dispatcher already called for this route, and when they arrive
+  /** Trucks the dispatcher already called for this route and when they arrive. `wait` is set when they came ahead of
+   *  their load: until which step the last one stands idle (null = beyond the horizon) and the label saying how long. */
+  made?: { arriveK: number; count: number; wait?: { untilK: number | null; label: string } };
 }
 
 /** Truckloads at the dock over the horizon: the curve climbs to the "one more truck" level, the truck is called a lead time before. */
@@ -412,14 +414,33 @@ export function Dock({ times, line, hi, need, callK, arriveK, runKey, made }: Do
           {made && made.arriveK <= n && (
             <g>
               <line x1={x(0)} x2={x(made.arriveK)} y1={roadY} y2={roadY} stroke="var(--ink)" strokeOpacity={0.3} strokeWidth={2} strokeLinecap="round" />
+              {/* Idle time: from the arrival to the moment the curve reaches this truck's level. */}
+              {made.wait && (
+                <g>
+                  <motion.line y1={roadY} y2={roadY} stroke="var(--alert)" strokeWidth={3} strokeLinecap="round"
+                    strokeDasharray={made.wait.untilK == null ? "1 7" : undefined} initial={false}
+                    animate={{ x1: x(made.arriveK), x2: x(made.wait.untilK ?? n) }} transition={t(flow)} />
+                  {made.wait.untilK != null && (
+                    <>
+                      <motion.line stroke="var(--alert)" strokeDasharray="2 4" initial={false}
+                        animate={{ x1: x(made.wait.untilK), x2: x(made.wait.untilK), y1: y(need - 1), y2: roadY }} transition={t(flow)} />
+                      <motion.circle r={5} fill="var(--alert)" stroke="var(--surface)" strokeWidth={2} initial={false}
+                        animate={{ cx: x(made.wait.untilK), cy: y(need - 1) }} transition={t(flow)} />
+                    </>
+                  )}
+                </g>
+              )}
               <motion.g key={`${runKey}-${made.count}`} initial={{ x: x(0), opacity: 0 }} animate={{ x: x(made.arriveK), opacity: 1 }}
                 transition={t({ x: { duration: 1.5, delay: 0.2, ease }, opacity: { duration: 0.2, delay: 0.15 } })}>
                 <circle cx={0} cy={roadY} r={11} fill="var(--surface)" />
                 <Truck x={-9} y={roadY - 9} width={18} height={18} strokeWidth={1.9} color="var(--ink)" />
                 {(() => {
                   const full = `${made.count > 1 ? `едут ${made.count}, будут` : "едет, будет"} в ${times[made.arriveK]}`;
-                  const label = full.length * 6.3 <= W - 4 - (x(made.arriveK) + 15) ? full : made.count > 1 ? `едут ${made.count}` : "едет";
-                  return <text className="mark" x={15} y={roadY + 4} style={{ fill: "var(--ink)" }}>{label}</text>;
+                  const ride = full.length * 6.3 <= W - 4 - (x(made.arriveK) + 15) ? full : made.count > 1 ? `едут ${made.count}` : "едет";
+                  // A waiting truck says how long it waits; the stroke keeps the words readable over the idle line.
+                  return made.wait
+                    ? <text className="mark" x={15} y={roadY + 4} style={{ fill: "var(--alert)", paintOrder: "stroke", stroke: "var(--surface)", strokeWidth: 5 }}>{made.wait.label}</text>
+                    : <text className="mark" x={15} y={roadY + 4} style={{ fill: "var(--ink)" }}>{ride}</text>;
                 })()}
               </motion.g>
             </g>

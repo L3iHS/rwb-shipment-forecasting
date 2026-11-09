@@ -2,7 +2,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { CheckCheck, Undo2 } from "lucide-react";
 import { useMemo, useRef } from "react";
 import type { Board } from "../data";
-import { hhmm, int, plural } from "../format";
+import { hhmm, int, leadLabel, plural } from "../format";
 import { base, flow } from "../motion";
 import { clock, confidenceCuts, type Kpis, type Scenario } from "../plan";
 import { Buckets } from "./Buckets";
@@ -30,6 +30,7 @@ interface Props {
   called: Record<number, number>;
   planned: number[]; // call steps before any call made here
   due: number; // trucks the rule asks for right now, over all routes
+  idle: { steps: number; open: boolean }; // trucks called ahead of the rule stand this long without a load
   onCalled: (id: number) => void;
   onCallAll: () => void;
   onUndo: (id?: number) => void;
@@ -43,7 +44,7 @@ function Key({ swatch, children }: { swatch: string; children: string }) {
 }
 
 /** Screen "Вызовы": how many trucks to call now, the shift on one time axis, then who exactly and why. */
-export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onFilter, query, onQuery, selected, onSelect, total, last, called, planned, due, onCalled, onCallAll, onUndo }: Props) {
+export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onFilter, query, onQuery, selected, onSelect, total, last, called, planned, due, idle, onCalled, onCallAll, onUndo }: Props) {
   const reduced = useReducedMotion();
   const card = useRef<HTMLDivElement>(null);
   const cuts = useMemo(() => confidenceCuts(board.routes), [board]);
@@ -116,6 +117,14 @@ export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onF
                 </motion.button>
               </div>
             </div>
+            {/* The price of the dispatcher's own decisions. The line always holds its height. */}
+            <p className="mt-2.5 h-5 text-[14px] leading-5">
+              {idle.steps > 0 ? (
+                <span className="text-alert">Ранние вызовы: машины простоят {idle.open ? "больше " : ""}{leadLabel((idle.steps * board.step_min) / 60)}</span>
+              ) : total > 0 ? (
+                <span className="text-muted">Все вызовы вовремя, простоя нет</span>
+              ) : null}
+            </p>
           </div>
         </div>
         <WhatIf board={board} s={scenario} onChange={onScenario} />

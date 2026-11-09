@@ -1,10 +1,10 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useEffect, useRef } from "react";
-import { Search, Truck } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowDown, Search, Truck } from "lucide-react";
 import type { Board, Route } from "../data";
 import { dec2, hhmm } from "../format";
 import { base, flow, reorder, snap } from "../motion";
-import { clock, inbound, waitsWithoutTruck } from "../plan";
+import { clock, inbound, uncovered, waitsWithoutTruck } from "../plan";
 
 /** now/soon/later/none are the filter chips and the bars of the shift timeline; jam, hour and all come from the assistant. */
 export type Filter = "now" | "soon" | "later" | "none" | "jam" | "hour" | "all";
@@ -36,12 +36,20 @@ export function inFilter(r: Route, call: number, f: Filter) {
 }
 
 /** Queue rows: a search by number looks over all routes; soonest call first, then most cargo at the dock. */
-export function queueRows(board: Board, calls: number[], filter: Filter, query = "") {
+export type Sort = "urgency" | "number";
+
+/**
+ * Queue rows: a search by number looks over all routes. By urgency: soonest call first, then the most cargo that no
+ * called truck will take, then the most cargo at the dock. By number: route ids ascending.
+ */
+export function queueRows(board: Board, calls: number[], filter: Filter, query = "", sort: Sort = "urgency") {
   const order = (call: number) => (call < 0 ? 99 : call); // "not needed" (-1) sorts last
   return board.routes
     .map((r, i) => ({ r, call: calls[i] }))
     .filter(({ r, call }) => (query ? String(r.id).startsWith(query) : inFilter(r, call, filter)))
-    .sort((a, b) => order(a.call) - order(b.call) || b.r.bl - a.r.bl);
+    .sort((a, b) => sort === "number"
+      ? a.r.id - b.r.id
+      : order(a.call) - order(b.call) || uncovered(b.r) - uncovered(a.r) || b.r.bl - a.r.bl);
 }
 
 export function WhenChip({ board, call }: { board: Board; call: number }) {
@@ -78,7 +86,8 @@ const COLS = "grid-cols-[62px_112px_1fr_30px]";
 export function CallQueue({ board, calls, filter, query, onQuery, selected, onSelect, onCalled, onFilter }: Props) {
   const reduced = useReducedMotion();
   const list = useRef<HTMLUListElement>(null);
-  const rows = queueRows(board, calls, filter, query);
+  const [sort, setSort] = useState<Sort>("urgency");
+  const rows = queueRows(board, calls, filter, query, sort);
   // Render at least down to the selected row, so a route opened from the assistant is always in the list.
   const shown = rows.slice(0, Math.max(SHOWN, rows.findIndex((x) => x.r.id === selected) + 1));
 
@@ -127,7 +136,14 @@ export function CallQueue({ board, calls, filter, query, onQuery, selected, onSe
         </label>
       </div>
       <div className={`grid ${COLS} gap-2.5 border-b border-line px-5 pb-2 text-[11px] text-muted max-sm:px-[20px]`}>
-        <span>Маршрут</span><span>Вызвать</span><span className="whitespace-nowrap" title="Груз у ворот в кузовах. Риска на полосе отмечает один полный кузов">У ворот<span className="hidden sm:inline">, кузовов</span></span>
+        {([["number", "Маршрут", "Сортировать по номеру маршрута"], ["urgency", "Вызвать", "Сначала самые срочные: раньше вызов, больше груза без машины"]] as const).map(([key, label, hint]) => (
+          <button key={key} onClick={() => setSort(key)} aria-pressed={sort === key} title={hint}
+            className="flex items-center gap-1 text-left transition-colors hover:text-ink aria-pressed:text-ink">
+            {label}
+            <ArrowDown size={11} className={sort === key ? "" : "opacity-0"} />
+          </button>
+        ))}
+        <span className="whitespace-nowrap" title="Груз у ворот в кузовах. Риска на полосе отмечает один полный кузов">У ворот<span className="hidden sm:inline">, кузовов</span></span>
         <span className="flex justify-end" title="Машин вызвано"><Truck size={13} /></span>
       </div>
       <motion.ul ref={list} layoutScroll onKeyDown={onKey} className="relative min-h-0 flex-1 overflow-y-auto p-2" role="listbox" aria-label="Маршруты">
@@ -145,9 +161,13 @@ export function CallQueue({ board, calls, filter, query, onQuery, selected, onSe
                 <span className="num relative font-medium">№ {r.id}</span>
                 <span className="relative"><WhenChip board={board} call={call} /></span>
                 <span className="relative flex items-center gap-2.5" title={`${dec2(r.bl)} кузова у ворот`}>
+                  {/* All cargo at the dock in butter; over it, in grey, the part a called truck will take. What stays
+                      butter is cargo still waiting for a truck. The notch is one full truckload. */}
                   <span className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-line">
                     <motion.span initial={false} animate={{ scaleX: Math.min(r.bl / 2, 1) }} transition={flow}
-                      className={`absolute inset-0 origin-left rounded-full ${waitsWithoutTruck(r) ? "bg-alert" : "bg-ink-2"}`} />
+                      className="absolute inset-0 origin-left rounded-full bg-alert" />
+                    <motion.span initial={false} animate={{ scaleX: Math.min(Math.min(r.bl, inbound(r)) / 2, 1) }} transition={flow}
+                      className="absolute inset-0 origin-left bg-ink-2" />
                     <span className="absolute inset-y-0 left-1/2 w-0.5 bg-surface" />
                   </span>
                   <span className="num w-9 text-right text-xs text-ink-2">{dec2(r.bl)}</span>
@@ -172,12 +192,16 @@ export function CallQueue({ board, calls, filter, query, onQuery, selected, onSe
           </li>
         )}
       </motion.ul>
-      <div className="hidden items-center gap-2 border-t border-line px-5 py-2.5 text-xs text-muted lg:flex">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-line px-5 py-2.5 text-xs text-muted">
+        <span className="flex items-center gap-1.5"><i className="h-1.5 w-4 rounded-full bg-alert" />груз ждёт машину</span>
+        <span className="flex items-center gap-1.5"><i className="h-1.5 w-4 rounded-full bg-ink-2" />машина уже едет</span>
+        <span className="ml-auto hidden items-center gap-2 lg:flex">
         <kbd className="num rounded bg-raised px-1.5 py-0.5 text-[10px] text-ink-2">↑</kbd>
         <kbd className="num rounded bg-raised px-1.5 py-0.5 text-[10px] text-ink-2">↓</kbd>
         <span className="mr-2">выбрать</span>
         <kbd className="num rounded bg-raised px-1.5 py-0.5 text-[10px] text-ink-2">Enter</kbd>
         <span>вызвать</span>
+        </span>
       </div>
     </section>
   );

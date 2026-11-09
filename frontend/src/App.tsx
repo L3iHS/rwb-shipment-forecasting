@@ -6,7 +6,7 @@ import { Header } from "./components/Header";
 import { Shift } from "./components/Shift";
 import { loadBoard, type Board } from "./data";
 import { base } from "./motion";
-import { callStep, kpis, leadSteps, type Scenario } from "./plan";
+import { calledIdle, callStep, kpis, leadSteps, trucksDue, type Scenario } from "./plan";
 import type { Action } from "./tools";
 
 function useTheme(): [boolean, () => void] {
@@ -75,16 +75,21 @@ function Console({ board: source }: { board: Board }) {
   // The plan as the forecast gave it, before any call made here: the timeline shows it as a ghost behind the current one.
   const planned = useMemo(() => source.routes.map((r) => callStep(r, lead, scenario.risk)), [source, lead, scenario.risk]);
   // Every truck the rule asks for right now: a route whose cargo already exceeds its trucks needs more than one.
-  const dueNow = useMemo(() => {
-    const ids: number[] = [];
-    board.routes.forEach((r, i) => {
-      if (calls[i] !== 0) return;
-      let n = 1;
-      while (n < 10 && callStep({ ...r, way: r.way + n }, lead, scenario.risk) === 0) n++;
-      for (let j = 0; j < n; j++) ids.push(r.id);
-    });
-    return ids;
-  }, [board, calls, lead, scenario.risk]);
+  const dueNow = useMemo(
+    () => board.routes.flatMap((r) => new Array<number>(trucksDue(r, lead, scenario.risk)).fill(r.id)),
+    [board, lead, scenario.risk],
+  );
+  // What the calls made ahead of the rule cost: hours of trucks standing at the dock without a load.
+  const idle = useMemo(() => {
+    let steps = 0, open = false;
+    for (const r of board.routes) {
+      if (!called[r.id]) continue;
+      const i = calledIdle(r, called[r.id], lead, scenario.risk);
+      steps += i.steps;
+      open ||= i.open;
+    }
+    return { steps, open };
+  }, [board, called, lead, scenario.risk]);
 
   // Latest scenario and selection for handlers: one assistant reply can carry several actions in a row.
   const live = useRef({ scenario, selected });
@@ -104,9 +109,10 @@ function Console({ board: source }: { board: Board }) {
     if (rows.length && !rows.some((x) => x.r.id === live.current.selected)) select(rows[0].r.id);
   }
 
-  /** One more truck called for the route. The card stays on it and shows what the call changed. */
+  /** Call for the route: every truck it is due, or one truck ahead of the rule. The card stays and shows what changed. */
   function markCalled(id: number) {
-    setLog((l) => [...l, [id]]);
+    const r = board.routes.find((q) => q.id === id);
+    if (r) setLog((l) => [...l, new Array<number>(Math.max(1, trucksDue(r, lead, scenario.risk))).fill(id)]);
   }
   /** Call every truck that is due now, as one step that one undo takes back. */
   function callAll() {
@@ -146,7 +152,7 @@ function Console({ board: source }: { board: Board }) {
       <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 sm:py-8">
         <Shift board={board} calls={calls} k={k} lead={lead} scenario={scenario} onScenario={setScenario} filter={filter}
           onFilter={pick} query={query} onQuery={setQuery} selected={selected} onSelect={select}
-          total={total} last={log[log.length - 1]} called={called} planned={planned} due={dueNow.length}
+          total={total} last={log[log.length - 1]} called={called} planned={planned} due={dueNow.length} idle={idle}
           onCalled={markCalled} onCallAll={callAll} onUndo={undoCall} />
       </main>
       <AgentPanel open={agentOpen} onClose={() => setAgentOpen(false)} board={board} calls={calls} leadH={scenario.leadH}
