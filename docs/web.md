@@ -10,7 +10,7 @@ scripts/pipeline.py export  ->  frontend/public/board.json  ->  frontend/ (React
 ```
 
 - `pipeline.py export` строит тот же набор данных, что вшивается в `outputs/dispatch_board.html`, и пишет его в JSON.
-- `frontend/` — React 18 + TypeScript + Vite, Tailwind, Motion для переходов, Recharts для графиков. Читает `board.json` при загрузке.
+- `frontend/` — React 18 + TypeScript + Vite, Tailwind, Motion для переходов; графики нарисованы в SVG вручную (`frontend/src/components/charts.tsx`), шрифты Geologica и JetBrains Mono лежат в сборке. Читает `board.json` при загрузке. Цвета, типографика и правила движения — дизайн-система «Ночная смена», токены в `frontend/src/index.css`.
 - `backend/` — FastAPI: `app.py` (маршрут `POST /api/agent`, Claude с функциями, лимит запросов, раздача собранного фронта) и `tools.py` (функции ассистента поверх `board.json`).
 - `Dockerfile` в корне собирает фронт и запускает бэкенд в одном контейнере на порту 8000.
 

@@ -8,5 +8,5 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: { proxy: { "/api": "http://localhost:8000" } },
   // Pre-bundle up front: a mid-session re-optimisation loads a second copy of React.
-  optimizeDeps: { include: ["react", "react-dom", "react-dom/client", "recharts", "motion/react", "lucide-react"] },
+  optimizeDeps: { include: ["react", "react-dom", "react-dom/client", "motion/react", "lucide-react"] },
 });

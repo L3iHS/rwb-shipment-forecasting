@@ -11,13 +11,12 @@ import { callStep, kpis, leadSteps, type Scenario } from "./plan";
 import type { Action } from "./tools";
 
 function useTheme(): [boolean, () => void] {
+  // Night is the product's default look; day is a choice the user makes and we remember.
   const [dark, setDark] = useState(() => {
-    const sys = matchMedia("(prefers-color-scheme: dark)").matches;
     try {
-      const t = localStorage.getItem("theme");
-      return t ? t === "dark" : sys;
+      return localStorage.getItem("theme") !== "light";
     } catch {
-      return sys;
+      return true;
     }
   });
   useEffect(() => {
@@ -113,7 +112,7 @@ function Console({ board }: { board: Board }) {
             exit={{ opacity: 0, transition: { duration: 0.12 } }} transition={base}>
             {tab === "shift" ? (
               <Shift board={board} calls={calls} k={k} lead={lead} scenario={scenario} onScenario={setScenario} filter={filter}
-                onFilter={pick} query={query} onQuery={setQuery} selected={selected} onSelect={select} onTab={openTab} />
+                onFilter={pick} query={query} onQuery={setQuery} selected={selected} onSelect={select} />
             ) : (
               <Evidence board={board} />
             )}
