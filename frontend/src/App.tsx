@@ -1,7 +1,7 @@
 import { MotionConfig } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AgentPanel } from "./components/AgentPanel";
-import { bucketOf, inFilter, queueRows, type Filter } from "./components/CallQueue";
+import { bucketOf, queueRows, type Filter } from "./components/CallQueue";
 import { Header } from "./components/Header";
 import { Shift } from "./components/Shift";
 import { loadBoard, type Board } from "./data";
@@ -104,15 +104,8 @@ function Console({ board: source }: { board: Board }) {
     if (rows.length && !rows.some((x) => x.r.id === live.current.selected)) select(rows[0].r.id);
   }
 
-  /** One more truck called for the route. If that takes it out of the list, move on to the next row. */
+  /** One more truck called for the route. The card stays on it and shows what the call changed. */
   function markCalled(id: number) {
-    const r = board.routes.find((q) => q.id === id);
-    if (!r) return;
-    const rows = queueRows(board, calls, filter, query);
-    const at = rows.findIndex((x) => x.r.id === id);
-    const after = callStep({ ...r, way: r.way + 1 }, lead, scenario.risk);
-    const next = rows[at + 1] ?? rows[at - 1];
-    if (!query && at >= 0 && next && !inFilter({ ...r, way: r.way + 1 }, after, filter)) select(next.r.id);
     setLog((l) => [...l, [id]]);
   }
   /** Call every truck that is due now, as one step that one undo takes back. */

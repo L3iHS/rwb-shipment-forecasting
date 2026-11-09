@@ -28,7 +28,7 @@ export function Buckets({ calls, waiting, active, onPick }: Props) {
         alert ? "bg-alert-soft text-ink" : "bg-surface text-ink-2 hover:text-ink aria-pressed:text-ink"} ring-1 ring-inset ring-line`}>
       {active === f && <motion.span layoutId="chip" transition={snap} className="absolute inset-0 rounded-[10px] ring-[1.5px] ring-inset ring-ink" />}
       <i className={`size-2 shrink-0 self-center rounded-full ${dot}`} />
-      <b className="num text-[15px] font-semibold text-ink"><Ticker value={n} /></b>
+      <b className="num min-w-[3ch] text-right text-[15px] font-semibold text-ink"><Ticker value={n} /></b>
       {label}
     </button>
   );

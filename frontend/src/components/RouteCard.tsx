@@ -18,11 +18,25 @@ function confidence(r: Route, cuts: [number, number]): { label: string; level: 1
   return { label: "неуверенный", level: 1, note: "Широкий коридор: держите резервную машину" };
 }
 
-function verdict(board: Board, r: Route, call: number, lead: number, leadH: number) {
+type Tone = "act" | "done" | "plain";
+
+/** The headline of the card. After a call made here it reports the call first, then what comes next. */
+function verdict(board: Board, r: Route, call: number, lead: number, leadH: number, calledHere: number): { title: string; why: string; tone: Tone } {
   const n = inbound(r);
+  const end = hhmm(clock(board, 8));
+  if (calledHere) {
+    const arrives = `${calledHere > 1 ? `Вызвано ${calledHere}, приедут` : "Приедет"} в ${hhmm(clock(board, lead))}.`;
+    if (call === 0) return { title: "Нужна ещё одна", tone: "act", why: `${arrives} Груза уже больше, чем ${calledHere > 1 ? "они увезут" : "она увезёт"}.` };
+    if (call > 0) return { title: "Машина вызвана", tone: "done", why: `${arrives} Следующую вызывать в ${hhmm(clock(board, call))}.` };
+    return { title: "Машина вызвана", tone: "done", why: `${arrives} До ${end} больше не нужно.` };
+  }
+  return { ...plan(board, call, lead, leadH, n, end), tone: call === 0 ? "act" : "plain" };
+}
+
+function plan(board: Board, call: number, lead: number, leadH: number, n: number, end: string) {
   if (call === 0) return { title: "Вызвать сейчас", why: `Кузов наберётся к ${hhmm(clock(board, lead))}, как раз к приезду машины.` };
   if (call > 0) return { title: `Вызвать в ${hhmm(clock(board, call))}`, why: `Кузов наберётся к ${hhmm(clock(board, call + lead))}, машина едет ${leadLabel(leadH)}.` };
-  return { title: "Вызов не нужен", why: n ? `Вызванных машин хватает до ${hhmm(clock(board, 8))}.` : `До ${hhmm(clock(board, 8))} кузов не наберётся.` };
+  return { title: "Вызов не нужен", why: n ? `Вызванных машин хватает до ${end}.` : `До ${end} кузов не наберётся.` };
 }
 
 function Stat({ label, title, children }: { label: string; title?: string; children: ReactNode }) {
@@ -56,7 +70,7 @@ export function RouteCard({ board, r, call, lead, leadH, risk, cuts, calledHere,
   const cautious = line.map((v, k) => (k === 0 ? v : Math.max(v, loadsAt(r, k - 1, "p90"))));
   const h0 = r.h.length - 1;
   const flowTimes = Array.from({ length: r.h.length + r.p50.length }, (_, i) => hhmm(clock(board, i - h0)));
-  const v = verdict(board, r, call, lead, leadH);
+  const v = verdict(board, r, call, lead, leadH, calledHere);
   const conf = confidence(r, cuts);
   const n = inbound(r);
   return (
@@ -69,7 +83,7 @@ export function RouteCard({ board, r, call, lead, leadH, risk, cuts, calledHere,
           <div className="eyebrow">Маршрут № {r.id}</div>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div key={v.title} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-              <h2 className={`mt-1 whitespace-nowrap font-display text-[34px] font-semibold leading-[1.08] sm:text-[40px] ${call === 0 ? "text-signal" : ""}`}>{v.title}</h2>
+              <h2 className={`mt-1 whitespace-nowrap font-display text-[34px] font-semibold leading-[1.08] sm:text-[40px] ${v.tone === "act" ? "text-signal" : v.tone === "done" ? "text-forecast" : ""}`}>{v.title}</h2>
               {/* Two lines are reserved on a phone, so the tiles below never move when the wording changes. */}
               <p className="mt-1.5 min-h-[46px] text-ink-2 sm:min-h-[23px]">{v.why}</p>
             </motion.div>
@@ -79,10 +93,10 @@ export function RouteCard({ board, r, call, lead, leadH, risk, cuts, calledHere,
               the undo only after a call made here. */}
           <div className="flex shrink-0 items-center gap-2 sm:flex-col sm:items-end sm:pt-1">
             <motion.button onClick={onCalled} disabled={call !== 0} whileTap={{ scale: 0.96 }}
-              className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-[10px] bg-signal px-5 text-[16px] font-semibold text-on-signal transition-colors disabled:bg-raised disabled:text-muted sm:flex-none"
-              title={call === 0 ? "Машина вызвана: маршрут пересчитается" : "Пока вызывать рано"}>
+              className={`inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-[10px] bg-signal px-5 text-[16px] font-semibold text-on-signal transition-colors disabled:bg-raised sm:flex-none ${calledHere ? "disabled:text-forecast" : "disabled:text-muted"}`}
+              title={call === 0 ? "Отметить, что машина вызвана: план маршрута пересчитается" : calledHere ? "Машина уже вызвана" : "Пока вызывать рано"}>
               <Check size={18} strokeWidth={2.25} />
-              Вызвал
+              <span className="whitespace-nowrap">{call === 0 ? (calledHere ? "Вызвать ещё" : "Вызвать машину") : calledHere ? "Вызвана" : "Вызвать машину"}</span>
             </motion.button>
             <motion.button onClick={onUndo} disabled={!calledHere} aria-hidden={!calledHere} initial={false}
               animate={{ opacity: calledHere ? 1 : 0 }} transition={base}
@@ -122,6 +136,7 @@ export function RouteCard({ board, r, call, lead, leadH, risk, cuts, calledHere,
           exit={{ opacity: 0, transition: { duration: 0.1 } }} transition={base}>
           {view === "dock" ? (
             <Dock times={times} line={line} hi={cautious} need={n + 1} runKey={`${r.id}-${call}-${lead}`}
+              made={calledHere && lead <= 8 ? { arriveK: lead, count: calledHere } : undefined}
               callK={call >= 0 ? call : undefined} arriveK={call >= 0 && call + lead <= 8 ? call + lead : undefined} />
           ) : (
             <Fan zero height={210} times={flowTimes} hist={r.h} fc={r.p50} lo={r.p10} hi={r.p90} />

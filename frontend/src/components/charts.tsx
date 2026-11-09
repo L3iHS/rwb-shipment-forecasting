@@ -191,7 +191,8 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
                       style={{ filter: tone === "now" ? "var(--glow-signal)" : undefined }}
                       initial={{ y: barsB, height: 6, opacity: 0 }}
                       animate={{ y: barsB - h, height: h + 6, opacity: tone === "now" ? 1 : tone === "soon" ? (k === i ? 0.7 : 0.5) : k === i ? 0.5 : 0.3 }}
-                      transition={t({ ...flow, delay: first ? 0.7 + i * 0.045 : 0 })} />
+                      // A tween, not a spring: a spring overshoots below zero height when a bar collapses.
+                      transition={t({ duration: 0.45, ease, delay: first ? 0.7 + i * 0.045 : 0 })} />
                   );
                 })}
                 {/* What the plan was before the calls: a dotted outline where the bar has shrunk since. */}
@@ -305,10 +306,11 @@ interface DockProps {
   callK?: number; // step of the call; undefined when no call is needed within the horizon
   arriveK?: number;
   runKey: string; // changes when the truck should drive again: route, call or lead time
+  made?: { arriveK: number; count: number }; // trucks the dispatcher already called for this route, and when they arrive
 }
 
 /** Truckloads at the dock over the horizon: the curve climbs to the "one more truck" level, the truck is called a lead time before. */
-export function Dock({ times, line, hi, need, callK, arriveK, runKey }: DockProps) {
+export function Dock({ times, line, hi, need, callK, arriveK, runKey, made }: DockProps) {
   const [ref, W] = useWidth<HTMLDivElement>();
   const reduced = useReducedMotion();
   const grad = useId().replace(/:/g, "");
@@ -377,26 +379,48 @@ export function Dock({ times, line, hi, need, callK, arriveK, runKey }: DockProp
           {called && (
             <g>
               <motion.g initial={false} animate={{ x: x(callK) }} transition={t(flow)}>
-                <line y1={top - 26} y2={roadY} stroke="var(--signal)" strokeWidth={2} style={{ filter: "var(--glow-signal)" }} />
+                <line y1={top - 26} y2={made ? B : roadY} stroke="var(--signal)" strokeWidth={2} style={{ filter: "var(--glow-signal)" }} />
               </motion.g>
               <text className="mark" style={{ fill: "var(--signal-ink)" }} y={top - 18} {...anchor(x(callK))}>
-                вызов {callK === 0 ? "сейчас" : times[callK]}
+                {made ? "следующий вызов" : "вызов"} {callK === 0 ? "сейчас" : times[callK]}
               </text>
               <motion.g initial={false} animate={{ x: x(arriveK) }} transition={t(flow)}>
-                <line y1={top - 10} y2={roadY} stroke="var(--signal)" strokeWidth={1.5} strokeDasharray="2 4" />
+                <line y1={top - 10} y2={made ? B : roadY} stroke="var(--signal)" strokeWidth={1.5} strokeDasharray="2 4" />
               </motion.g>
               <text className="mark" style={{ fill: "var(--signal-ink)" }} y={top - 2} {...anchor(x(arriveK))}>
                 прибытие {times[arriveK]}
               </text>
               <motion.circle r={5.5} fill="var(--signal)" stroke="var(--surface)" strokeWidth={2} initial={false}
                 animate={{ cx: x(arriveK), cy: y(line[arriveK]) }} transition={t(flow)} />
-              {/* The road: its length is the lead time, and the truck drives it once per plan. */}
-              <motion.line y1={roadY} y2={roadY} stroke="var(--signal)" strokeOpacity={0.35} strokeWidth={2} strokeLinecap="round"
-                initial={false} animate={{ x1: x(callK), x2: x(arriveK) }} transition={t(flow)} />
-              <motion.g key={runKey} initial={{ x: x(callK), opacity: 0 }} animate={{ x: x(arriveK), opacity: 1 }}
-                transition={t({ x: { duration: 1.5, delay: 0.35, ease }, opacity: { duration: 0.2, delay: 0.3 } })}>
+              {/* The road: its length is the lead time, and the truck drives it once per plan.
+                  Once a truck is really called, the road below belongs to it instead. */}
+              {!made && (
+                <>
+                  <motion.line y1={roadY} y2={roadY} stroke="var(--signal)" strokeOpacity={0.35} strokeWidth={2} strokeLinecap="round"
+                    initial={false} animate={{ x1: x(callK), x2: x(arriveK) }} transition={t(flow)} />
+                  <motion.g key={runKey} initial={{ x: x(callK), opacity: 0 }} animate={{ x: x(arriveK), opacity: 1 }}
+                    transition={t({ x: { duration: 1.5, delay: 0.35, ease }, opacity: { duration: 0.2, delay: 0.3 } })}>
+                    <circle cx={0} cy={roadY} r={11} fill="var(--surface)" />
+                    <Truck x={-9} y={roadY - 9} width={18} height={18} strokeWidth={1.9} color="var(--signal)" />
+                  </motion.g>
+                </>
+              )}
+            </g>
+          )}
+
+          {/* The truck the dispatcher called: it leaves now and the label says when it arrives. */}
+          {made && made.arriveK <= n && (
+            <g>
+              <line x1={x(0)} x2={x(made.arriveK)} y1={roadY} y2={roadY} stroke="var(--ink)" strokeOpacity={0.3} strokeWidth={2} strokeLinecap="round" />
+              <motion.g key={`${runKey}-${made.count}`} initial={{ x: x(0), opacity: 0 }} animate={{ x: x(made.arriveK), opacity: 1 }}
+                transition={t({ x: { duration: 1.5, delay: 0.2, ease }, opacity: { duration: 0.2, delay: 0.15 } })}>
                 <circle cx={0} cy={roadY} r={11} fill="var(--surface)" />
-                <Truck x={-9} y={roadY - 9} width={18} height={18} strokeWidth={1.9} color="var(--signal)" />
+                <Truck x={-9} y={roadY - 9} width={18} height={18} strokeWidth={1.9} color="var(--ink)" />
+                {(() => {
+                  const full = `${made.count > 1 ? `едут ${made.count}, будут` : "едет, будет"} в ${times[made.arriveK]}`;
+                  const label = full.length * 6.3 <= W - 4 - (x(made.arriveK) + 15) ? full : made.count > 1 ? `едут ${made.count}` : "едет";
+                  return <text className="mark" x={15} y={roadY + 4} style={{ fill: "var(--ink)" }}>{label}</text>;
+                })()}
               </motion.g>
             </g>
           )}

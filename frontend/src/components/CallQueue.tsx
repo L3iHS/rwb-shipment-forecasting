@@ -177,7 +177,7 @@ export function CallQueue({ board, calls, filter, query, onQuery, selected, onSe
         <kbd className="num rounded bg-raised px-1.5 py-0.5 text-[10px] text-ink-2">↓</kbd>
         <span className="mr-2">выбрать</span>
         <kbd className="num rounded bg-raised px-1.5 py-0.5 text-[10px] text-ink-2">Enter</kbd>
-        <span>вызвал</span>
+        <span>вызвать</span>
       </div>
     </section>
   );

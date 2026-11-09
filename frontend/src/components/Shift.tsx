@@ -72,10 +72,11 @@ export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onF
   return (
     <motion.div className="space-y-8" initial="hidden" animate="show"
       variants={{ show: { transition: { staggerChildren: reduced ? 0 : 0.07 } } }}>
-      <motion.section variants={item} className="flex flex-wrap items-end justify-between gap-x-10 gap-y-6">
+      {/* Stacked on purpose: with wrapping, a wider number or count moved the controls to another row and the page jumped. */}
+      <motion.section variants={item} className="flex flex-col gap-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-6">
           {/* The hidden copy holds the final width, so the heading beside it does not slide while the number counts. */}
-          <span className={`relative inline-block self-start font-hero text-[104px] font-extrabold tabular-nums leading-[0.8] tracking-[-0.02em] transition-colors duration-300 sm:self-auto sm:text-[128px] ${k.callNow > 0 ? "text-signal" : "text-forecast"}`}>
+          <span className={`relative inline-block self-start font-hero text-[104px] font-extrabold tabular-nums leading-[0.8] tracking-[-0.02em] transition-colors duration-300 sm:min-w-[3.4ch] sm:self-auto sm:text-[128px] ${k.callNow > 0 ? "text-signal" : "text-forecast"}`}>
             <span className="invisible">{int(k.callNow)}</span>
             <span className="absolute inset-0"><Ticker value={k.callNow} from={0} /></span>
           </span>
@@ -83,22 +84,22 @@ export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onF
             <h1 className="font-display text-[30px] font-semibold leading-[1.06] sm:text-[40px]">
               {k.callNow > 0 ? <>{plural(k.callNow, "маршруту", "маршрутам", "маршрутам")} нужна<br />машина сейчас</> : <>срочных вызовов<br />не осталось</>}
             </h1>
-            <p className="mt-2 text-ink-2">
+            <p className="mt-2 min-h-[46px] text-ink-2 sm:min-h-0 sm:whitespace-nowrap">
               Ещё <span className="font-semibold text-ink">{int(k.callHour)}</span> в течение часа,{" "}
               <span className="whitespace-nowrap">всего до {hhmm(clock(board, 8))} нужно</span>{" "}
               <span className="whitespace-nowrap"><span className="font-semibold text-ink">{int(k.fleet)}</span> {plural(k.fleet, "машина", "машины", "машин")}</span>
             </p>
             {/* The bulk action and the progress of the shift. Always present, so nothing jumps when they change. */}
-            <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-3">
+            <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
               <motion.button onClick={onCallAll} disabled={!due} whileTap={{ scale: 0.97 }}
                 className="inline-flex h-11 w-full items-center justify-center gap-2.5 rounded-[10px] bg-signal px-5 text-[16px] font-semibold text-on-signal transition-colors disabled:bg-raised disabled:text-muted sm:w-auto"
                 title="Вызвать машины всем маршрутам, которым пора: столько, сколько просит прогноз">
                 <CheckCheck size={18} strokeWidth={2.25} />
                 Вызвать всем
-                <span className="num min-w-[3ch] text-left text-[14px] font-medium opacity-80">{due || ""}</span>
+                <span className="num min-w-[4ch] text-left text-[14px] font-medium opacity-80">{due || ""}</span>
               </motion.button>
               <div className="flex items-center gap-3 text-[14px] text-ink-2">
-                <span className="relative h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-line sm:w-32" aria-hidden>
+                <span className="relative h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-line sm:w-32" aria-hidden>
                   <motion.span className="absolute inset-0 origin-left rounded-full bg-signal" initial={false}
                     animate={{ scaleX: total / Math.max(1, total + due) }} transition={flow} />
                 </span>
