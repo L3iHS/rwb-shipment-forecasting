@@ -5,7 +5,7 @@ import { callStep, clock, confidenceCuts, inbound, kpis, leadSteps, peakStep, sp
 
 export type Action =
   | { type: "open_route"; id: number }
-  | { type: "filter"; value: "now" | "hour" | "jam" | "all" }
+  | { type: "filter"; value: "now" | "soon" | "hour" | "jam" | "all" } // "soon" comes from the summary tiles, not from the model
   | { type: "scenario"; lead_h: number; risk: Risk };
 
 export const plan = (board: Board, leadH: number, risk: Risk) =>

@@ -121,7 +121,7 @@ frontend/
     format.ts                объёмы (тыс., млн), время, склонения
     plan.ts                  правило вызова и KPI
     tools.ts                 функции ассистента (копия backend/tools.py)
-    brief.ts                 сводка смены и ответы без модели
+    brief.ts                 ответы ассистента без модели
     motion.ts                параметры анимаций (длительности, пружины)
     components/
       Shift.tsx              единственный экран: главная цифра, смена на одной оси, фильтры, список, карточка
@@ -129,7 +129,7 @@ frontend/
       CallQueue.tsx          список маршрутов
       RouteCard.tsx          решение по маршруту и график «почему»
       WhatIf.tsx             условия расчёта (подача, сценарий прогноза)
-      AgentPanel.tsx         ассистент: сводка смены и чат
+      AgentPanel.tsx         ассистент: сводка смены плитками и чат
       Header, Segmented, Ticker, charts
 backend/
   app.py                     /api/agent и раздача frontend/dist

@@ -1,31 +1,8 @@
-// Shift brief and the offline answers of the assistant, built only from tools.ts.
+// Offline answers of the assistant, built only from tools.ts.
 import type { Board } from "./data";
-import { dec1, dec2, int, leadLabel, plural, routesWord, vol } from "./format";
-import { evidence, findRoutes, networkSummary, routeStatus, whatIf, type Action } from "./tools";
+import { dec2, int, leadLabel, plural, routesWord, vol } from "./format";
+import { findRoutes, networkSummary, routeStatus, whatIf, type Action } from "./tools";
 import type { Risk } from "./plan";
-
-type Part = string | { label: string; action: Action };
-export type Line = Part[];
-
-export function brief(board: Board, calls: number[]): Line[] {
-  const n = networkSummary(board, calls);
-  const top = findRoutes(board, calls, "call_now", 3).routes;
-  const low = findRoutes(board, calls, "low_confidence", 0).count;
-  const ev = evidence(board).loss_per_truck_min;
-  const lines: Line[] = [
-    ["Вызвать машины сейчас: ", { label: `${int(n.call_now)} ${routesWord(n.call_now)}`, action: { type: "filter", value: "now" } },
-      `, ещё ${int(n.call_within_hour)} в течение часа. До конца горизонта нужно ${int(n.new_trucks)} новых машин, с запасом до ${int(n.new_trucks_cautious)}.`],
-    [`Пик отгрузок сети в ${n.peak_at}: ${vol(n.peak_volume)} за час.`],
-  ];
-  if (top.length)
-    lines.push(["Больше всего груза у ворот: ",
-      ...top.flatMap((t, i): Part[] => [{ label: `№ ${t.route_id}`, action: { type: "open_route", id: t.route_id } }, ` (${dec2(t.backlog_loads)})${i < top.length - 1 ? ", " : "."}`])]);
-  if (n.waiting_without_truck)
-    lines.push(["Груз ждёт без машины: ", { label: `${n.waiting_without_truck} ${routesWord(n.waiting_without_truck)}`, action: { type: "filter", value: "jam" } }, "."]);
-  if (low) lines.push([`У ${low} ${plural(low, "маршрута", "маршрутов", "маршрутов")} с вызовом в ближайший час прогноз неуверенный: держите резервную машину.`]);
-  lines.push([`На проверочной неделе модель сокращает потери до ${dec1(ev.model)} мин на машину против ${dec1(ev.reactive)} при вызове по полному кузову.`]);
-  return lines;
-}
 
 /** Offline answer for common questions; null when the question needs the language model. */
 export function localAnswer(board: Board, calls: number[], q: string, leadH: number, risk: Risk): { text: string; actions: Action[] } | null {
