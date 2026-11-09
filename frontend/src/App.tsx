@@ -1,9 +1,8 @@
-import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "motion/react";
+import { MotionConfig } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AgentPanel } from "./components/AgentPanel";
 import { bucketOf, queueRows, type Filter } from "./components/CallQueue";
-import { Evidence } from "./components/Evidence";
-import { Header, type Tab } from "./components/Header";
+import { Header } from "./components/Header";
 import { Shift } from "./components/Shift";
 import { loadBoard, type Board } from "./data";
 import { base } from "./motion";
@@ -50,9 +49,7 @@ function Centered({ children }: { children: React.ReactNode }) {
 }
 
 function Console({ board }: { board: Board }) {
-  const reduced = useReducedMotion();
   const [dark, toggleTheme] = useTheme();
-  const [tab, setTab] = useState<Tab>("shift");
   const [agentOpen, setAgentOpen] = useState(false);
   const [scenario, setScenario] = useState<Scenario>({ leadH: board.model.lead_h, risk: "p50" });
   const [filter, setFilter] = useState<Filter>("now");
@@ -72,11 +69,6 @@ function Console({ board }: { board: Board }) {
     setSelected(id);
   };
 
-  function openTab(t: Tab) {
-    if (t !== tab) window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" });
-    setTab(t);
-  }
-
   /** Filter the list; if the open route is not in it, open the top row (done here, not in an effect, so open_route wins). */
   function pick(f: Filter) {
     setQuery("");
@@ -86,8 +78,6 @@ function Console({ board }: { board: Board }) {
   }
 
   function act(a: Action) {
-    if (a.type === "tab") return openTab(a.value);
-    openTab("shift");
     if (a.type === "filter") pick(a.value);
     if (a.type === "scenario") {
       live.current.scenario = { leadH: a.lead_h, risk: a.risk };
@@ -103,24 +93,14 @@ function Console({ board }: { board: Board }) {
   }
 
   return (
-    <div className="min-h-full">
-      <Header board={board} tab={tab} onTab={openTab} onAgent={() => setAgentOpen((o) => !o)} agentOpen={agentOpen}
-        dark={dark} onTheme={toggleTheme} />
-      <main className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, transition: { duration: 0.12 } }} transition={base}>
-            {tab === "shift" ? (
-              <Shift board={board} calls={calls} k={k} lead={lead} scenario={scenario} onScenario={setScenario} filter={filter}
-                onFilter={pick} query={query} onQuery={setQuery} selected={selected} onSelect={select} />
-            ) : (
-              <Evidence board={board} />
-            )}
-          </motion.div>
-        </AnimatePresence>
+    <div className="min-h-full overflow-x-clip">
+      <Header board={board} onAgent={() => setAgentOpen((o) => !o)} agentOpen={agentOpen} dark={dark} onTheme={toggleTheme} />
+      <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 sm:py-8">
+        <Shift board={board} calls={calls} k={k} lead={lead} scenario={scenario} onScenario={setScenario} filter={filter}
+          onFilter={pick} query={query} onQuery={setQuery} selected={selected} onSelect={select} />
       </main>
       <AgentPanel open={agentOpen} onClose={() => setAgentOpen(false)} board={board} calls={calls} leadH={scenario.leadH}
-        risk={scenario.risk} view={{ tab, route: selected }} onAction={act} />
+        risk={scenario.risk} view={{ tab: "shift", route: selected }} onAction={act} />
     </div>
   );
 }

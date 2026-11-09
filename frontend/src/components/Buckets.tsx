@@ -24,7 +24,7 @@ export function Buckets({ calls, waiting, active, onPick }: Props) {
   for (const c of calls) counts[bucketOf(c)]!++;
   const chip = (f: Filter, label: string, dot: string, n: number, alert = false) => (
     <button key={f} onClick={() => onPick(f)} aria-pressed={active === f}
-      className={`relative flex items-baseline gap-2 rounded-[10px] px-3.5 py-2 text-[13px] font-medium transition-colors duration-150 ${
+      className={`relative flex shrink-0 items-baseline gap-2 whitespace-nowrap rounded-[10px] px-3.5 py-2 text-[14px] font-medium transition-colors duration-150 ${
         alert ? "bg-alert-soft text-ink" : "bg-surface text-ink-2 hover:text-ink aria-pressed:text-ink"} ring-1 ring-inset ring-line`}>
       {active === f && <motion.span layoutId="chip" transition={snap} className="absolute inset-0 rounded-[10px] ring-[1.5px] ring-inset ring-ink" />}
       <i className={`size-2 shrink-0 self-center rounded-full ${dot}`} />
@@ -33,9 +33,10 @@ export function Buckets({ calls, waiting, active, onPick }: Props) {
     </button>
   );
   return (
-    <div className="flex flex-wrap gap-2" role="group" aria-label="Фильтр очереди">
+    <div className="-mx-4 flex gap-2 overflow-x-auto px-4 py-0.5 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+      role="group" aria-label="Фильтр очереди">
       {CHIPS.map(([f, label, dot]) => chip(f, label, dot, counts[f]!))}
-      {waiting > 0 && <span className="ml-auto">{chip("jam", "Груз без машины", "bg-alert", waiting, true)}</span>}
+      {waiting > 0 && <span className="flex sm:ml-auto">{chip("jam", "Груз без машины", "bg-alert", waiting, true)}</span>}
     </div>
   );
 }

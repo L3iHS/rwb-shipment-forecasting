@@ -59,20 +59,22 @@ export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onF
     <motion.div className="space-y-8" initial="hidden" animate="show"
       variants={{ show: { transition: { staggerChildren: reduced ? 0 : 0.07 } } }}>
       <motion.section variants={item} className="flex flex-wrap items-end justify-between gap-x-10 gap-y-6">
-        <div className="flex items-end gap-4 sm:gap-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-6">
           {k.callNow > 0 && (
-            <span className="text-[72px] font-bold leading-[0.82] tracking-[-0.04em] text-signal sm:text-[96px]">
-              <Ticker value={k.callNow} from={0} />
+            // The hidden copy holds the final width, so the heading beside it does not slide while the number counts up.
+            <span className="relative inline-block self-start font-hero text-[120px] font-extrabold leading-[0.78] text-signal sm:self-auto sm:text-[152px]">
+              <span className="invisible">{int(k.callNow)}</span>
+              <span className="absolute inset-0"><Ticker value={k.callNow} from={0} /></span>
             </span>
           )}
           <div className="pb-0.5">
-            <h1 className="text-[24px] font-semibold leading-[1.1] tracking-[-0.02em] sm:text-[34px]">
+            <h1 className="font-display text-[34px] font-semibold leading-[1.02] sm:text-[46px]">
               {k.callNow > 0 ? <>{plural(k.callNow, "маршруту", "маршрутам", "маршрутам")} нужна<br />машина сейчас</> : "Сейчас вызывать не нужно"}
             </h1>
             <p className="mt-2 text-ink-2">
-              Ещё <span className="font-medium text-ink">{int(k.callHour)}</span> — в течение часа
-              <span className="mx-2 text-muted">·</span>
-              <span className="whitespace-nowrap font-medium text-ink">{int(k.fleet)}</span> {plural(k.fleet, "машина", "машины", "машин")} до {hhmm(clock(board, 8))}
+              Ещё <span className="font-semibold text-ink">{int(k.callHour)}</span> в течение часа,{" "}
+              <span className="whitespace-nowrap">всего до {hhmm(clock(board, 8))} нужно</span>{" "}
+              <span className="whitespace-nowrap"><span className="font-semibold text-ink">{int(k.fleet)}</span> {plural(k.fleet, "машина", "машины", "машин")}</span>
             </p>
           </div>
         </div>
@@ -81,8 +83,8 @@ export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onF
 
       <motion.section variants={item}>
         <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-          <h2 className="text-[18px] font-semibold leading-6 tracking-tight">
-            Смена на одной оси <span className="ml-1.5 text-[13px] font-normal tracking-normal text-muted">нагрузка склада, товаров в час</span>
+          <h2 className="font-display text-[24px] font-semibold leading-7">
+            Смена на одной оси <span className="ml-1.5 hidden font-sans text-[14px] font-normal text-muted sm:inline">нагрузка склада, товаров в час</span>
           </h2>
           <div className="flex gap-4 text-xs text-ink-2">
             <Key swatch="h-0.5 w-3.5 rounded-full bg-ink">факт</Key>
@@ -99,16 +101,19 @@ export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onF
       </motion.div>
 
       <motion.div variants={item} className="grid gap-5 lg:grid-cols-[400px_1fr]">
-        <div className="h-[480px] lg:h-[640px]">
-          <CallQueue board={board} calls={calls} filter={filter} query={query} onQuery={onQuery} selected={selected} onSelect={select} />
+        {/* On a wide screen the queue takes exactly the card's height, so the two panels end on one line. */}
+        <div className="relative h-[480px] lg:h-auto lg:min-h-[560px]">
+          <div className="h-full lg:absolute lg:inset-0">
+            <CallQueue board={board} calls={calls} filter={filter} query={query} onQuery={onQuery} selected={selected} onSelect={select} />
+          </div>
         </div>
-        <div ref={card} className="scroll-mt-20">
+        <div ref={card} className="min-w-0 scroll-mt-20">
           <RouteCard board={board} r={board.routes[i]} call={calls[i]} lead={lead} leadH={scenario.leadH} risk={scenario.risk} cuts={cuts} />
         </div>
       </motion.div>
 
       <motion.p variants={item} className="num text-[11px] text-muted">
-        {board.model.lib === "lgbm" ? "LightGBM" : board.model.lib} · обучен до{" "}
+        {board.model.lib === "lgbm" ? "LightGBM" : board.model.lib}, обучен до{" "}
         {new Date(board.model.trained_until).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
       </motion.p>
     </motion.div>

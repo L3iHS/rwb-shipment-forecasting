@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useState, type ReactNode } from "react";
 import type { Board, Route } from "../data";
 import { dec2, hhmm, leadLabel, plural, vol } from "../format";
-import { base, flow } from "../motion";
+import { base } from "../motion";
 import { clock, inbound, loadsAt, spread, type Risk } from "../plan";
 import { Dock, Fan, Meter, TruckGauge } from "./charts";
 import { Segmented } from "./Segmented";
@@ -19,7 +19,7 @@ function confidence(r: Route, cuts: [number, number]): { label: string; level: 1
 
 function verdict(board: Board, r: Route, call: number, lead: number, leadH: number) {
   const n = inbound(r);
-  if (call === 0) return { title: "Вызвать сейчас", why: `Кузов наберётся к ${hhmm(clock(board, lead))} — как раз к приезду машины.` };
+  if (call === 0) return { title: "Вызвать сейчас", why: `Кузов наберётся к ${hhmm(clock(board, lead))}, как раз к приезду машины.` };
   if (call > 0) return { title: `Вызвать в ${hhmm(clock(board, call))}`, why: `Кузов наберётся к ${hhmm(clock(board, call + lead))}, машина едет ${leadLabel(leadH)}.` };
   return { title: "Вызов не нужен", why: n ? `Вызванных машин хватает до ${hhmm(clock(board, 8))}.` : `До ${hhmm(clock(board, 8))} кузов не наберётся.` };
 }
@@ -32,7 +32,7 @@ function Stat({ label, title, children }: { label: string; title?: string; child
     </div>
   );
 }
-const unit = (s: string) => <span className="text-[13px] font-normal tracking-normal text-ink-2">{s}</span>;
+const unit = (s: string) => <span className="text-[14px] font-normal tracking-normal text-ink-2">{s}</span>;
 
 interface Props {
   board: Board;
@@ -56,20 +56,21 @@ export function RouteCard({ board, r, call, lead, leadH, risk, cuts }: Props) {
   const conf = confidence(r, cuts);
   const n = inbound(r);
   return (
-    <motion.section layout transition={flow} className="panel @container relative overflow-hidden p-5 sm:p-6">
+    <section className="panel @container relative overflow-hidden p-5 sm:p-6">
       <AnimatePresence mode="popLayout" initial={false}>
-        <motion.div key={r.id} layout="position" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+        <motion.div key={r.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, transition: { duration: 0.12 } }} transition={base}>
-          <div className="eyebrow num">Маршрут № {r.id}</div>
+          <div className="eyebrow">Маршрут № {r.id}</div>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div key={v.title} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-              <h2 className={`mt-1.5 text-[30px] font-semibold leading-[1.1] tracking-[-0.02em] sm:text-[34px] ${call === 0 ? "text-signal" : ""}`}>{v.title}</h2>
-              <p className="mt-1.5 text-ink-2">{v.why}</p>
+              <h2 className={`mt-1 whitespace-nowrap font-display text-[40px] font-semibold leading-[1.05] sm:text-[46px] ${call === 0 ? "text-signal" : ""}`}>{v.title}</h2>
+              {/* Two lines are reserved on a phone, so the tiles below never move when the wording changes. */}
+              <p className="mt-1.5 min-h-[46px] text-ink-2 sm:min-h-[23px]">{v.why}</p>
             </motion.div>
           </AnimatePresence>
 
           <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-[14px] bg-line ring-1 ring-line @xl:grid-cols-4">
-            <Stat label="У ворот" title="Один полный кузов — одна машина">
+            <Stat label="У ворот" title="Полный кузов это одна машина">
               <TruckGauge loads={r.bl} />
               <span className="num">{dec2(r.bl)}</span>
             </Stat>
@@ -89,7 +90,7 @@ export function RouteCard({ board, r, call, lead, leadH, risk, cuts }: Props) {
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
         <Segmented label="График" value={view} options={VIEWS} onChange={setView} />
-        <span className="text-xs text-muted">{view === "dock" ? "кузовов, по времени" : "товаров в час: факт и прогноз"}</span>
+        <span className="text-xs text-muted">{view === "dock" ? "кузовов у ворот" : "товаров в час"}</span>
       </div>
       <AnimatePresence mode="wait" initial={false}>
         <motion.div key={view} className="mt-2" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
@@ -98,10 +99,10 @@ export function RouteCard({ board, r, call, lead, leadH, risk, cuts }: Props) {
             <Dock times={times} line={line} hi={cautious} need={n + 1} runKey={`${r.id}-${call}-${lead}`}
               callK={call >= 0 ? call : undefined} arriveK={call >= 0 && call + lead <= 8 ? call + lead : undefined} />
           ) : (
-            <Fan zero height={196} times={flowTimes} hist={r.h} fc={r.p50} lo={r.p10} hi={r.p90} />
+            <Fan zero height={210} times={flowTimes} hist={r.h} fc={r.p50} lo={r.p10} hi={r.p90} />
           )}
         </motion.div>
       </AnimatePresence>
-    </motion.section>
+    </section>
   );
 }

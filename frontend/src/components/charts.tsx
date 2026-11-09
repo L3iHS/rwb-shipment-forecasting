@@ -101,7 +101,7 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
   const clip = useId().replace(/:/g, "");
   const [hover, setHover] = useState<number | null>(null);
 
-  const L = 44, R = 18, top = 26, gap = 30, barsH = 60;
+  const L = 44, R = 18, top = 26, gap = 30, barsH = 60; // top + height + 24 = 260 at height 210: same box as Dock
   const plotB = top + height;
   const barsB = calls ? plotB + gap + barsH : plotB;
   const H = barsB + 24;
@@ -127,7 +127,7 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
   const k = hover == null ? -1 : hover - h0;
 
   return (
-    <div ref={ref} className="relative select-none">
+    <div ref={ref} className="relative select-none" style={{ height: H }}>
       {W > 0 && (
         <svg width={W} height={H} className="block overflow-visible" role="img"
           aria-label={calls ? "Нагрузка склада и число вызовов по времени" : "Отгрузки маршрута: факт и прогноз"}>
@@ -153,7 +153,12 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
             {peak && (
               <g>
                 <circle cx={x(h0 + pk + 1)} cy={y(fc[pk])} r={5} fill="var(--forecast)" stroke="var(--ground)" strokeWidth={2} />
-                <text className="mark" x={Math.min(x(h0 + pk + 1), W - R - 34)} y={y(hi[pk]) - 10} textAnchor="middle">пик {times[h0 + pk + 1]}</text>
+                {/* Centred over the dot; next to "now" it moves right so it never runs into the "сейчас" label. */}
+                {x(h0 + pk + 1) - nowPt[0] < 56 ? (
+                  <text className="mark" x={x(h0 + pk + 1) + 10} y={y(hi[pk]) - 10}>пик {times[h0 + pk + 1]}</text>
+                ) : (
+                  <text className="mark" x={Math.min(x(h0 + pk + 1), W - R - 34)} y={y(hi[pk]) - 10} textAnchor="middle">пик {times[h0 + pk + 1]}</text>
+                )}
               </g>
             )}
           </g>
@@ -238,7 +243,7 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
           ) : (
             <>
               <TipRow k="прогноз" v={vol(fc[hover - h0 - 1])} swatch="var(--forecast)" />
-              <TipRow k="коридор" v={`${volShort(lo[hover - h0 - 1])} – ${volShort(hi[hover - h0 - 1])}`} />
+              <TipRow k="коридор" v={`${volShort(lo[hover - h0 - 1])} … ${volShort(hi[hover - h0 - 1])}`} />
             </>
           )}
           {calls && k >= 0 && k < calls.length && <TipRow k="вызвать" v={String(calls[k])} swatch="var(--signal)" />}
@@ -278,11 +283,12 @@ export function Dock({ times, line, hi, need, callK, arriveK, runKey }: DockProp
   const cautious = hi.map((v, k): Pt => [x(k), y(v)]);
   const t = (tr: object) => (reduced ? { duration: 0 } : tr);
   const called = callK != null && arriveK != null;
+  const cross = line.findIndex((v) => v >= need); // first step with a full load for one more truck; -1 if none
   const roadY = B + road;
   const anchor = (px: number) => (px > W - 120 ? { x: px - 6, textAnchor: "end" as const } : { x: px + 6, textAnchor: "start" as const });
 
   return (
-    <div ref={ref} className="relative select-none">
+    <div ref={ref} className="relative select-none" style={{ height: H }}>
       {W > 0 && (
         <svg width={W} height={H} className="block overflow-visible" role="img" aria-label="Груз у ворот по времени, в кузовах">
           <defs>
@@ -305,10 +311,15 @@ export function Dock({ times, line, hi, need, callK, arriveK, runKey }: DockProp
             initial={{ pathLength: 0, d: curve(pts) }} animate={{ pathLength: 1, d: curve(pts) }}
             transition={t({ pathLength: { duration: 0.8, ease }, d: flow })} />
 
-          {/* The label sits where the curve is not: above the level while cargo is still short of it, below once it is over. */}
+          {/* The label goes where the curve is not: right of the crossing (above the level if the curve never reaches it,
+              below if it does), or top left when the crossing itself is at the right edge. */}
           <motion.g initial={false} animate={{ y: y(need) }} transition={t(flow)}>
             <line x1={L} x2={W - R} stroke="var(--ink-2)" strokeDasharray="6 4" />
-            <text className="mark" x={L + 10} y={line[0] < need ? -7 : 15}>нужна ещё машина</text>
+            {cross < 0 || x(cross) < W - R - 130 ? (
+              <text className="mark" x={W - R - 4} y={cross < 0 ? -7 : 15} textAnchor="end">нужна ещё машина</text>
+            ) : (
+              <text className="mark" x={L + 10} y={-7}>нужна ещё машина</text>
+            )}
           </motion.g>
 
           {called && (

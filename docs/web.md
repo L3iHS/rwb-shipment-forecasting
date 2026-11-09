@@ -10,7 +10,7 @@ scripts/pipeline.py export  ->  frontend/public/board.json  ->  frontend/ (React
 ```
 
 - `pipeline.py export` строит тот же набор данных, что вшивается в `outputs/dispatch_board.html`, и пишет его в JSON.
-- `frontend/` — React 18 + TypeScript + Vite, Tailwind, Motion для переходов; графики нарисованы в SVG вручную (`frontend/src/components/charts.tsx`), шрифты Geologica и JetBrains Mono лежат в сборке. Читает `board.json` при загрузке. Цвета, типографика и правила движения — дизайн-система «Ночная смена», токены в `frontend/src/index.css`.
+- `frontend/` — React 18 + TypeScript + Vite, Tailwind, Motion для переходов; графики нарисованы в SVG вручную (`frontend/src/components/charts.tsx`), шрифты Sofia Sans (три ширины) и Martian Mono лежат в сборке. Читает `board.json` при загрузке. Цвета, типографика и правила движения — дизайн-система «Ночная смена», токены в `frontend/src/index.css`.
 - `backend/` — FastAPI: `app.py` (маршрут `POST /api/agent`, Claude с функциями, лимит запросов, раздача собранного фронта) и `tools.py` (функции ассистента поверх `board.json`).
 - `Dockerfile` в корне собирает фронт и запускает бэкенд в одном контейнере на порту 8000.
 
@@ -54,7 +54,7 @@ docker build -t rwb-dispatcher . && docker run -p 8000:8000 --env-file backend/.
 POST /api/agent
 {
   "messages": [{"role": "user" | "assistant", "content": "..."}],
-  "view": {"tab": "shift" | "evidence", "route": 471 | null, "lead_h": 1, "risk": "p50" | "p90"}
+  "view": {"tab": "shift", "route": 471 | null, "lead_h": 1, "risk": "p50" | "p90"}
 }
 ->
 {
@@ -71,7 +71,6 @@ POST /api/agent
 | `open_route` | `id` | открыть карточку маршрута |
 | `filter` | `value`: `now`, `hour`, `jam`, `all` | фильтр очереди |
 | `scenario` | `lead_h`: 0.5, 1, 2; `risk`: `p50`, `p90` | пересчитать очередь при другом времени подачи и сценарии |
-| `tab` | `value`: `shift`, `evidence` | переключить экран |
 
 ### Функции (инструменты модели)
 
@@ -107,7 +106,7 @@ POST /api/agent
 frontend/
   public/board.json          данные, пишет pipeline.py export
   src/
-    main.tsx, App.tsx        загрузка board.json, вкладки, панель ассистента
+    main.tsx, App.tsx        загрузка board.json, тема, панель ассистента
     data.ts                  типы board.json и загрузка
     format.ts                объёмы (тыс., млн), время, склонения
     plan.ts                  правило вызова и KPI
@@ -115,14 +114,13 @@ frontend/
     brief.ts                 сводка смены и ответы без модели
     motion.ts                параметры анимаций (длительности, пружины)
     components/
-      Shift.tsx              экран «Вызовы»: решение, нагрузка склада, тревога, полоса, список, карточка
-      Evidence.tsx           экран «Почему верить»: потери на машину, сравнение правил, доказательства, таблицы
-      Buckets.tsx            полоса «Когда вызывать» (фильтр списка)
+      Shift.tsx              единственный экран: главная цифра, смена на одной оси, фильтры, список, карточка
+      Buckets.tsx            чипы-фильтры очереди и тревога «груз без машины»
       CallQueue.tsx          список маршрутов
       RouteCard.tsx          решение по маршруту и график «почему»
       WhatIf.tsx             условия расчёта (подача, сценарий прогноза)
       AgentPanel.tsx         ассистент: сводка смены и чат
-      Header, Segmented, Ticker, Disclosure, charts
+      Header, Segmented, Ticker, charts
 backend/
   app.py                     /api/agent и раздача frontend/dist
   tools.py                   функции ассистента
@@ -132,7 +130,7 @@ Dockerfile
 
 ### Шаги
 
-Шаги 1–9 сделаны (08.11). Интерфейс переделан по `docs/ideas/console-redesign.md`: экраны «Вызовы» и «Почему верить». Ответ модели не проверен вживую (нет ключа на машине разработки), образ Docker не собирался.
+Шаги 1–9 сделаны (08.11). Интерфейс переделан по `docs/ideas/console-redesign.md`; 09.11 экран «Почему верить» убран из пульта — его цифры ассистент по-прежнему отдаёт функцией `evidence`. Ответ модели не проверен вживую (нет ключа на машине разработки), образ Docker не собирался.
 
 | # | Что | Готово, когда |
 |---|---|---|

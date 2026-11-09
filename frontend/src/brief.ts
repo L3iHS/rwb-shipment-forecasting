@@ -14,7 +14,7 @@ export function brief(board: Board, calls: number[]): Line[] {
   const ev = evidence(board).loss_per_truck_min;
   const lines: Line[] = [
     ["Вызвать машины сейчас: ", { label: `${int(n.call_now)} ${routesWord(n.call_now)}`, action: { type: "filter", value: "now" } },
-      `, ещё ${int(n.call_within_hour)} — в течение часа. До конца горизонта нужно ${int(n.new_trucks)} новых машин (осторожно — до ${int(n.new_trucks_cautious)}).`],
+      `, ещё ${int(n.call_within_hour)} в течение часа. До конца горизонта нужно ${int(n.new_trucks)} новых машин, с запасом до ${int(n.new_trucks_cautious)}.`],
     [`Пик отгрузок сети в ${n.peak_at}: ${vol(n.peak_volume)} за час.`],
   ];
   if (top.length)
@@ -22,9 +22,8 @@ export function brief(board: Board, calls: number[]): Line[] {
       ...top.flatMap((t, i): Part[] => [{ label: `№ ${t.route_id}`, action: { type: "open_route", id: t.route_id } }, ` (${dec2(t.backlog_loads)})${i < top.length - 1 ? ", " : "."}`])]);
   if (n.waiting_without_truck)
     lines.push(["Груз ждёт без машины: ", { label: `${n.waiting_without_truck} ${routesWord(n.waiting_without_truck)}`, action: { type: "filter", value: "jam" } }, "."]);
-  if (low) lines.push([`У ${low} ${plural(low, "маршрута", "маршрутов", "маршрутов")} с вызовом в ближайший час прогноз неуверенный — держите резервную машину.`]);
-  lines.push([`На проверочной неделе модель сокращает потери до ${dec1(ev.model)} мин на машину против ${dec1(ev.reactive)} при вызове по полному кузову. `,
-    { label: "Подробнее", action: { type: "tab", value: "evidence" } }]);
+  if (low) lines.push([`У ${low} ${plural(low, "маршрута", "маршрутов", "маршрутов")} с вызовом в ближайший час прогноз неуверенный: держите резервную машину.`]);
+  lines.push([`На проверочной неделе модель сокращает потери до ${dec1(ev.model)} мин на машину против ${dec1(ev.reactive)} при вызове по полному кузову.`]);
   return lines;
 }
 
@@ -38,7 +37,7 @@ export function localAnswer(board: Board, calls: number[], q: string, leadH: num
     const when = r.call_now ? "вызывать сейчас" : r.call_at ? `вызывать в ${r.call_at}` : "новый вызов в горизонте не нужен";
     return {
       text: `Маршрут № ${r.route_id}: ${when}. У ворот ${dec2(r.backlog_loads)} кузова, вызвано машин: ${r.trucks_called}. ` +
-        `За 4 часа ожидается ${vol(r.forecast_4h)} товаров (осторожно — до ${vol(r.forecast_4h_p90)}), кузов — ${vol(r.capacity)}. ` +
+        `За 4 часа ожидается ${vol(r.forecast_4h)} товаров, с запасом до ${vol(r.forecast_4h_p90)}. Кузов вмещает ${vol(r.capacity)}. ` +
         `Машина едет ${leadLabel(leadH)}, поэтому вызов приходится на момент, когда к её прибытию наберётся полный кузов.`,
       actions: [{ type: "open_route", id: r.route_id }],
     };
@@ -59,7 +58,7 @@ export function localAnswer(board: Board, calls: number[], q: string, leadH: num
   }
   if (/пик|нагруз|сколько машин|сводк/.test(s)) {
     const n = networkSummary(board, calls);
-    return { text: `Пик сети в ${n.peak_at}: ${vol(n.peak_volume)} за час. Вызвать сейчас — ${n.call_now} ${routesWord(n.call_now)}, в течение часа — ещё ${n.call_within_hour}. Новых машин до конца горизонта: ${int(n.new_trucks)}.`,
+    return { text: `Пик сети в ${n.peak_at}: ${vol(n.peak_volume)} за час. Вызвать сейчас: ${n.call_now} ${routesWord(n.call_now)}, в течение часа ещё ${n.call_within_hour}. Новых машин до конца горизонта: ${int(n.new_trucks)}.`,
       actions: [{ type: "filter", value: "now" }] };
   }
   return null;

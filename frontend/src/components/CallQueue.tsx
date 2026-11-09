@@ -79,28 +79,33 @@ export function CallQueue({ board, calls, filter, query, onQuery, selected, onSe
   // Render at least down to the selected row, so a route opened from the assistant is always in the list.
   const shown = rows.slice(0, Math.max(SHOWN, rows.findIndex((x) => x.r.id === selected) + 1));
 
+  // Keep the selected row in view by scrolling the list only: scrollIntoView would also drag the page.
   useEffect(() => {
-    const row = list.current?.querySelector<HTMLElement>(`[data-id="${selected}"]`);
-    row?.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+    const ul = list.current;
+    const row = ul?.querySelector<HTMLElement>(`[data-id="${selected}"]`);
+    if (!ul || !row) return;
+    const top = row.offsetTop, bottom = top + row.offsetHeight;
+    const to = top < ul.scrollTop ? top - 8 : bottom > ul.scrollTop + ul.clientHeight ? bottom - ul.clientHeight + 8 : null;
+    if (to != null) ul.scrollTo({ top: to, behavior: reduced ? "auto" : "smooth" });
   }, [selected, filter, query, reduced]);
   return (
     <section className="panel flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="flex items-center justify-between gap-3 px-5 pb-3 pt-4">
-        <h2 className="text-[18px] font-semibold leading-6 tracking-tight">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2.5 px-4 pb-3 pt-4 sm:px-5">
+        <h2 className="whitespace-nowrap font-display text-[24px] font-semibold leading-7">
           {query ? "Найдено" : TITLES[filter]}
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.span key={rows.length} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              transition={base} className="num ml-2 inline-block text-[15px] font-medium text-muted">{rows.length}</motion.span>
+              transition={base} className="num ml-2.5 inline-block text-[13px] font-medium text-muted">{rows.length}</motion.span>
           </AnimatePresence>
         </h2>
-        <label className="flex w-[124px] items-center gap-2 rounded-[10px] bg-raised px-2.5 py-1.5 text-[13px] focus-within:ring-1 focus-within:ring-ink-2">
+        <label className="flex w-full items-center gap-2 rounded-[10px] bg-raised px-2.5 py-1.5 text-[14px] focus-within:ring-1 focus-within:ring-ink-2 sm:w-[132px]">
           <Search size={14} className="shrink-0 text-muted" />
           <input value={query} onChange={(e) => onQuery(e.target.value.trim())} placeholder="№ маршрута" aria-label="Номер маршрута"
             inputMode="numeric" className="num w-full bg-transparent outline-none placeholder:font-sans placeholder:text-muted" />
         </label>
       </div>
-      <div className={`grid ${COLS} gap-2.5 border-b border-line px-5 pb-2 text-[11px] text-muted`}>
-        <span>Маршрут</span><span>Вызвать</span><span title="Груз у ворот, в кузовах: риска — один полный кузов">У ворот, кузовов</span>
+      <div className={`grid ${COLS} gap-2.5 border-b border-line px-5 pb-2 text-[11px] text-muted max-sm:px-[20px]`}>
+        <span>Маршрут</span><span>Вызвать</span><span className="whitespace-nowrap" title="Груз у ворот в кузовах. Риска на полосе отмечает один полный кузов">У ворот<span className="hidden sm:inline">, кузовов</span></span>
         <span className="flex justify-end" title="Машин вызвано"><Truck size={13} /></span>
       </div>
       <motion.ul ref={list} layoutScroll className="relative min-h-0 flex-1 overflow-y-auto p-2" role="listbox" aria-label="Маршруты">
@@ -111,7 +116,7 @@ export function CallQueue({ board, calls, filter, query, onQuery, selected, onSe
               animate={{ opacity: 1, y: 0, transition: { ...base, delay: reduced ? 0 : Math.min(i, 12) * 0.015 } }}
               exit={{ opacity: 0, transition: { duration: 0.12 } }}>
               <button role="option" aria-selected={selected === r.id} onClick={() => onSelect(r.id)}
-                className={`relative grid w-full ${COLS} items-center gap-2.5 rounded-[10px] px-3 py-2 text-left text-[13px] transition-colors duration-100 hover:bg-raised/60`}>
+                className={`relative grid w-full ${COLS} items-center gap-2.5 rounded-[10px] px-3 py-2 text-left text-[14px] transition-colors duration-100 hover:bg-raised/60`}>
                 {selected === r.id && (
                   <motion.span layoutId="row-sel" transition={snap} className="absolute inset-0 rounded-[10px] bg-raised ring-1 ring-inset ring-line" />
                 )}
@@ -125,13 +130,13 @@ export function CallQueue({ board, calls, filter, query, onQuery, selected, onSe
                   </span>
                   <span className="num w-9 text-right text-xs text-ink-2">{dec2(r.bl)}</span>
                 </span>
-                <span className="num relative text-right text-ink-2">{inbound(r) || <span className="text-muted">·</span>}</span>
+                <span className="num relative text-right text-ink-2">{inbound(r) || <span className="text-muted/60">0</span>}</span>
               </button>
             </motion.li>
           ))}
         </AnimatePresence>
         {rows.length > shown.length && (
-          <li className="px-2 py-3 text-center text-xs text-muted">Ещё {rows.length - shown.length} — найдите по номеру</li>
+          <li className="px-2 py-3 text-center text-xs text-muted">Показаны первые {shown.length}. Остальные {rows.length - shown.length} ищите по номеру</li>
         )}
         {rows.length === 0 && (
           <li className="px-2 py-10 text-center text-sm text-muted">{query ? `Маршрута № ${query} нет` : "Здесь пусто"}</li>

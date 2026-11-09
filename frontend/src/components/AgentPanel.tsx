@@ -127,11 +127,11 @@ export function AgentPanel({ open, onClose, board, calls, leadH, risk, view, onA
           className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[420px] flex-col border-l border-line bg-surface shadow-[var(--shadow-pop)]">
           <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
             <div>
-              <h2 className="text-[18px] font-semibold leading-6 tracking-tight">Ассистент<span className="text-signal">.</span></h2>
+              <h2 className="font-display text-[24px] font-semibold leading-7">Ассистент<span className="text-signal">.</span></h2>
             </div>
             <button onClick={onClose} className="grid size-8 place-items-center rounded-[10px] text-ink-2 transition-colors hover:bg-raised hover:text-ink" aria-label="Закрыть"><X size={16} /></button>
           </div>
-          <div ref={scroller} className="flex-1 space-y-4 overflow-y-auto p-5 text-[14px] leading-[21px]">
+          <div ref={scroller} className="flex-1 space-y-4 overflow-y-auto p-5 text-[15px] leading-[22px]">
             <div className="rounded-[14px] bg-raised p-4">
               <div className="eyebrow mb-2">Сводка смены</div>
               <motion.ul className="space-y-2" initial="hidden" animate="show"

@@ -155,5 +155,5 @@ def run(name: str, args: dict, view: dict) -> tuple[dict, dict | None]:
     if name == "what_if":
         return what_if(args["lead_h"], args["risk"]), {"type": "scenario", "lead_h": args["lead_h"], "risk": args["risk"]}
     if name == "evidence":
-        return evidence(), {"type": "tab", "value": "evidence"}
+        return evidence(), None
     return {"error": f"нет функции {name}"}, None
