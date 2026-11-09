@@ -44,3 +44,4 @@ outputs/*
 .idea/
 .claude/
 *.sh
+!/deploy/update.sh

@@ -1,85 +1,135 @@
 @import "tailwindcss";
 
-/* Tokens: one place for light and dark. Forecast = accent (blue), "call now" = signal (orange). */
+/* Tokens of the "Ночная смена" design system: night (warm near-black) is the default, day is its paper twin.
+   Fact = ivory, forecast = pastel sage, calls and waiting cargo = related dusty coral tones. */
 :root {
-  color-scheme: light;
-  --bg: #f4f3ef;
-  --card: #ffffff;
-  --line: #e6e4de;
-  --ink: #161614;
-  --ink-2: #52514e;
-  --muted: #858480;
-  --accent: #2a78d6;
-  --accent-soft: rgba(42, 120, 214, 0.14);
-  --signal: #e2602b;
-  --signal-soft: rgba(226, 96, 43, 0.12);
-  --good: #0c8f0c;
-  --warn: #c98500;
-  --critical: #d03b3b;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --bg: #111110;
-    --card: #1a1a19;
-    --line: #2c2c2a;
-    --ink: #f0efec;
-    --ink-2: #c3c2b7;
-    --muted: #8f8e87;
-    --accent: #3987e5;
-    --accent-soft: rgba(57, 135, 229, 0.22);
-    --signal: #ee7440;
-    --signal-soft: rgba(238, 116, 64, 0.16);
-    --good: #2fb52f;
-    --warn: #e0a21a;
-    --critical: #e66767;
-  }
-}
-:root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #111110;
-  --card: #1a1a19;
-  --line: #2c2c2a;
-  --ink: #f0efec;
-  --ink-2: #c3c2b7;
-  --muted: #8f8e87;
-  --accent: #3987e5;
-  --accent-soft: rgba(57, 135, 229, 0.22);
-  --signal: #ee7440;
-  --signal-soft: rgba(238, 116, 64, 0.16);
-  --good: #2fb52f;
-  --warn: #e0a21a;
-  --critical: #e66767;
+  --ground: #0c0b0a;
+  --surface: #151412;
+  --raised: #211f1b;
+  --line: #322e28;
+  --ink: #e6e0d3;
+  --ink-2: #b8b1a3;
+  --muted: #928b7e;
+  --forecast: #a8cfa4;
+  --forecast-soft: rgba(168, 207, 164, 0.15);
+  --forecast-ink: #b5d6b1;
+  --signal: #e27662;
+  --signal-soft: rgba(226, 118, 98, 0.16);
+  --signal-ink: #eb9482;
+  --on-signal: #2a0f09;
+  --alert: #d79a86;
+  --alert-soft: rgba(215, 154, 134, 0.1);
+  --good: #a8cfa4;
+  --shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.5);
+  --glow-signal: drop-shadow(0 0 8px rgba(226, 118, 98, 0.3));
+  --glow-forecast: drop-shadow(0 0 8px rgba(168, 207, 164, 0.35));
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --ground: #f3efe6;
+  --surface: #fbf9f4;
+  --raised: #ebe5d8;
+  --line: #dcd5c5;
+  --ink: #171512;
+  --ink-2: #4d483f;
+  --muted: #6b655a;
+  --forecast: #539e64;
+  --forecast-soft: rgba(83, 158, 100, 0.16);
+  --forecast-ink: #2c6e40;
+  --signal: #bf4a35;
+  --signal-soft: rgba(191, 74, 53, 0.1);
+  --signal-ink: #a53b28;
+  --on-signal: #ffffff;
+  --alert: #a95340;
+  --alert-soft: rgba(169, 83, 64, 0.08);
+  --good: #2f7a45;
+  --shadow-pop: 0 12px 32px rgba(23, 21, 18, 0.12);
+  --glow-signal: none;
+  --glow-forecast: none;
 }
 
 @theme inline {
-  --color-bg: var(--bg);
-  --color-card: var(--card);
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
   --color-line: var(--line);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-muted: var(--muted);
-  --color-accent: var(--accent);
-  --color-accent-soft: var(--accent-soft);
+  --color-forecast: var(--forecast);
+  --color-forecast-soft: var(--forecast-soft);
+  --color-forecast-ink: var(--forecast-ink);
   --color-signal: var(--signal);
   --color-signal-soft: var(--signal-soft);
+  --color-signal-ink: var(--signal-ink);
+  --color-on-signal: var(--on-signal);
+  --color-alert: var(--alert);
+  --color-alert-soft: var(--alert-soft);
   --color-good: var(--good);
-  --color-warn: var(--warn);
-  --color-critical: var(--critical);
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* One family in three widths, like road signage: extra condensed for the one big number, condensed for headings,
+     normal width for reading. Figures in columns and time codes are set in a narrow Martian Mono. */
+  --font-sans: "Sofia Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Sofia Sans Condensed Variable", "Sofia Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-hero: "Sofia Sans Extra Condensed Variable", "Sofia Sans Condensed Variable", ui-sans-serif, sans-serif;
+  --font-mono: "Martian Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 html, body, #root { height: 100%; }
+/* Hide only the scrollbar chrome; document, queue and conversation still scroll normally. */
+html, body, .scroll-quiet { scrollbar-width: none; }
+html::-webkit-scrollbar, body::-webkit-scrollbar, .scroll-quiet::-webkit-scrollbar { display: none; }
+
+.queue-slot { position: relative; min-width: 0; height: 480px; }
+@media (min-width: 1024px) {
+  /* The route card sets the row height. The queue's contents never stretch the row. */
+  .queue-slot { height: auto; }
+  .queue-slot > section { position: absolute; inset: 0; height: auto; }
+}
+
+.agent-composer input:focus { outline: none; }
+.agent-composer.keyboard-focus:focus-within { box-shadow: inset 0 -2px 0 var(--muted); }
 body {
-  transition: background-color 0.2s, color 0.2s;
-  background: var(--bg);
+  background: var(--ground);
   color: var(--ink);
   font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 23px;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s, color 0.3s;
 }
-.num { font-variant-numeric: tabular-nums; }
-.eyebrow { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+/* The dot grid of the cover, fading out below the header: the room, not a decoration of the data. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: radial-gradient(var(--line) 1px, transparent 1.5px);
+  background-size: 24px 24px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), transparent 55%);
+  pointer-events: none;
+}
+
+.num { font-family: var(--font-mono); font-stretch: 75%; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.eyebrow { font-family: var(--font-mono); font-stretch: 75%; font-size: 11px; line-height: 16px; color: var(--muted); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; }
+.tick { font: 400 10px/14px var(--font-mono); font-stretch: 75%; fill: var(--muted); }
+.mark { font: 500 10px/14px var(--font-mono); font-stretch: 75%; fill: var(--ink-2); }
+
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 6px; }
+
+/* The only thing that moves on its own: the "now" beacon. */
+.beacon { transform-box: fill-box; transform-origin: center; animation: beacon 2.4s cubic-bezier(0.22, 1, 0.36, 1) infinite; }
+@keyframes beacon {
+  from { transform: scale(1); opacity: 0.8; }
+  to { transform: scale(3.6); opacity: 0; }
+}
+.live-dot { animation: live 2.4s ease-in-out infinite; }
+@keyframes live {
+  50% { opacity: 0.35; }
+}
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  .beacon { opacity: 0; }
 }

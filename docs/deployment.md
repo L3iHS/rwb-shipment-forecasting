@@ -1,6 +1,19 @@
 # Демо на rwb.ochev.net
 
-Публикуется только фронтенд выбранного направления A: React, TypeScript, Vite и Motion. Данные и ответы ассистента условные; ML snapshot, backend и внешняя LLM не подключены. `/api`, `/api/*` и `board.json` возвращают 404. Старый `board.json` не включается в сборку (`publicDir: false`).
+Публикуется согласованный пульт «Ночная смена»: React, TypeScript, Vite и Motion, сохранённый `board.json`, локальные ответы ассистента и журнал вызовов в браузере. Новый ML snapshot, backend и внешняя LLM не подключены. `/api` и `/api/*` возвращают 404.
+
+## Обычное обновление: две команды
+
+В административном терминале сервера после согласованного push в `develop`:
+
+```sh
+cd /srv/rwb-shipment-forecasting/app && runuser -u rwb -- git pull --ff-only
+bash deploy/update.sh
+```
+
+[update.sh](../deploy/update.sh) проверяет ветку и отсутствие местных изменений, собирает образ с тегом текущего SHA, обновляет только `web` и ждёт его готовности. Затем сверяет публичный HTTPS, снимок и ассеты с файлами контейнера. При ошибке запуска или проверки восстанавливает предыдущий образ. Старый контейнер работает во время сборки. Другие проекты и edge Caddy не перезапускаются.
+
+Настройки остаются в `/srv/rwb-shipment-forecasting/deploy.env`; подтверждённый SHA и предыдущий релиз записываются в `/srv/rwb-shipment-forecasting/deployment.json`. Скрипт требует Ubuntu, Docker Compose, Python 3 и запуск от администратора. Отдельные команды ниже нужны только для первоначальной настройки.
 
 ## Репозиторий и доступ
 
@@ -56,6 +69,6 @@ rwb.ochev.net {
 
 ## Проверка и обновления
 
-После запуска проверить HTTPS `https://rwb.ochev.net/healthz`, загрузку интерфейса и ассетов. У корня и `index.html` — `Cache-Control: no-cache`, у существующих `/assets/*` — `immutable`; отсутствующий ассет, `board.json` и `/api/*` возвращают 404. Обычные клиентские маршруты получают SPA HTML. Порядок `route`/`handle` в [Caddyfile](../deploy/Caddyfile) изолирует 404 от SPA fallback; это соответствует [правилам Caddy](https://caddyserver.com/docs/caddyfile/directives/route).
+После запуска проверить HTTPS `https://rwb.ochev.net/healthz`, загрузку интерфейса и ассетов. У корня, `index.html` и `board.json` — `Cache-Control: no-cache`, у существующих `/assets/*` — `immutable`; отсутствующий ассет и `/api/*` возвращают 404. Обычные клиентские маршруты получают SPA HTML. Порядок `route`/`handle` в [Caddyfile](../deploy/Caddyfile) изолирует 404 от SPA fallback; это соответствует [правилам Caddy](https://caddyserver.com/docs/caddyfile/directives/route).
 
-Обновление: получить согласованный коммит `develop` от пользователя `rwb`, повторить Compose build/up только для `web`, проверить health и HTTPS. Для отката собрать ранее зафиксированный коммит и повторить тот же запуск; данные и остальные сервисы этот демо-контейнер не изменяет.
+Для обычных обновлений используются две команды в начале документа. При необходимости ручного отката администратор задаёт `RWB_IMAGE_TAG` предыдущего сохранённого образа и выполняет Compose `up -d --no-build --no-deps --wait web`. Скрипт не удаляет старые образы. Данные и остальные сервисы этот демо-контейнер не изменяет.

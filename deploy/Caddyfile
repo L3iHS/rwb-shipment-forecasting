@@ -26,7 +26,8 @@
 		}
 
 		handle /board.json {
-			respond "Not found" 404
+			header Cache-Control "no-cache"
+			file_server
 		}
 
 		handle @existing_asset {

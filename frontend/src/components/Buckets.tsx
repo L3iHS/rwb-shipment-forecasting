@@ -1,55 +1,42 @@
-import { motion, useReducedMotion } from "motion/react";
-import type { Board } from "../data";
-import { hhmm } from "../format";
-import { flow, snap, useFirstRender } from "../motion";
-import { clock } from "../plan";
+import { motion } from "motion/react";
+import { snap } from "../motion";
 import { bucketOf, type Filter } from "./CallQueue";
 import { Ticker } from "./Ticker";
 
-type Segment = "now" | "soon" | "later" | "none";
-const SEGMENTS: [Segment, string, string][] = [
-  ["now", "Сейчас", "bg-signal text-white"],
-  ["soon", "В течение часа", "bg-signal-soft text-signal"],
-  ["later", "Позже", "bg-line text-ink-2"],
-  ["none", "Не нужно", "border border-line text-muted"],
+// The dot repeats the colour of the bars on the shift timeline, so the chips read as its legend.
+const CHIPS: [Filter, string, string][] = [
+  ["now", "Сейчас", "bg-signal"],
+  ["soon", "В течение часа", "bg-signal opacity-50"],
+  ["later", "Позже", "bg-ink-2 opacity-40"],
+  ["none", "Не нужно", "border border-muted"],
 ];
 
 interface Props {
-  board: Board;
   calls: number[];
-  active: Filter | null; // highlighted segment; null while searching or showing an alert filter
+  waiting: number; // routes whose cargo waits with no truck called
+  active: Filter | null; // null while searching by number
   onPick: (f: Filter) => void;
 }
 
-/** All routes split by when to call; each segment's width is its share and clicking it filters the list. */
-export function Buckets({ board, calls, active, onPick }: Props) {
-  const reduced = useReducedMotion();
-  const first = useFirstRender();
-  const counts: Record<Segment, number> = { now: 0, soon: 0, later: 0, none: 0 };
-  for (const c of calls) counts[bucketOf(c) as Segment]++;
-  const hints: Partial<Record<Segment, string>> = {
-    later: `Позже — с ${hhmm(clock(board, 3))} до ${hhmm(clock(board, 8))}`,
-    none: "Не нужно — вызванных машин хватает или груза на кузов не наберётся",
-  };
+/** Filter chips over the queue: when to call, plus the one alert — cargo waiting with no truck. */
+export function Buckets({ calls, waiting, active, onPick }: Props) {
+  const counts: Partial<Record<Filter, number>> = { now: 0, soon: 0, later: 0, none: 0 };
+  for (const c of calls) counts[bucketOf(c)]!++;
+  const chip = (f: Filter, label: string, dot: string, n: number, alert = false) => (
+    <button key={f} onClick={() => onPick(f)} aria-pressed={active === f}
+      className={`relative flex shrink-0 items-baseline gap-2 whitespace-nowrap rounded-[10px] px-3.5 py-2 text-[14px] font-medium transition-colors duration-150 ${
+        alert ? "bg-alert-soft text-ink" : "bg-surface text-ink-2 hover:text-ink aria-pressed:text-ink"} ring-1 ring-inset ring-line`}>
+      {active === f && <motion.span layoutId="chip" transition={snap} className="absolute inset-0 rounded-[10px] ring-[1.5px] ring-inset ring-ink" />}
+      <i className={`size-2 shrink-0 self-center rounded-full ${dot}`} />
+      <b className="num text-[15px] font-semibold text-ink"><Ticker value={n} /></b>
+      {label}
+    </button>
+  );
   return (
-    <section>
-      <h2 className="text-sm font-semibold">Когда вызывать</h2>
-      <div className="mt-2.5 flex gap-1">
-        {SEGMENTS.map(([f, label, cls], i) => (
-          <motion.button key={f} onClick={() => onPick(f)} aria-pressed={active === f} title={hints[f]}
-            initial={{ flexGrow: 0 }} animate={{ flexGrow: counts[f] }}
-            transition={reduced ? { duration: 0 } : { ...flow, delay: first ? i * 0.05 : 0 }}
-            className={`relative min-w-[64px] basis-0 sm:min-w-[88px] rounded-md text-left ${cls}`}>
-            {active === f && (
-              <motion.span layoutId="bucket" transition={snap} className="absolute inset-0 rounded-md ring-2 ring-inset ring-ink" />
-            )}
-            <span className="relative flex flex-col px-2.5 py-1.5">
-              <span className="num text-base font-semibold leading-tight"><Ticker value={counts[f]} /></span>
-              <span className="text-[11px] leading-tight">{label}</span>
-            </span>
-          </motion.button>
-        ))}
-      </div>
-    </section>
+    <div className="-mx-4 flex gap-2 overflow-x-auto px-4 py-0.5 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+      role="group" aria-label="Фильтр очереди">
+      {CHIPS.map(([f, label, dot]) => chip(f, label, dot, counts[f]!))}
+      {waiting > 0 && <span className="flex sm:ml-auto">{chip("jam", "Груз без машины", "bg-alert", waiting, true)}</span>}
+    </div>
   );
 }

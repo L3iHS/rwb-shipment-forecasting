@@ -6,8 +6,7 @@ import { callStep, clock, confidenceCuts, inbound, kpis, leadSteps, peakStep, sp
 export type Action =
   | { type: "open_route"; id: number }
   | { type: "filter"; value: "now" | "hour" | "jam" | "all" }
-  | { type: "scenario"; lead_h: number; risk: Risk }
-  | { type: "tab"; value: "shift" | "evidence" };
+  | { type: "scenario"; lead_h: number; risk: Risk };
 
 export const plan = (board: Board, leadH: number, risk: Risk) =>
   board.routes.map((r) => callStep(r, leadSteps(board, leadH), risk));
