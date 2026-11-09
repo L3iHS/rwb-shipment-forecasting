@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+/* Tokens: one place for light and dark. Forecast = accent (blue), "call now" = signal (orange). */
+:root {
+  color-scheme: light;
+  --bg: #f4f3ef;
+  --card: #ffffff;
+  --line: #e6e4de;
+  --ink: #161614;
+  --ink-2: #52514e;
+  --muted: #858480;
+  --accent: #2a78d6;
+  --accent-soft: rgba(42, 120, 214, 0.14);
+  --signal: #e2602b;
+  --signal-soft: rgba(226, 96, 43, 0.12);
+  --good: #0c8f0c;
+  --warn: #c98500;
+  --critical: #d03b3b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #111110;
+    --card: #1a1a19;
+    --line: #2c2c2a;
+    --ink: #f0efec;
+    --ink-2: #c3c2b7;
+    --muted: #8f8e87;
+    --accent: #3987e5;
+    --accent-soft: rgba(57, 135, 229, 0.22);
+    --signal: #ee7440;
+    --signal-soft: rgba(238, 116, 64, 0.16);
+    --good: #2fb52f;
+    --warn: #e0a21a;
+    --critical: #e66767;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111110;
+  --card: #1a1a19;
+  --line: #2c2c2a;
+  --ink: #f0efec;
+  --ink-2: #c3c2b7;
+  --muted: #8f8e87;
+  --accent: #3987e5;
+  --accent-soft: rgba(57, 135, 229, 0.22);
+  --signal: #ee7440;
+  --signal-soft: rgba(238, 116, 64, 0.16);
+  --good: #2fb52f;
+  --warn: #e0a21a;
+  --critical: #e66767;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-signal: var(--signal);
+  --color-signal-soft: var(--signal-soft);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-critical: var(--critical);
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+html, body, #root { height: 100%; }
+body {
+  transition: background-color 0.2s, color 0.2s;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+.num { font-variant-numeric: tabular-nums; }
+.eyebrow { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

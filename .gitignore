@@ -39,3 +39,8 @@ experiments/preds/
 # Service outputs are regenerated; the existing board remains a demo.
 outputs/*
 !outputs/dispatch_board.html
+
+# Local tools: IDE, Claude Code settings, personal launch scripts.
+.idea/
+.claude/
+*.sh

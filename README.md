@@ -2,6 +2,8 @@
 
 Решение кейса RWB «Отгрузки без простоев» для кейс-чемпионата Т1, 2026.
 
+В `develop` объединены эксперименты `vlado`, сервис `Colhound` и существующий пульт с агентом из `feat/dispatcher-web`. [Состав и границы интеграции](docs/integration.md).
+
 [Соревнование WB Space](https://wbspace.wb.ru/competitions/kejs-chempionat) · [Техническое задание](docs/task.md) · [Данные и исходные материалы](data/README.md)
 
 ## Задача

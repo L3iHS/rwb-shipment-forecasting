@@ -12,6 +12,5 @@ jupyterlab==4.6.6
 ipykernel==7.4.0
 # Forecasting models. torch with CUDA: pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cu130
 xgboost==3.4.1
-lightgbm==4.7.0
 torch==2.14.1
 ruff
