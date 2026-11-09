@@ -1,0 +1,7 @@
+# Original competition files must stay byte-identical to data/manifest.json (no CRLF conversion).
+data/raw/** -text
+data/reference/** -text
+# Saved LightGBM models must load byte-for-byte on every OS.
+models/prod/** -text
+# Preserve byte-level evidence hashes when cloning on Windows or Linux.
+reports/colhound/** -text whitespace=cr-at-eol

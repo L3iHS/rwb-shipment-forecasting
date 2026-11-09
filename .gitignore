@@ -35,3 +35,7 @@ mlruns/
 experiments/preds/
 .claude/*
 !.claude/CLAUDE.md
+
+# Service outputs are regenerated; the existing board remains a demo.
+outputs/*
+!outputs/dispatch_board.html
