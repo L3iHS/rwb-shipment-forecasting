@@ -62,3 +62,4 @@
 @media(max-width:600px){.queue .extra-column{display:none}.queue .table-wrap th:nth-child(1){width:27%}.queue .table-wrap th:nth-child(2){width:35%}.queue .table-wrap th:nth-child(3){width:38%}}
 .queue .table-wrap,.assistant-thread{scrollbar-width:none}
 .queue .table-wrap::-webkit-scrollbar,.assistant-thread::-webkit-scrollbar{width:0;height:0}
+@media(max-width:500px){.route-detail .decision-values strong{font-size:clamp(16px,4.35vw,21px)}}
