@@ -1,7 +1,7 @@
 import { MotionConfig } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AgentPanel } from "./components/AgentPanel";
-import { bucketOf, queueRows, type Filter } from "./components/CallQueue";
+import { bucketOf, inFilter, queueRows, type Filter } from "./components/CallQueue";
 import { Header } from "./components/Header";
 import { Shift } from "./components/Shift";
 import { loadBoard, type Board } from "./data";
@@ -48,7 +48,42 @@ function Centered({ children }: { children: React.ReactNode }) {
   return <div className="grid h-full place-items-center p-6 text-ink-2">{children}</div>;
 }
 
-function Console({ board }: { board: Board }) {
+/**
+ * Trucks the dispatcher called from this console, in order, as route ids. Kept per forecast moment:
+ * a new board.json starts a new log.
+ */
+function useCallLog(now: string): [number[], (f: (log: number[]) => number[]) => void] {
+  const key = `calls:${now}`;
+  const [log, setLog] = useState<number[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(key) ?? "[]");
+      return Array.isArray(saved) ? saved.filter((v) => Number.isInteger(v)) : [];
+    } catch {
+      return [];
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, JSON.stringify(log));
+    } catch {
+      /* storage unavailable: the log lives until reload */
+    }
+  }, [key, log]);
+  return [log, setLog];
+}
+
+function Console({ board: source }: { board: Board }) {
+  const [log, setLog] = useCallLog(source.now);
+  const called = useMemo(() => {
+    const n: Record<number, number> = {};
+    for (const id of log) n[id] = (n[id] ?? 0) + 1;
+    return n;
+  }, [log]);
+  // A called truck is on its way, so the rule plans the route's next call around it: the whole console reads this board.
+  const board = useMemo<Board>(
+    () => (log.length ? { ...source, routes: source.routes.map((r) => (called[r.id] ? { ...r, way: r.way + called[r.id] } : r)) } : source),
+    [source, called, log.length],
+  );
   const [dark, toggleTheme] = useTheme();
   const [agentOpen, setAgentOpen] = useState(false);
   const [scenario, setScenario] = useState<Scenario>({ leadH: board.model.lead_h, risk: "p50" });
@@ -77,6 +112,25 @@ function Console({ board }: { board: Board }) {
     if (rows.length && !rows.some((x) => x.r.id === live.current.selected)) select(rows[0].r.id);
   }
 
+  /** One more truck called for the route. If that takes it out of the list, move on to the next row. */
+  function markCalled(id: number) {
+    const r = board.routes.find((q) => q.id === id);
+    if (!r) return;
+    const rows = queueRows(board, calls, filter, query);
+    const at = rows.findIndex((x) => x.r.id === id);
+    const after = callStep({ ...r, way: r.way + 1 }, lead, scenario.risk);
+    const next = rows[at + 1] ?? rows[at - 1];
+    if (!query && at >= 0 && next && !inFilter({ ...r, way: r.way + 1 }, after, filter)) select(next.r.id);
+    setLog((l) => [...l, id]);
+  }
+  /** Take back the latest call: of this route, or of the whole log when no route is given. */
+  function undoCall(id?: number) {
+    setLog((l) => {
+      const at = id == null ? l.length - 1 : l.lastIndexOf(id);
+      return at < 0 ? l : [...l.slice(0, at), ...l.slice(at + 1)];
+    });
+  }
+
   function act(a: Action) {
     if (a.type === "filter") pick(a.value);
     if (a.type === "scenario") {
@@ -97,10 +151,11 @@ function Console({ board }: { board: Board }) {
       <Header board={board} onAgent={() => setAgentOpen((o) => !o)} agentOpen={agentOpen} dark={dark} onTheme={toggleTheme} />
       <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 sm:py-8">
         <Shift board={board} calls={calls} k={k} lead={lead} scenario={scenario} onScenario={setScenario} filter={filter}
-          onFilter={pick} query={query} onQuery={setQuery} selected={selected} onSelect={select} />
+          onFilter={pick} query={query} onQuery={setQuery} selected={selected} onSelect={select}
+          log={log} called={called} onCalled={markCalled} onUndo={undoCall} />
       </main>
       <AgentPanel open={agentOpen} onClose={() => setAgentOpen(false)} board={board} calls={calls} leadH={scenario.leadH}
-        risk={scenario.risk} view={{ tab: "shift", route: selected }} onAction={act} />
+        risk={scenario.risk} view={{ tab: "shift", route: selected, called }} onAction={act} />
     </div>
   );
 }

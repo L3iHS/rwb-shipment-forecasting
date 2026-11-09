@@ -30,7 +30,7 @@ interface Props {
   calls: number[];
   leadH: number;
   risk: Risk;
-  view: { tab: string; route: number };
+  view: { tab: string; route: number; called: Record<number, number> };
   onAction: (a: Action) => void;
 }
 

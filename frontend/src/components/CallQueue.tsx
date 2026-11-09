@@ -27,7 +27,8 @@ export function bucketOf(call: number): Filter {
   return call > 2 ? "later" : "none";
 }
 
-function matches(r: Route, call: number, f: Filter) {
+/** Whether a route with this call step belongs to the filter. */
+export function inFilter(r: Route, call: number, f: Filter) {
   if (f === "jam") return waitsWithoutTruck(r);
   if (f === "hour") return call >= 0 && call <= 2;
   if (f === "all") return true;
@@ -39,7 +40,7 @@ export function queueRows(board: Board, calls: number[], filter: Filter, query =
   const order = (call: number) => (call < 0 ? 99 : call); // "not needed" (-1) sorts last
   return board.routes
     .map((r, i) => ({ r, call: calls[i] }))
-    .filter(({ r, call }) => (query ? String(r.id).startsWith(query) : matches(r, call, filter)))
+    .filter(({ r, call }) => (query ? String(r.id).startsWith(query) : inFilter(r, call, filter)))
     .sort((a, b) => order(a.call) - order(b.call) || b.r.bl - a.r.bl);
 }
 
@@ -68,11 +69,12 @@ interface Props {
   onQuery: (q: string) => void;
   selected: number;
   onSelect: (id: number) => void;
+  onCalled: (id: number) => void;
 }
 
 const COLS = "grid-cols-[58px_104px_1fr_30px]";
 
-export function CallQueue({ board, calls, filter, query, onQuery, selected, onSelect }: Props) {
+export function CallQueue({ board, calls, filter, query, onQuery, selected, onSelect, onCalled }: Props) {
   const reduced = useReducedMotion();
   const list = useRef<HTMLUListElement>(null);
   const rows = queueRows(board, calls, filter, query);
@@ -87,7 +89,26 @@ export function CallQueue({ board, calls, filter, query, onQuery, selected, onSe
     const top = row.offsetTop, bottom = top + row.offsetHeight;
     const to = top < ul.scrollTop ? top - 8 : bottom > ul.scrollTop + ul.clientHeight ? bottom - ul.clientHeight + 8 : null;
     if (to != null) ul.scrollTo({ top: to, behavior: reduced ? "auto" : "smooth" });
+    // Working from the keyboard: focus follows the selection, also when a called route leaves the list.
+    if (ul.contains(document.activeElement)) row.querySelector("button")?.focus({ preventScroll: true });
   }, [selected, filter, query, reduced]);
+
+  /** Arrows walk the list; Enter on the open route marks its truck as called. */
+  function onKey(e: React.KeyboardEvent) {
+    const at = shown.findIndex((x) => x.r.id === selected);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      const next = shown[at + (e.key === "ArrowDown" ? 1 : -1)];
+      if (!next) return;
+      e.preventDefault();
+      onSelect(next.r.id);
+      list.current?.querySelector<HTMLElement>(`[data-id="${next.r.id}"] button`)?.focus({ preventScroll: true });
+    } else if (e.key === "Enter") {
+      const focused = Number((e.target as HTMLElement).closest("[data-id]")?.getAttribute("data-id"));
+      if (focused !== selected || at < 0 || shown[at].call !== 0) return; // Enter on another row just opens it
+      e.preventDefault();
+      onCalled(selected);
+    }
+  }
   return (
     <section className="panel flex h-full min-h-0 flex-col overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2.5 px-4 pb-3 pt-4 sm:px-5">
@@ -108,7 +129,7 @@ export function CallQueue({ board, calls, filter, query, onQuery, selected, onSe
         <span>Маршрут</span><span>Вызвать</span><span className="whitespace-nowrap" title="Груз у ворот в кузовах. Риска на полосе отмечает один полный кузов">У ворот<span className="hidden sm:inline">, кузовов</span></span>
         <span className="flex justify-end" title="Машин вызвано"><Truck size={13} /></span>
       </div>
-      <motion.ul ref={list} layoutScroll className="relative min-h-0 flex-1 overflow-y-auto p-2" role="listbox" aria-label="Маршруты">
+      <motion.ul ref={list} layoutScroll onKeyDown={onKey} className="relative min-h-0 flex-1 overflow-y-auto p-2" role="listbox" aria-label="Маршруты">
         <AnimatePresence initial={false} mode="popLayout">
           {shown.map(({ r, call }, i) => (
             <motion.li key={r.id} data-id={r.id} layout={i < 40 ? "position" : false} transition={reorder}
@@ -142,6 +163,13 @@ export function CallQueue({ board, calls, filter, query, onQuery, selected, onSe
           <li className="px-2 py-10 text-center text-sm text-muted">{query ? `Маршрута № ${query} нет` : "Здесь пусто"}</li>
         )}
       </motion.ul>
+      <div className="hidden items-center gap-2 border-t border-line px-5 py-2.5 text-xs text-muted lg:flex">
+        <kbd className="num rounded bg-raised px-1.5 py-0.5 text-[10px] text-ink-2">↑</kbd>
+        <kbd className="num rounded bg-raised px-1.5 py-0.5 text-[10px] text-ink-2">↓</kbd>
+        <span className="mr-2">выбрать</span>
+        <kbd className="num rounded bg-raised px-1.5 py-0.5 text-[10px] text-ink-2">Enter</kbd>
+        <span>вызвал</span>
+      </div>
     </section>
   );
 }

@@ -34,8 +34,15 @@ def call_step(r: dict, lead: int, risk: str) -> int:
     return -1
 
 
-def plan(lead_h: float, risk: str) -> list[int]:
-    return [call_step(r, lead_steps(lead_h), risk) for r in R]
+def with_calls(called: dict[int, int] | None) -> list[dict]:
+    """Routes after the trucks the dispatcher called from the console: each call is one more truck on the way."""
+    if not called:
+        return R
+    return [{**r, "way": r["way"] + called[r["id"]]} if r["id"] in called else r for r in R]
+
+
+def plan(lead_h: float, risk: str, routes: list[dict] = R) -> list[int]:
+    return [call_step(r, lead_steps(lead_h), risk) for r in routes]
 
 
 def spread(r: dict) -> float:
@@ -46,8 +53,8 @@ def spread(r: dict) -> float:
 LOW_CONFIDENCE = sorted(spread(r) for r in R)[len(R) * 2 // 3]
 
 
-def route_status(route_id: int, lead_h: float, risk: str) -> dict:
-    r = BY_ID.get(route_id)
+def route_status(route_id: int, lead_h: float, risk: str, routes: list[dict] = R) -> dict:
+    r = BY_ID.get(route_id) if routes is R else next((q for q in routes if q["id"] == route_id), None)
     if r is None:
         return {"error": f"маршрута {route_id} нет, номера 0..{len(R) - 1}"}
     call = call_step(r, lead_steps(lead_h), risk)
@@ -62,7 +69,7 @@ def route_status(route_id: int, lead_h: float, risk: str) -> dict:
     }
 
 
-def find_routes(condition: str, limit: int, lead_h: float, risk: str) -> dict:
+def find_routes(condition: str, limit: int, lead_h: float, risk: str, routes: list[dict] = R) -> dict:
     def matches(r: dict, call: int) -> bool:
         if condition == "call_now":
             return call == 0
@@ -72,27 +79,27 @@ def find_routes(condition: str, limit: int, lead_h: float, risk: str) -> dict:
             return r["bl"] >= 1 and r["way"] + r["dock"] == 0
         return 0 <= call <= 2 and spread(r) > LOW_CONFIDENCE  # low_confidence
 
-    hit = sorted(((r, c) for r, c in zip(R, plan(lead_h, risk)) if matches(r, c)), key=lambda t: -t[0]["bl"])
+    hit = sorted(((r, c) for r, c in zip(routes, plan(lead_h, risk, routes)) if matches(r, c)), key=lambda t: -t[0]["bl"])
     return {"count": len(hit), "routes": [{"route_id": r["id"], "backlog_loads": r["bl"],
                                            "call_at": None if c < 0 else clock(c)} for r, c in hit[:limit]]}
 
 
-def network_summary(lead_h: float, risk: str) -> dict:
-    calls = plan(lead_h, risk)
+def network_summary(lead_h: float, risk: str, routes: list[dict] = R) -> dict:
+    calls = plan(lead_h, risk, routes)
     p50 = B["network"]["p50"]
     peak = max(range(len(p50)), key=p50.__getitem__)
     return {
         "call_now": sum(c == 0 for c in calls), "call_within_hour": sum(0 < c <= 2 for c in calls),
-        "new_trucks": sum(max(0, int(r["bl"] + r["c50"][-1] / r["cap"]) - r["way"] - r["dock"]) for r in R),
-        "new_trucks_cautious": sum(max(0, int(r["bl"] + r["c90"][-1] / r["cap"]) - r["way"] - r["dock"]) for r in R),
-        "volume_4h": sum(r["c50"][-1] for r in R),
-        "waiting_without_truck": sum(r["bl"] >= 1 and r["way"] + r["dock"] == 0 for r in R),
+        "new_trucks": sum(max(0, int(r["bl"] + r["c50"][-1] / r["cap"]) - r["way"] - r["dock"]) for r in routes),
+        "new_trucks_cautious": sum(max(0, int(r["bl"] + r["c90"][-1] / r["cap"]) - r["way"] - r["dock"]) for r in routes),
+        "volume_4h": sum(r["c50"][-1] for r in routes),
+        "waiting_without_truck": sum(r["bl"] >= 1 and r["way"] + r["dock"] == 0 for r in routes),
         "peak_at": clock(peak + 1), "peak_volume_per_hour": p50[peak], "horizon_end": clock(len(p50)),
     }
 
 
-def what_if(lead_h: float, risk: str) -> dict:
-    base, now = plan(B["model"]["lead_h"], "p50"), plan(lead_h, risk)
+def what_if(lead_h: float, risk: str, routes: list[dict] = R) -> dict:
+    base, now = plan(B["model"]["lead_h"], "p50", routes), plan(lead_h, risk, routes)
     return {"lead_h": lead_h, "risk": risk, "call_now": sum(c == 0 for c in now),
             "call_now_service_plan": sum(c == 0 for c in base), "routes_changed": sum(a != b for a, b in zip(now, base))}
 
@@ -143,17 +150,18 @@ TOOLS = [
 def run(name: str, args: dict, view: dict) -> tuple[dict, dict | None]:
     """Execute a tool; return its result and the console action it implies."""
     lead, risk = view["lead_h"], view["risk"]
+    routes = with_calls(view.get("called"))  # the console's own calls are trucks already on the way
     if name == "route_status":
-        out = route_status(args["route_id"], lead, risk)
+        out = route_status(args["route_id"], lead, risk, routes)
         return out, None if "error" in out else {"type": "open_route", "id": args["route_id"]}
     if name == "find_routes":
-        out = find_routes(args["condition"], max(1, min(args["limit"], 20)), lead, risk)
+        out = find_routes(args["condition"], max(1, min(args["limit"], 20)), lead, risk, routes)
         f = {"call_now": "now", "call_within_hour": "hour", "waiting_without_truck": "jam"}.get(args["condition"])
         return out, None if f is None else {"type": "filter", "value": f}
     if name == "network_summary":
-        return network_summary(lead, risk), None
+        return network_summary(lead, risk, routes), None
     if name == "what_if":
-        return what_if(args["lead_h"], args["risk"]), {"type": "scenario", "lead_h": args["lead_h"], "risk": args["risk"]}
+        return what_if(args["lead_h"], args["risk"], routes), {"type": "scenario", "lead_h": args["lead_h"], "risk": args["risk"]}
     if name == "evidence":
         return evidence(), None
     return {"error": f"нет функции {name}"}, None

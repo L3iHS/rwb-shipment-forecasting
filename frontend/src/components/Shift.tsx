@@ -1,8 +1,9 @@
 import { motion, useReducedMotion } from "motion/react";
+import { Undo2 } from "lucide-react";
 import { useMemo, useRef } from "react";
 import type { Board } from "../data";
 import { hhmm, int, plural } from "../format";
-import { base } from "../motion";
+import { base, flow } from "../motion";
 import { clock, confidenceCuts, type Kpis, type Scenario } from "../plan";
 import { Buckets } from "./Buckets";
 import { bucketOf, CallQueue, type Filter } from "./CallQueue";
@@ -24,6 +25,10 @@ interface Props {
   onQuery: (q: string) => void;
   selected: number;
   onSelect: (id: number) => void;
+  log: number[]; // trucks called from the console, in order, as route ids
+  called: Record<number, number>;
+  onCalled: (id: number) => void;
+  onUndo: (id?: number) => void;
 }
 
 const BACK = 8; // steps of history on the timeline: as far back as the forecast looks ahead, so "now" sits in the middle
@@ -34,7 +39,7 @@ function Key({ swatch, children }: { swatch: string; children: string }) {
 }
 
 /** Screen "Вызовы": how many trucks to call now, the shift on one time axis, then who exactly and why. */
-export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onFilter, query, onQuery, selected, onSelect }: Props) {
+export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onFilter, query, onQuery, selected, onSelect, log, called, onCalled, onUndo }: Props) {
   const reduced = useReducedMotion();
   const card = useRef<HTMLDivElement>(null);
   const cuts = useMemo(() => confidenceCuts(board.routes), [board]);
@@ -62,7 +67,7 @@ export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onF
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-6">
           {k.callNow > 0 && (
             // The hidden copy holds the final width, so the heading beside it does not slide while the number counts up.
-            <span className="relative inline-block self-start font-hero text-[120px] font-extrabold leading-[0.78] text-signal sm:self-auto sm:text-[152px]">
+            <span className="relative inline-block self-start font-hero text-[120px] font-extrabold tabular-nums leading-[0.78] tracking-[-0.02em] text-signal sm:self-auto sm:text-[152px]">
               <span className="invisible">{int(k.callNow)}</span>
               <span className="absolute inset-0"><Ticker value={k.callNow} from={0} /></span>
             </span>
@@ -76,6 +81,24 @@ export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onF
               <span className="whitespace-nowrap">всего до {hhmm(clock(board, 8))} нужно</span>{" "}
               <span className="whitespace-nowrap"><span className="font-semibold text-ink">{int(k.fleet)}</span> {plural(k.fleet, "машина", "машины", "машин")}</span>
             </p>
+            {/* Progress of the shift: trucks called here against the routes still waiting. Always present, so nothing jumps. */}
+            <div className="mt-4 flex items-center gap-3 text-[14px] text-ink-2">
+              <span className="relative h-1.5 w-28 shrink-0 overflow-hidden rounded-full bg-line sm:w-40" aria-hidden>
+                <motion.span className="absolute inset-0 origin-left rounded-full bg-signal" initial={false}
+                  animate={{ scaleX: log.length / Math.max(1, log.length + k.callNow) }} transition={flow} />
+              </span>
+              <span className="whitespace-nowrap">
+                вызвано <span className="num font-semibold text-ink"><Ticker value={log.length} /></span> из{" "}
+                <span className="num"><Ticker value={log.length + k.callNow} /></span>
+              </span>
+              <motion.button onClick={() => onUndo()} disabled={!log.length} aria-hidden={!log.length} initial={false}
+                animate={{ opacity: log.length ? 1 : 0 }} transition={base}
+                className="inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[13px] text-ink-2 ring-1 ring-inset ring-line hover:text-ink disabled:pointer-events-none"
+                title="Отменить последний вызов">
+                <Undo2 size={13} />
+                <span className="num">{log.length ? `№ ${log[log.length - 1]}` : "№ 000"}</span>
+              </motion.button>
+            </div>
           </div>
         </div>
         <WhatIf board={board} s={scenario} onChange={onScenario} />
@@ -104,11 +127,12 @@ export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onF
         {/* On a wide screen the queue takes exactly the card's height, so the two panels end on one line. */}
         <div className="relative h-[480px] lg:h-auto lg:min-h-[560px]">
           <div className="h-full lg:absolute lg:inset-0">
-            <CallQueue board={board} calls={calls} filter={filter} query={query} onQuery={onQuery} selected={selected} onSelect={select} />
+            <CallQueue board={board} calls={calls} filter={filter} query={query} onQuery={onQuery} selected={selected} onSelect={select} onCalled={onCalled} />
           </div>
         </div>
         <div ref={card} className="min-w-0 scroll-mt-20">
-          <RouteCard board={board} r={board.routes[i]} call={calls[i]} lead={lead} leadH={scenario.leadH} risk={scenario.risk} cuts={cuts} />
+          <RouteCard board={board} r={board.routes[i]} call={calls[i]} lead={lead} leadH={scenario.leadH} risk={scenario.risk} cuts={cuts}
+            calledHere={called[selected] ?? 0} onCalled={() => onCalled(selected)} onUndo={() => onUndo(selected)} />
         </div>
       </motion.div>
 

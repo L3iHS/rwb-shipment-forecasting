@@ -79,6 +79,14 @@ class View(BaseModel):
     route: int | None = Field(None, ge=0, le=1_000_000)
     lead_h: float = tools.B["model"]["lead_h"]
     risk: Literal["p50", "p90"] = "p50"
+    called: dict[int, int] = Field(default_factory=dict, max_length=len(tools.R))  # route id -> trucks called here
+
+    @field_validator("called")
+    @classmethod
+    def known_calls(cls, v: dict[int, int]) -> dict[int, int]:
+        if any(k not in tools.BY_ID or not 1 <= n <= 50 for k, n in v.items()):
+            raise ValueError("вызовы: номер маршрута из данных и от 1 до 50 машин")
+        return v
 
     @field_validator("lead_h")
     @classmethod
@@ -186,7 +194,9 @@ def answer(req: AgentRequest) -> dict:
     view = req.view.model_dump()
     forecast = "осторожный" if view["risk"] == "p90" else "обычный"
     opened = f", открыт маршрут № {view['route']}" if view["route"] is not None else ""
-    state = f"[Пульт: подача машины {view['lead_h']} ч, прогноз {forecast}{opened}]"
+    made = sum(view["called"].values())
+    calls = f", с пульта уже вызвано машин: {made} (они учтены как едущие)" if made else ""
+    state = f"[Пульт: подача машины {view['lead_h']} ч, прогноз {forecast}{opened}{calls}]"
     messages = history(req.messages)
     messages[-1]["content"] = f"{state}\n{messages[-1]['content']}"
 

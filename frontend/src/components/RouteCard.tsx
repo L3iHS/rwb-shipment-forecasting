@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
+import { Check, Undo2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { Board, Route } from "../data";
 import { dec2, hhmm, leadLabel, plural, vol } from "../format";
@@ -42,9 +43,12 @@ interface Props {
   leadH: number;
   risk: Risk;
   cuts: [number, number];
+  calledHere: number; // trucks called for this route from the console
+  onCalled: () => void;
+  onUndo: () => void;
 }
 
-export function RouteCard({ board, r, call, lead, leadH, risk, cuts }: Props) {
+export function RouteCard({ board, r, call, lead, leadH, risk, cuts, calledHere, onCalled, onUndo }: Props) {
   const [view, setView] = useState<View>("dock");
   const times = Array.from({ length: 9 }, (_, k) => hhmm(clock(board, k)));
   // The curve is the inflow the call rule decides on (cr, or c90 when cautious), so it meets the level at arrival.
@@ -60,6 +64,8 @@ export function RouteCard({ board, r, call, lead, leadH, risk, cuts }: Props) {
       <AnimatePresence mode="popLayout" initial={false}>
         <motion.div key={r.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, transition: { duration: 0.12 } }} transition={base}>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
           <div className="eyebrow">Маршрут № {r.id}</div>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div key={v.title} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
@@ -68,6 +74,25 @@ export function RouteCard({ board, r, call, lead, leadH, risk, cuts }: Props) {
               <p className="mt-1.5 min-h-[46px] text-ink-2 sm:min-h-[23px]">{v.why}</p>
             </motion.div>
           </AnimatePresence>
+          </div>
+          {/* Both controls always keep their place: the button is live only when it is time to call,
+              the undo only after a call made here. */}
+          <div className="flex shrink-0 items-center gap-2 sm:flex-col sm:items-end sm:pt-1">
+            <motion.button onClick={onCalled} disabled={call !== 0} whileTap={{ scale: 0.96 }}
+              className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-[10px] bg-signal px-5 text-[16px] font-semibold text-on-signal transition-colors disabled:bg-raised disabled:text-muted sm:flex-none"
+              title={call === 0 ? "Машина вызвана: маршрут пересчитается" : "Пока вызывать рано"}>
+              <Check size={18} strokeWidth={2.25} />
+              Вызвал
+            </motion.button>
+            <motion.button onClick={onUndo} disabled={!calledHere} aria-hidden={!calledHere} initial={false}
+              animate={{ opacity: calledHere ? 1 : 0 }} transition={base}
+              className="inline-flex h-11 items-center gap-1.5 rounded-[10px] px-3 text-[14px] text-ink-2 ring-1 ring-inset ring-line hover:text-ink disabled:pointer-events-none sm:h-8 sm:ring-0"
+              title="Отменить последний вызов по этому маршруту">
+              <Undo2 size={14} />
+              <span className="whitespace-nowrap">отменить{calledHere > 1 ? ` (${calledHere})` : ""}</span>
+            </motion.button>
+          </div>
+          </div>
 
           <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-[14px] bg-line ring-1 ring-line @xl:grid-cols-4">
             <Stat label="У ворот" title="Полный кузов это одна машина">
