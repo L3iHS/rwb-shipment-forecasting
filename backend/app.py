@@ -31,7 +31,7 @@ if _env.exists():
 
 import tools  # noqa: E402  (reads BOARD from the environment)
 
-MODEL = os.environ.get("MODEL", "claude-opus-5-5")
+MODEL = os.environ.get("MODEL", "claude-sonnet-5-5")
 RATE = int(os.environ.get("RATE_PER_10MIN", "30"))  # questions per IP per 10 minutes
 RATE_HOUR = int(os.environ.get("RATE_PER_HOUR", "300"))  # questions per hour from all visitors together
 CONCURRENCY = int(os.environ.get("AGENT_CONCURRENCY", "4"))  # questions answered at the same time
