@@ -70,11 +70,12 @@ interface Props {
   selected: number;
   onSelect: (id: number) => void;
   onCalled: (id: number) => void;
+  onFilter: (f: Filter) => void;
 }
 
-const COLS = "grid-cols-[58px_104px_1fr_30px]";
+const COLS = "grid-cols-[62px_112px_1fr_30px]";
 
-export function CallQueue({ board, calls, filter, query, onQuery, selected, onSelect, onCalled }: Props) {
+export function CallQueue({ board, calls, filter, query, onQuery, selected, onSelect, onCalled, onFilter }: Props) {
   const reduced = useReducedMotion();
   const list = useRef<HTMLUListElement>(null);
   const rows = queueRows(board, calls, filter, query);
@@ -112,7 +113,7 @@ export function CallQueue({ board, calls, filter, query, onQuery, selected, onSe
   return (
     <section className="panel flex h-full min-h-0 flex-col overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2.5 px-4 pb-3 pt-4 sm:px-5">
-        <h2 className="whitespace-nowrap font-display text-[24px] font-semibold leading-7">
+        <h2 className="whitespace-nowrap font-display text-[22px] font-semibold leading-7">
           {query ? "Найдено" : TITLES[filter]}
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.span key={rows.length} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
@@ -160,7 +161,15 @@ export function CallQueue({ board, calls, filter, query, onQuery, selected, onSe
           <li className="px-2 py-3 text-center text-xs text-muted">Показаны первые {shown.length}. Остальные {rows.length - shown.length} ищите по номеру</li>
         )}
         {rows.length === 0 && (
-          <li className="px-2 py-10 text-center text-sm text-muted">{query ? `Маршрута № ${query} нет` : "Здесь пусто"}</li>
+          <li className="flex flex-col items-center gap-3 px-2 py-12 text-center text-[15px] text-ink-2">
+            {query ? `Маршрута № ${query} нет` : filter === "now" ? "Срочных вызовов нет" : "Здесь пусто"}
+            {!query && filter === "now" && (
+              <button onClick={() => onFilter("soon")}
+                className="rounded-[10px] px-3.5 py-2 text-[14px] font-medium text-ink ring-1 ring-inset ring-line hover:bg-raised">
+                Показать ближайший час
+              </button>
+            )}
+          </li>
         )}
       </motion.ul>
       <div className="hidden items-center gap-2 border-t border-line px-5 py-2.5 text-xs text-muted lg:flex">

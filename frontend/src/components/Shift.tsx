@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from "motion/react";
-import { Undo2 } from "lucide-react";
+import { CheckCheck, Undo2 } from "lucide-react";
 import { useMemo, useRef } from "react";
 import type { Board } from "../data";
 import { hhmm, int, plural } from "../format";
@@ -25,9 +25,13 @@ interface Props {
   onQuery: (q: string) => void;
   selected: number;
   onSelect: (id: number) => void;
-  log: number[]; // trucks called from the console, in order, as route ids
+  total: number; // trucks called from the console
+  last?: number[]; // the latest step: route ids of one call or of a "call all"
   called: Record<number, number>;
+  planned: number[]; // call steps before any call made here
+  due: number; // trucks the rule asks for right now, over all routes
   onCalled: (id: number) => void;
+  onCallAll: () => void;
   onUndo: (id?: number) => void;
 }
 
@@ -39,7 +43,7 @@ function Key({ swatch, children }: { swatch: string; children: string }) {
 }
 
 /** Screen "Вызовы": how many trucks to call now, the shift on one time axis, then who exactly and why. */
-export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onFilter, query, onQuery, selected, onSelect, log, called, onCalled, onUndo }: Props) {
+export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onFilter, query, onQuery, selected, onSelect, total, last, called, planned, due, onCalled, onCallAll, onUndo }: Props) {
   const reduced = useReducedMotion();
   const card = useRef<HTMLDivElement>(null);
   const cuts = useMemo(() => confidenceCuts(board.routes), [board]);
@@ -53,6 +57,11 @@ export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onF
     for (const c of calls) if (c >= 0 && c < w.length) w[c]++;
     return w;
   }, [calls, n.p50.length]);
+  const before = useMemo(() => {
+    const w = new Array<number>(n.p50.length + 1).fill(0);
+    for (const c of planned) if (c >= 0 && c < w.length) w[c]++;
+    return w;
+  }, [planned, n.p50.length]);
   const active = (step: number) => !query && (filter === "hour" ? step <= 2 : bucketOf(step) === filter);
 
   const select = (id: number) => {
@@ -65,39 +74,46 @@ export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onF
       variants={{ show: { transition: { staggerChildren: reduced ? 0 : 0.07 } } }}>
       <motion.section variants={item} className="flex flex-wrap items-end justify-between gap-x-10 gap-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-6">
-          {k.callNow > 0 && (
-            // The hidden copy holds the final width, so the heading beside it does not slide while the number counts up.
-            <span className="relative inline-block self-start font-hero text-[120px] font-extrabold tabular-nums leading-[0.78] tracking-[-0.02em] text-signal sm:self-auto sm:text-[152px]">
-              <span className="invisible">{int(k.callNow)}</span>
-              <span className="absolute inset-0"><Ticker value={k.callNow} from={0} /></span>
-            </span>
-          )}
+          {/* The hidden copy holds the final width, so the heading beside it does not slide while the number counts. */}
+          <span className={`relative inline-block self-start font-hero text-[104px] font-extrabold tabular-nums leading-[0.8] tracking-[-0.02em] transition-colors duration-300 sm:self-auto sm:text-[128px] ${k.callNow > 0 ? "text-signal" : "text-forecast"}`}>
+            <span className="invisible">{int(k.callNow)}</span>
+            <span className="absolute inset-0"><Ticker value={k.callNow} from={0} /></span>
+          </span>
           <div className="pb-0.5">
-            <h1 className="font-display text-[34px] font-semibold leading-[1.02] sm:text-[46px]">
-              {k.callNow > 0 ? <>{plural(k.callNow, "маршруту", "маршрутам", "маршрутам")} нужна<br />машина сейчас</> : "Сейчас вызывать не нужно"}
+            <h1 className="font-display text-[30px] font-semibold leading-[1.06] sm:text-[40px]">
+              {k.callNow > 0 ? <>{plural(k.callNow, "маршруту", "маршрутам", "маршрутам")} нужна<br />машина сейчас</> : <>срочных вызовов<br />не осталось</>}
             </h1>
             <p className="mt-2 text-ink-2">
               Ещё <span className="font-semibold text-ink">{int(k.callHour)}</span> в течение часа,{" "}
               <span className="whitespace-nowrap">всего до {hhmm(clock(board, 8))} нужно</span>{" "}
               <span className="whitespace-nowrap"><span className="font-semibold text-ink">{int(k.fleet)}</span> {plural(k.fleet, "машина", "машины", "машин")}</span>
             </p>
-            {/* Progress of the shift: trucks called here against the routes still waiting. Always present, so nothing jumps. */}
-            <div className="mt-4 flex items-center gap-3 text-[14px] text-ink-2">
-              <span className="relative h-1.5 w-28 shrink-0 overflow-hidden rounded-full bg-line sm:w-40" aria-hidden>
-                <motion.span className="absolute inset-0 origin-left rounded-full bg-signal" initial={false}
-                  animate={{ scaleX: log.length / Math.max(1, log.length + k.callNow) }} transition={flow} />
-              </span>
-              <span className="whitespace-nowrap">
-                вызвано <span className="num font-semibold text-ink"><Ticker value={log.length} /></span> из{" "}
-                <span className="num"><Ticker value={log.length + k.callNow} /></span>
-              </span>
-              <motion.button onClick={() => onUndo()} disabled={!log.length} aria-hidden={!log.length} initial={false}
-                animate={{ opacity: log.length ? 1 : 0 }} transition={base}
-                className="inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[13px] text-ink-2 ring-1 ring-inset ring-line hover:text-ink disabled:pointer-events-none"
-                title="Отменить последний вызов">
-                <Undo2 size={13} />
-                <span className="num">{log.length ? `№ ${log[log.length - 1]}` : "№ 000"}</span>
+            {/* The bulk action and the progress of the shift. Always present, so nothing jumps when they change. */}
+            <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-3">
+              <motion.button onClick={onCallAll} disabled={!due} whileTap={{ scale: 0.97 }}
+                className="inline-flex h-11 w-full items-center justify-center gap-2.5 rounded-[10px] bg-signal px-5 text-[16px] font-semibold text-on-signal transition-colors disabled:bg-raised disabled:text-muted sm:w-auto"
+                title="Вызвать машины всем маршрутам, которым пора: столько, сколько просит прогноз">
+                <CheckCheck size={18} strokeWidth={2.25} />
+                Вызвать всем
+                <span className="num min-w-[3ch] text-left text-[14px] font-medium opacity-80">{due || ""}</span>
               </motion.button>
+              <div className="flex items-center gap-3 text-[14px] text-ink-2">
+                <span className="relative h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-line sm:w-32" aria-hidden>
+                  <motion.span className="absolute inset-0 origin-left rounded-full bg-signal" initial={false}
+                    animate={{ scaleX: total / Math.max(1, total + due) }} transition={flow} />
+                </span>
+                <span className="whitespace-nowrap">
+                  вызвано <span className="num font-semibold text-ink"><Ticker value={total} /></span> из{" "}
+                  <span className="num"><Ticker value={total + due} /></span>
+                </span>
+                <motion.button onClick={() => onUndo()} disabled={!last} aria-hidden={!last} initial={false}
+                  animate={{ opacity: last ? 1 : 0 }} transition={base}
+                  className="inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[13px] text-ink-2 ring-1 ring-inset ring-line hover:text-ink disabled:pointer-events-none"
+                  title={last && last.length > 1 ? `Отменить вызов всем: ${last.length} машин` : "Отменить последний вызов"}>
+                  <Undo2 size={13} />
+                  <span className="num min-w-[5ch] text-left">{!last ? "" : last.length > 1 ? `все ${last.length}` : `№ ${last[0]}`}</span>
+                </motion.button>
+              </div>
             </div>
           </div>
         </div>
@@ -106,7 +122,7 @@ export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onF
 
       <motion.section variants={item}>
         <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-          <h2 className="font-display text-[24px] font-semibold leading-7">
+          <h2 className="font-display text-[22px] font-semibold leading-7">
             Смена на одной оси <span className="ml-1.5 hidden font-sans text-[14px] font-normal text-muted sm:inline">нагрузка склада, товаров в час</span>
           </h2>
           <div className="flex gap-4 text-xs text-ink-2">
@@ -116,6 +132,7 @@ export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onF
           </div>
         </div>
         <Fan peak times={times} hist={hist} fc={n.p50} lo={n.lo} hi={n.hi} calls={wave} active={active}
+          ghost={total ? before : undefined} enRoute={total && lead <= n.p50.length ? { k: lead, count: total } : undefined}
           onSlot={(step) => onFilter(bucketOf(step))} />
       </motion.section>
 
@@ -127,7 +144,7 @@ export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onF
         {/* On a wide screen the queue takes exactly the card's height, so the two panels end on one line. */}
         <div className="relative h-[480px] lg:h-auto lg:min-h-[560px]">
           <div className="h-full lg:absolute lg:inset-0">
-            <CallQueue board={board} calls={calls} filter={filter} query={query} onQuery={onQuery} selected={selected} onSelect={select} onCalled={onCalled} />
+            <CallQueue board={board} calls={calls} filter={filter} query={query} onQuery={onQuery} selected={selected} onSelect={select} onCalled={onCalled} onFilter={onFilter} />
           </div>
         </div>
         <div ref={card} className="min-w-0 scroll-mt-20">

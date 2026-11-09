@@ -91,20 +91,24 @@ interface FanProps {
   calls?: number[]; // routes to call a truck for at step k = 0.. from now; drawn as bars on the same time axis
   active?: (k: number) => boolean; // bars the queue below is filtered to
   onSlot?: (k: number) => void;
+  ghost?: number[]; // the bars as the forecast planned them, before the dispatcher called anything
+  enRoute?: { k: number; count: number }; // trucks called from the console and the step they arrive at
 }
 
 /** Fact (ink) up to "now", then the forecast (sky) with its 10-90 % band; optionally the wave of truck calls beneath. */
-export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, active, onSlot }: FanProps) {
+export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, active, onSlot, ghost, enRoute }: FanProps) {
   const [ref, W] = useWidth<HTMLDivElement>();
   const reduced = useReducedMotion();
   const first = useFirstRender();
   const clip = useId().replace(/:/g, "");
   const [hover, setHover] = useState<number | null>(null);
+  const [overBars, setOverBars] = useState(false); // only the bars are clickable, so only they get the pointer cursor
 
   const L = 44, R = 18, top = 26, gap = 30, barsH = 60; // top + height + 24 = 260 at height 210: same box as Dock
   const plotB = top + height;
   const barsB = calls ? plotB + gap + barsH : plotB;
-  const H = barsB + 24;
+  const roadY = barsB + 14; // under the bars: the road of the trucks already called
+  const H = barsB + (calls ? 20 : 0) + 24;
   const h0 = hist.length - 1;
   const n = h0 + fc.length;
   const slot = (W - L - R) / n;
@@ -120,11 +124,12 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
   const lower = [nowPt, ...lo.map((v, k): Pt => [x(h0 + k + 1), y(v)])];
   const pk = fc.indexOf(Math.max(...fc));
   const labelStep = Math.max(1, Math.ceil(58 / slot));
-  const maxCall = calls ? Math.max(1, ...calls) : 1;
+  const maxCall = calls ? Math.max(1, ...calls, ...(ghost ?? [])) : 1;
   const barW = Math.min(22, Math.max(6, slot - 6));
   const activeKs = calls && active ? calls.map((_, k) => k).filter((k) => active(k)) : [];
   const t = (tr: object) => (reduced ? { duration: 0 } : tr);
   const k = hover == null ? -1 : hover - h0;
+  const canPick = !!calls && !!onSlot && overBars && k >= 0 && k < calls.length && calls[k] > 0; // a bar under the cursor
 
   return (
     <div ref={ref} className="relative select-none" style={{ height: H }}>
@@ -189,7 +194,43 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
                       transition={t({ ...flow, delay: first ? 0.7 + i * 0.045 : 0 })} />
                   );
                 })}
+                {/* What the plan was before the calls: a dotted outline where the bar has shrunk since. */}
+                {ghost?.map((g, i) =>
+                  g > calls[i] ? (
+                    <motion.rect key={`ghost${i}`} x={x(h0 + i) - barW / 2 + 0.5} width={barW - 1} rx={Math.min(5, barW / 2)}
+                      y={barsB - Math.max(3, (barsH * g) / maxCall)} height={Math.max(3, (barsH * g) / maxCall) + 6}
+                      fill="none" stroke="var(--ink-2)" strokeDasharray="2 3" initial={{ opacity: 0 }} animate={{ opacity: 0.7 }} />
+                  ) : null,
+                )}
               </g>
+              {ghost?.map((g, i) =>
+                // The old value is printed only where it has room above the current one; otherwise the tooltip carries it.
+                g > calls[i] && (slot >= 30 || i === 0) && (calls[i] === 0 || (barsH * (g - calls[i])) / maxCall >= 14) ? (
+                  <text key={`was${i}`} className="tick" x={x(h0 + i)} y={barsB - Math.max(3, (barsH * g) / maxCall) - 6}
+                    textAnchor="middle" textDecoration="line-through">{g}</text>
+                ) : null,
+              )}
+              {enRoute && enRoute.count > 0 && (
+                <g>
+                  <line x1={nowPt[0]} x2={x(h0 + enRoute.k)} y1={roadY} y2={roadY} stroke="var(--ink)" strokeOpacity={0.3}
+                    strokeWidth={2} strokeLinecap="round" />
+                  {/* The trucks drive from "now" to their arrival each time the count changes. */}
+                  <motion.g key={enRoute.count} initial={{ x: nowPt[0], opacity: 0 }} animate={{ x: x(h0 + enRoute.k), opacity: 1 }}
+                    transition={t({ x: { duration: 1.2, ease }, opacity: { duration: 0.2 } })}>
+                    <circle cx={0} cy={roadY} r={10} fill="var(--ground)" />
+                    <Truck x={-8} y={roadY - 8} width={16} height={16} strokeWidth={1.9} color="var(--ink)" />
+                    {/* Right of the truck while it fits; otherwise the short form, or to the left of the truck. */}
+                    {(() => {
+                      const full = `едут ${enRoute.count}, будут в ${times[h0 + enRoute.k]}`, short = `едут ${enRoute.count}`;
+                      const room = W - 4 - (x(h0 + enRoute.k) + 14), w = (s: string) => s.length * 6.3;
+                      const label = w(full) <= room ? full : short;
+                      return w(label) <= room
+                        ? <text className="mark" x={14} y={roadY + 4} style={{ fill: "var(--ink)" }}>{label}</text>
+                        : <text className="mark" x={-14} y={roadY + 4} textAnchor="end" style={{ fill: "var(--ink)", paintOrder: "stroke", stroke: "var(--ground)", strokeWidth: 4 }}>{label}</text>;
+                    })()}
+                  </motion.g>
+                </g>
+              )}
               {calls.map((c, i) => {
                 const h = c ? Math.max(3, (barsH * c) / maxCall) : 0;
                 const on = activeKs.includes(i);
@@ -226,13 +267,14 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
             </g>
           )}
           <rect x={L - slot / 2} y={top} width={W - L - R + slot} height={barsB - top} fill="transparent"
-            style={{ cursor: calls && onSlot && k >= 0 && k < calls.length ? "pointer" : "crosshair" }}
+            style={{ cursor: canPick ? "pointer" : "default" }}
             onPointerMove={(e) => {
               const box = e.currentTarget.ownerSVGElement!.getBoundingClientRect();
               setHover(Math.max(0, Math.min(n, Math.round((e.clientX - box.left - L) / slot))));
+              setOverBars(e.clientY - box.top > plotB + 6);
             }}
-            onPointerLeave={() => setHover(null)}
-            onClick={() => calls && onSlot && k >= 0 && k < calls.length && onSlot(k)} />
+            onPointerLeave={() => { setHover(null); setOverBars(false); }}
+            onClick={() => canPick && onSlot!(k)} />
         </svg>
       )}
       {hover != null && W > 0 && (
@@ -247,6 +289,8 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
             </>
           )}
           {calls && k >= 0 && k < calls.length && <TipRow k="вызвать" v={String(calls[k])} swatch="var(--signal)" />}
+          {ghost && k >= 0 && k < ghost.length && ghost[k] !== calls?.[k] && <TipRow k="было по плану" v={String(ghost[k])} />}
+          {enRoute && enRoute.count > 0 && k === enRoute.k && <TipRow k="приедут" v={String(enRoute.count)} swatch="var(--ink)" />}
         </Tooltip>
       )}
     </div>
@@ -302,6 +346,14 @@ export function Dock({ times, line, hi, need, callK, arriveK, runKey }: DockProp
               <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke="var(--line)" />
               <text className="tick" x={L - 8} y={y(v) + 4} textAnchor="end">{v}</text>
             </g>
+          ))}
+
+          {/* One line per truck already called: cargo up to that level has a truck coming. The next one is the dashed level. */}
+          {Array.from({ length: Math.min(need - 1, 8) }, (_, i) => i + 1).map((lv) => (
+            <motion.g key={lv} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={t({ duration: 0.3 })}>
+              <line x1={L} x2={W - R} y1={y(lv)} y2={y(lv)} stroke="var(--ink-2)" strokeOpacity={0.5} />
+              <Truck x={W - R + 3} y={y(lv) - 7} width={13} height={13} strokeWidth={1.9} color="var(--ink-2)" />
+            </motion.g>
           ))}
 
           <motion.path fill="var(--forecast-soft)" initial={false} animate={{ d: between(cautious, pts) }} transition={t(flow)} />
@@ -362,7 +414,7 @@ export function Dock({ times, line, hi, need, callK, arriveK, runKey }: DockProp
               <circle cx={x(hover)} cy={y(line[hover])} r={5} fill="var(--forecast)" stroke="var(--surface)" strokeWidth={2} />
             </g>
           )}
-          <rect x={L - slot / 2} y={top} width={W - L - R + slot} height={height} fill="transparent" style={{ cursor: "crosshair" }}
+          <rect x={L - slot / 2} y={top} width={W - L - R + slot} height={height} fill="transparent"
             onPointerMove={(e) => {
               const box = e.currentTarget.ownerSVGElement!.getBoundingClientRect();
               setHover(Math.max(0, Math.min(n, Math.round((e.clientX - box.left - L) / slot))));

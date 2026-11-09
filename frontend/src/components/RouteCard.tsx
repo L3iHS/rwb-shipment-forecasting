@@ -69,7 +69,7 @@ export function RouteCard({ board, r, call, lead, leadH, risk, cuts, calledHere,
           <div className="eyebrow">Маршрут № {r.id}</div>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div key={v.title} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-              <h2 className={`mt-1 whitespace-nowrap font-display text-[40px] font-semibold leading-[1.05] sm:text-[46px] ${call === 0 ? "text-signal" : ""}`}>{v.title}</h2>
+              <h2 className={`mt-1 whitespace-nowrap font-display text-[34px] font-semibold leading-[1.08] sm:text-[40px] ${call === 0 ? "text-signal" : ""}`}>{v.title}</h2>
               {/* Two lines are reserved on a phone, so the tiles below never move when the wording changes. */}
               <p className="mt-1.5 min-h-[46px] text-ink-2 sm:min-h-[23px]">{v.why}</p>
             </motion.div>

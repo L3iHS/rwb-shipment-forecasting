@@ -48,37 +48,16 @@ function Centered({ children }: { children: React.ReactNode }) {
   return <div className="grid h-full place-items-center p-6 text-ink-2">{children}</div>;
 }
 
-/**
- * Trucks the dispatcher called from this console, in order, as route ids. Kept per forecast moment:
- * a new board.json starts a new log.
- */
-function useCallLog(now: string): [number[], (f: (log: number[]) => number[]) => void] {
-  const key = `calls:${now}`;
-  const [log, setLog] = useState<number[]>(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(key) ?? "[]");
-      return Array.isArray(saved) ? saved.filter((v) => Number.isInteger(v)) : [];
-    } catch {
-      return [];
-    }
-  });
-  useEffect(() => {
-    try {
-      localStorage.setItem(key, JSON.stringify(log));
-    } catch {
-      /* storage unavailable: the log lives until reload */
-    }
-  }, [key, log]);
-  return [log, setLog];
-}
-
 function Console({ board: source }: { board: Board }) {
-  const [log, setLog] = useCallLog(source.now);
+  // Trucks called from this console, as batches of route ids: one call is a batch of one, "call all" is one big batch,
+  // so either is taken back in one step. Nothing is stored: a reload starts the shift from the forecast again.
+  const [log, setLog] = useState<number[][]>([]);
   const called = useMemo(() => {
     const n: Record<number, number> = {};
-    for (const id of log) n[id] = (n[id] ?? 0) + 1;
+    for (const batch of log) for (const id of batch) n[id] = (n[id] ?? 0) + 1;
     return n;
   }, [log]);
+  const total = useMemo(() => log.reduce((sum, batch) => sum + batch.length, 0), [log]);
   // A called truck is on its way, so the rule plans the route's next call around it: the whole console reads this board.
   const board = useMemo<Board>(
     () => (log.length ? { ...source, routes: source.routes.map((r) => (called[r.id] ? { ...r, way: r.way + called[r.id] } : r)) } : source),
@@ -93,6 +72,19 @@ function Console({ board: source }: { board: Board }) {
   const [selected, setSelected] = useState(() => (queueRows(board, calls, "now")[0]?.r ?? board.routes[0]).id);
   const [query, setQuery] = useState("");
   const k = useMemo(() => kpis(board.routes, calls), [board, calls]);
+  // The plan as the forecast gave it, before any call made here: the timeline shows it as a ghost behind the current one.
+  const planned = useMemo(() => source.routes.map((r) => callStep(r, lead, scenario.risk)), [source, lead, scenario.risk]);
+  // Every truck the rule asks for right now: a route whose cargo already exceeds its trucks needs more than one.
+  const dueNow = useMemo(() => {
+    const ids: number[] = [];
+    board.routes.forEach((r, i) => {
+      if (calls[i] !== 0) return;
+      let n = 1;
+      while (n < 10 && callStep({ ...r, way: r.way + n }, lead, scenario.risk) === 0) n++;
+      for (let j = 0; j < n; j++) ids.push(r.id);
+    });
+    return ids;
+  }, [board, calls, lead, scenario.risk]);
 
   // Latest scenario and selection for handlers: one assistant reply can carry several actions in a row.
   const live = useRef({ scenario, selected });
@@ -121,13 +113,22 @@ function Console({ board: source }: { board: Board }) {
     const after = callStep({ ...r, way: r.way + 1 }, lead, scenario.risk);
     const next = rows[at + 1] ?? rows[at - 1];
     if (!query && at >= 0 && next && !inFilter({ ...r, way: r.way + 1 }, after, filter)) select(next.r.id);
-    setLog((l) => [...l, id]);
+    setLog((l) => [...l, [id]]);
   }
-  /** Take back the latest call: of this route, or of the whole log when no route is given. */
+  /** Call every truck that is due now, as one step that one undo takes back. */
+  function callAll() {
+    if (dueNow.length) setLog((l) => [...l, dueNow]);
+  }
+  /** Take back the latest step (a call or a "call all"), or the latest call of one route. */
   function undoCall(id?: number) {
     setLog((l) => {
-      const at = id == null ? l.length - 1 : l.lastIndexOf(id);
-      return at < 0 ? l : [...l.slice(0, at), ...l.slice(at + 1)];
+      if (id == null) return l.slice(0, -1);
+      let at = l.length - 1;
+      while (at >= 0 && !l[at].includes(id)) at--;
+      if (at < 0) return l;
+      const batch = [...l[at]];
+      batch.splice(batch.lastIndexOf(id), 1);
+      return batch.length ? [...l.slice(0, at), batch, ...l.slice(at + 1)] : [...l.slice(0, at), ...l.slice(at + 1)];
     });
   }
 
@@ -152,7 +153,8 @@ function Console({ board: source }: { board: Board }) {
       <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 sm:py-8">
         <Shift board={board} calls={calls} k={k} lead={lead} scenario={scenario} onScenario={setScenario} filter={filter}
           onFilter={pick} query={query} onQuery={setQuery} selected={selected} onSelect={select}
-          log={log} called={called} onCalled={markCalled} onUndo={undoCall} />
+          total={total} last={log[log.length - 1]} called={called} planned={planned} due={dueNow.length}
+          onCalled={markCalled} onCallAll={callAll} onUndo={undoCall} />
       </main>
       <AgentPanel open={agentOpen} onClose={() => setAgentOpen(false)} board={board} calls={calls} leadH={scenario.leadH}
         risk={scenario.risk} view={{ tab: "shift", route: selected, called }} onAction={act} />

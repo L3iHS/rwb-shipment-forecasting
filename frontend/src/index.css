@@ -67,11 +67,11 @@
   --color-alert: var(--alert);
   --color-alert-soft: var(--alert-soft);
   --color-good: var(--good);
-  /* One family in three widths, like road signage: extra condensed for the one big number, condensed for headings,
-     normal width for reading. Figures in columns and time codes are set in a narrow Martian Mono. */
+  /* One family in three widths, like road signage: condensed for the one big number, semi condensed for headings,
+     normal width for reading. Figures in columns and time codes are set in a slightly narrowed Martian Mono. */
   --font-sans: "Sofia Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: "Sofia Sans Condensed Variable", "Sofia Sans Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-hero: "Sofia Sans Extra Condensed Variable", "Sofia Sans Condensed Variable", ui-sans-serif, sans-serif;
+  --font-display: "Sofia Sans Semi Condensed Variable", "Sofia Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-hero: "Sofia Sans Condensed Variable", "Sofia Sans Semi Condensed Variable", ui-sans-serif, sans-serif;
   --font-mono: "Martian Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
 }
 
@@ -98,11 +98,11 @@ body::before {
   pointer-events: none;
 }
 
-.num { font-family: var(--font-mono); font-stretch: 75%; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
-.eyebrow { font-family: var(--font-mono); font-stretch: 75%; font-size: 11px; line-height: 16px; color: var(--muted); }
+.num { font-family: var(--font-mono); font-stretch: 85%; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.eyebrow { font-family: var(--font-mono); font-stretch: 85%; font-size: 11px; line-height: 16px; color: var(--muted); }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; }
-.tick { font: 400 10px/14px var(--font-mono); font-stretch: 75%; fill: var(--muted); }
-.mark { font: 500 10px/14px var(--font-mono); font-stretch: 75%; fill: var(--ink-2); }
+.tick { font: 400 10px/14px var(--font-mono); font-stretch: 85%; fill: var(--muted); }
+.mark { font: 500 10px/14px var(--font-mono); font-stretch: 85%; fill: var(--ink-2); }
 
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 6px; }
 
