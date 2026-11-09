@@ -1,0 +1,56 @@
+:root {
+  --rwb-color-page: #f7f6f9;
+  --rwb-color-surface: #ffffff;
+  --rwb-color-text: #2c2435;
+  --rwb-color-text-muted: #706779;
+  --rwb-color-border: #e9e5ed;
+  --rwb-color-accent: #8c17b5;
+  --rwb-color-accent-secondary: #cb11ab;
+  --rwb-color-accent-soft: #f7edf9;
+  --rwb-color-forecast-band: #e8cfef;
+  --rwb-color-quiet: #f2f0f5;
+
+  --rwb-font-family: "Golos", "Golos Text", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --rwb-font-size-axis: 11px;
+  --rwb-font-size-caption: 12px;
+  --rwb-font-size-body: 14px;
+  --rwb-font-size-panel-title: 17px;
+  --rwb-font-size-metric: 23px;
+  --rwb-font-size-route: 25px;
+  --rwb-line-height-body: 1.5;
+  --rwb-line-height-title: 1.2;
+  --rwb-font-weight-regular: 400;
+  --rwb-font-weight-medium: 500;
+  --rwb-font-weight-semibold: 600;
+
+  --rwb-space-1: 4px;
+  --rwb-space-2: 8px;
+  --rwb-space-3: 12px;
+  --rwb-space-4: 16px;
+  --rwb-space-5: 20px;
+  --rwb-space-6: 24px;
+  --rwb-space-8: 32px;
+  --rwb-workspace-gap: var(--rwb-space-4);
+  --rwb-workspace-inset: var(--rwb-space-6);
+  --rwb-radius-control: 4px;
+  --rwb-radius-button: 6px;
+  --rwb-radius-panel: 8px;
+  --rwb-border-width: 1px;
+  --rwb-selection-width: 2px;
+  --rwb-focus-width: 2px;
+  --rwb-control-height: 38px;
+  --rwb-queue-row-height: 58px;
+
+  --rwb-motion-fast: 180ms;
+  --rwb-motion-panel: 260ms;
+  --rwb-motion-data: 380ms;
+  --rwb-motion-ease: cubic-bezier(.22, .75, .2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --rwb-motion-fast: 0ms;
+    --rwb-motion-panel: 0ms;
+    --rwb-motion-data: 0ms;
+  }
+}

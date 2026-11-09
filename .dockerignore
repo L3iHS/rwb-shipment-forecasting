@@ -1,7 +1,10 @@
 *
 !frontend
 !backend
+!deploy
 frontend/node_modules
 frontend/dist
 backend/.venv
 **/__pycache__
+**/.env
+**/.env.*
