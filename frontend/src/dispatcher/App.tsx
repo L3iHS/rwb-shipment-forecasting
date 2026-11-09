@@ -4,11 +4,13 @@ import { amount, number, routes, scenario, time, type DataStatus, type Filter, t
 import Icon from './Icon';
 import Numeric from './Numeric';
 import Forecast from './Forecast';
+import ThemeSwitcher from './ThemeSwitcher';
 import './styles/base.css';
 import './styles/composition.css';
 import '../styles/design-tokens.css';
 import '../styles/fonts.css';
 import './styles/dispatcher.css';
+import './styles/theme.css';
 const topics: Record<string, [
     string,
     string
@@ -35,7 +37,7 @@ function Dispatcher() {
     useEffect(() => {
         const pointer = () => { document.documentElement.dataset.input = 'pointer'; };
         const key = (event: KeyboardEvent) => {
-            if (event.key === 'Tab')
+            if (event.key === 'Tab' || event.key.startsWith('Arrow') || event.key === 'Home' || event.key === 'End')
                 document.documentElement.dataset.input = 'keyboard';
         };
         document.addEventListener('pointerdown', pointer, true);
@@ -68,7 +70,7 @@ function Dispatcher() {
         setQuestion(draft.trim());
         setDraft('');
     } }}><input id="assistant-input" name="question" aria-label="Вопрос ассистенту" placeholder="Спросить о маршруте…" value={draft} onChange={e => setDraft(e.target.value)}/><button type="submit" aria-label="Отправить вопрос"><Icon name="send"/></button></form></section></div></motion.aside>;
-    return <><a className="skip" href="#app">К рабочему экрану</a><header className="app-header"><div className="app-brand"><span className="rwb-mark">RWB</span><i className="brand-divider"/><span className="app-name">Поток</span></div><div className="header-actions"><span className="snapshot"><i />01.11 · 10:30</span><button className="icon-btn" onClick={() => info('quality')} aria-label="Качество прогноза"><Icon name="chart"/></button><button className="icon-btn" data-info="source" onClick={() => info('source')} aria-label="О данных и прототипе"><Icon name="info"/></button></div></header>
+    return <><a className="skip" href="#app">К рабочему экрану</a><header className="app-header"><div className="app-brand"><span className="rwb-mark">RWB</span><i className="brand-divider"/><span className="app-name">Поток</span></div><div className="header-actions"><ThemeSwitcher/><span className="snapshot"><i />01.11 · 10:30</span><button className="icon-btn" onClick={() => info('quality')} aria-label="Качество прогноза"><Icon name="chart"/></button><button className="icon-btn" data-info="source" onClick={() => info('source')} aria-label="О данных и прототипе"><Icon name="info"/></button></div></header>
   <main className="page-scroll" tabIndex={-1} aria-label="Рабочий экран"><div id="app" className="layout-desk">
   {status === 'error' && <div className="notice" role="alert"><Icon name="info"/><span>Снимок не обновлён. Показаны последние доступные данные.</span><button onClick={() => setStatus('ready')}>Повторить</button></div>}
   {status === 'partial' && <div className="notice" role="status"><Icon name="info"/><span>Маршрут 862: нет свежих наблюдений.</span><button onClick={() => select(862)}>Открыть</button></div>}

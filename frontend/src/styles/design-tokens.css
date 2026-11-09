@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   --rwb-color-page: #f7f6f9;
   --rwb-color-surface: #ffffff;
   --rwb-color-text: #2c2435;
@@ -9,6 +10,23 @@
   --rwb-color-accent-soft: #f7edf9;
   --rwb-color-forecast-band: #e8cfef;
   --rwb-color-quiet: #f2f0f5;
+  --rwb-color-hover: #faf8fc;
+  --rwb-color-raised: #faf9fc;
+  --rwb-color-control-border: #d8ccdf;
+  --rwb-color-placeholder: #786d80;
+  --rwb-color-on-accent: #ffffff;
+  --rwb-color-brand-start: #d20ba7;
+  --rwb-color-forecast-zone: #fcf8fd;
+  --rwb-color-history: #8d8496;
+  --rwb-color-guide: #b06dc4;
+  --rwb-color-inflow: #d99fe0;
+  --rwb-color-warning-surface: #fdfaf4;
+  --rwb-color-warning-border: #e4d4b7;
+  --rwb-color-warning-text: #755222;
+  --rwb-color-skeleton: #eee8f2;
+  --rwb-color-backdrop: #33213f52;
+  --rwb-color-shadow: #30203920;
+  --rwb-color-shadow-subtle: #3020390b;
 
   --rwb-font-family: "Golos", "Golos Text", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --rwb-font-size-axis: 11px;
@@ -45,6 +63,37 @@
   --rwb-motion-panel: 260ms;
   --rwb-motion-data: 380ms;
   --rwb-motion-ease: cubic-bezier(.22, .75, .2, 1);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --rwb-color-page: #18181b;
+  --rwb-color-surface: #242427;
+  --rwb-color-text: #f1eef2;
+  --rwb-color-text-muted: #bbb4bf;
+  --rwb-color-border: #45424b;
+  --rwb-color-accent: #db8aeb;
+  --rwb-color-accent-secondary: #e48dcc;
+  --rwb-color-accent-soft: #422b45;
+  --rwb-color-forecast-band: #69436e;
+  --rwb-color-quiet: #303034;
+  --rwb-color-hover: #302c34;
+  --rwb-color-raised: #2b292f;
+  --rwb-color-control-border: #756b7e;
+  --rwb-color-placeholder: #afa5b5;
+  --rwb-color-on-accent: #251529;
+  --rwb-color-brand-start: #ed93d7;
+  --rwb-color-forecast-zone: #2c2530;
+  --rwb-color-history: #aca3b5;
+  --rwb-color-guide: #c67bdd;
+  --rwb-color-inflow: #9866a4;
+  --rwb-color-warning-surface: #332b20;
+  --rwb-color-warning-border: #706040;
+  --rwb-color-warning-text: #e6ca94;
+  --rwb-color-skeleton: #37313d;
+  --rwb-color-backdrop: #0000008c;
+  --rwb-color-shadow: #00000066;
+  --rwb-color-shadow-subtle: #00000033;
 }
 
 @media (prefers-reduced-motion: reduce) {

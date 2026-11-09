@@ -1,0 +1,63 @@
+/* Theme values live in design-tokens.css; the workspace keeps its geometry. */
+html { background: var(--bg); }
+input::placeholder { color: var(--rwb-color-placeholder); opacity: 1; }
+.assistant-composer button { color: var(--rwb-color-on-accent); }
+.theme-switcher { position: relative; flex: none; }
+.theme-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 128px;
+  height: 36px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--rwb-radius-button);
+  color: var(--muted);
+  font-size: 12px;
+}
+.theme-trigger > svg { width: 16px; height: 16px; }
+.theme-trigger > svg:last-child { width: 12px; height: 12px; }
+.theme-trigger:hover, .theme-trigger[aria-expanded="true"] {
+  background: var(--quiet);
+  color: var(--ink);
+}
+.theme-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  z-index: 10;
+  width: 204px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 10px 30px var(--rwb-color-shadow);
+}
+.theme-menu-label { padding: 5px 10px 8px; color: var(--muted); font-size: 11px; }
+.theme-menu > button {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px 1fr 14px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  text-align: left;
+  font-size: 13px;
+}
+.theme-menu > button > svg { width: 17px; height: 17px; color: var(--muted); }
+.theme-menu > button:hover { background: var(--quiet); }
+.theme-menu > button[aria-checked="true"] { color: var(--purple); background: var(--soft); }
+.theme-menu > button[aria-checked="true"] > svg { color: inherit; }
+.theme-choice-dot { width: 5px; height: 5px; border-radius: 50%; justify-self: center; }
+[aria-checked="true"] > .theme-choice-dot { background: currentColor; }
+html[data-input="keyboard"] .theme-menu > button:focus { outline-offset: -2px; }
+@media (max-width: 700px) {
+  .theme-trigger { min-width: 36px; width: 36px; padding: 0; border-color: transparent; }
+  .theme-trigger > span, .theme-trigger > svg:last-child { display: none; }
+  .theme-menu { right: -68px; }
+}

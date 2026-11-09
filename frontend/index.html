@@ -3,7 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
     <title>RWB · Поток</title>
+    <script>
+      // Resolve the saved choice before CSS and React load to avoid a theme flash.
+      (() => {
+        let preference = "system";
+        try {
+          const saved = localStorage.getItem("rwb-theme");
+          if (saved === "light" || saved === "dark") preference = saved;
+        } catch {}
+        const theme = preference === "system"
+          ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+          : preference;
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
