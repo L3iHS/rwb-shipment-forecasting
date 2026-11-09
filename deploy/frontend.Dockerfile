@@ -6,12 +6,16 @@ RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
 RUN npm run build
 
-FROM nginx:1.28-alpine AS runtime
+FROM caddy:2-alpine AS runtime
 
-COPY deploy/nginx.conf /etc/nginx/nginx.conf
-COPY --from=build --chown=nginx:nginx /app/frontend/dist/ /usr/share/nginx/html/
+RUN addgroup -S -g 10001 rwb && adduser -S -D -H -u 10001 -G rwb rwb
+ENV XDG_CONFIG_HOME=/tmp/config \
+    XDG_DATA_HOME=/tmp/data
 
-USER nginx
+COPY deploy/Caddyfile /etc/caddy/Caddyfile
+COPY --from=build --chown=10001:10001 /app/frontend/dist/ /srv/
+
+USER 10001:10001
 EXPOSE 8080
-ENTRYPOINT ["nginx"]
-CMD ["-g", "daemon off;"]
+ENTRYPOINT ["caddy"]
+CMD ["run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]

@@ -1,6 +1,6 @@
 # Демо на rwb.ochev.net
 
-Публикуется только фронтенд выбранного направления A: React, TypeScript, Vite и Motion. Данные и ответы ассистента условные; ML snapshot, backend и внешняя LLM не подключены. `/api` возвращает 404. Старый `board.json` не включается в сборку (`publicDir: false`).
+Публикуется только фронтенд выбранного направления A: React, TypeScript, Vite и Motion. Данные и ответы ассистента условные; ML snapshot, backend и внешняя LLM не подключены. `/api`, `/api/*` и `board.json` возвращают 404. Старый `board.json` не включается в сборку (`publicDir: false`).
 
 ## Репозиторий и доступ
 
@@ -22,7 +22,11 @@ Host github-rwb
 
 Для этого демо достаточно неглубокого sparse-клона: `git clone --depth 1 --filter=blob:none --sparse --branch develop URL /srv/rwb-shipment-forecasting/app`, затем `git -C /srv/rwb-shipment-forecasting/app sparse-checkout set frontend deploy docs`. Обе команды выполняются от `rwb`; модели и конкурсные данные для сборки не нужны.
 
-## Контейнер приложения
+## Архитектура и контейнер приложения
+
+`HTTPS → общий edge Caddy (TLS, 80/443) → rwb-web:8080 (Caddy проекта) → собранный React`.
+
+Проектный контейнер на официальном `caddy:2-alpine` раздаёт статику из `/srv` по HTTP на 8080; admin API и сохранение конфигурации отключены. TLS остаётся у отдельного общего edge Caddy.
 
 Сборка выполняется из корня репозитория. `.dockerignore` должен разрешать содержимое `frontend/` и `deploy/`, исключая `node_modules`, `dist`, `.env` и локальные рабочие файлы.
 
@@ -36,13 +40,11 @@ docker compose --env-file /srv/rwb-shipment-forecasting/deploy.env -f deploy/com
 docker compose --env-file /srv/rwb-shipment-forecasting/deploy.env -f deploy/compose.yml ps
 ```
 
-Проект Compose — `rwb-shipment`, контейнер — `rwb-web`. Он слушает 8080 только в Docker-сети, без опубликованных портов хоста. Nginx работает как `nginx`, корневая файловая система read-only, запись разрешена в `/tmp`; лимит памяти 128 MiB. `/healthz` возвращает `200 ok`.
+Проект Compose — `rwb-shipment`, контейнер — `rwb-web`. Он слушает 8080 только в Docker-сети, без опубликованных портов хоста. Caddy проекта работает как UID/GID 10001, корневая файловая система read-only, рабочие данные и конфигурация направлены в непостоянный `/tmp`; лимит памяти 128 MiB. `/healthz` возвращает `200 ok`.
 
-## Существующий Caddy
+## Общий edge Caddy
 
-Публичные 80/443 уже заняты Caddy 2.9. Определить его имя, путь смонтированного конфига и Docker-сети через inspect. Остальные сервисы и их Compose не перезапускать.
-
-Подключить работающий Caddy к сети `RWB_EDGE_NETWORK`, если он ещё не подключён. Конфиг подключён к контейнеру через single-file bind mount: после резервного копирования редактировать содержимое существующего файла на месте. Не заменять файл атомарным rename, иначе контейнер продолжит видеть прежний inode. В фактический Caddyfile добавить отдельный блок, сохранив остальные:
+Существующий Caddy уже обслуживает 80/443 и сертификат домена. Его правило сохраняется без изменений:
 
 ```caddyfile
 rwb.ochev.net {
@@ -50,10 +52,10 @@ rwb.ochev.net {
 }
 ```
 
-DNS домена должен указывать на этот сервер. Перед применением сохранить предыдущий Caddyfile, выполнить `caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile` внутри существующего контейнера, затем `caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile`. Это [плавное обновление конфигурации](https://caddyserver.com/docs/command-line), без остановки или пересоздания общего Caddy.
+При обновлении проекта не менять и не пересоздавать edge Caddy, его сеть, сертификаты или другие сервисы. `RWB_EDGE_NETWORK` указывает фактическую общую сеть. Новый Caddy внутри `rwb-web` не публикует порты хоста и не получает доступ к сертификатам edge.
 
 ## Проверка и обновления
 
-После запуска проверить HTTPS `https://rwb.ochev.net/healthz`, загрузку интерфейса и ассетов. У `index.html` — `Cache-Control: no-cache`, у существующих `/assets/*` — `immutable`; отсутствующий ассет и `/api/*` должны возвращать 404, а не SPA HTML.
+После запуска проверить HTTPS `https://rwb.ochev.net/healthz`, загрузку интерфейса и ассетов. У корня и `index.html` — `Cache-Control: no-cache`, у существующих `/assets/*` — `immutable`; отсутствующий ассет, `board.json` и `/api/*` возвращают 404. Обычные клиентские маршруты получают SPA HTML. Порядок `route`/`handle` в [Caddyfile](../deploy/Caddyfile) изолирует 404 от SPA fallback; это соответствует [правилам Caddy](https://caddyserver.com/docs/caddyfile/directives/route).
 
 Обновление: получить согласованный коммит `develop` от пользователя `rwb`, повторить Compose build/up только для `web`, проверить health и HTTPS. Для отката собрать ранее зафиксированный коммит и повторить тот же запуск; данные и остальные сервисы этот демо-контейнер не изменяет.

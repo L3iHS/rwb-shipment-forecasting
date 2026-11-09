@@ -1,0 +1,52 @@
+{
+	admin off
+	auto_https off
+	persist_config off
+}
+
+:8080 {
+	root * /srv
+	encode zstd gzip
+
+	@api path /api /api/*
+	@assets path /assets /assets/*
+	@existing_asset {
+		path /assets/*
+		file {path}
+	}
+	@static path_regexp static (?i)\.(html|js|mjs|css|map|json|png|jpe?g|gif|svg|ico|webp|avif|woff2?|ttf|webmanifest)$
+
+	route {
+		handle /healthz {
+			respond "ok" 200
+		}
+
+		handle @api {
+			respond "Not found" 404
+		}
+
+		handle /board.json {
+			respond "Not found" 404
+		}
+
+		handle @existing_asset {
+			header Cache-Control "public, max-age=31536000, immutable"
+			file_server
+		}
+
+		handle @assets {
+			respond "Not found" 404
+		}
+
+		handle @static {
+			header Cache-Control "no-cache"
+			file_server
+		}
+
+		handle {
+			try_files {path} /index.html
+			header Cache-Control "no-cache"
+			file_server
+		}
+	}
+}
