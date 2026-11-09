@@ -20,3 +20,18 @@ models/*
 submissions/*
 !submissions/.gitkeep
 !submissions/README.md
+
+# Participant experiment environments and generated outputs.
+.venv-ag/
+.venv-exp/
+venv/
+env/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+catboost_info/
+lightning_logs/
+mlruns/
+experiments/preds/
+.claude/*
+!.claude/CLAUDE.md

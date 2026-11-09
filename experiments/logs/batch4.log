@@ -1,0 +1,4 @@
+RESULT {"tag":"T_h1s","feats":"v3","clip":true,"route_cat":false,"objective":"tweedie","rounds":[300,400,600],"h1_struct":true} r=300: score 0.3288 std 0.0127 wape 0.3167 bias +0.0021 sat 0.3336 | k0.98:0.3341 k0.99:0.3290 k1.01:0.3345 k1.02:0.3423 k1.03:0.3521
+RESULT {"tag":"T_h1s","feats":"v3","clip":true,"route_cat":false,"objective":"tweedie","rounds":[300,400,600],"h1_struct":true} r=400: score 0.3289 std 0.0129 wape 0.3167 bias +0.0027 sat 0.3321 | k0.98:0.3340 k0.99:0.3290 k1.01:0.3347 k1.02:0.3426 k1.03:0.3527
+RESULT {"tag":"T_h1s","feats":"v3","clip":true,"route_cat":false,"objective":"tweedie","rounds":[300,400,600],"h1_struct":true} r=600: score 0.3283 std 0.0113 wape 0.3165 bias -0.0003 sat 0.3300 | k0.98:0.3358 k0.99:0.3296 k1.01:0.3325 k1.02:0.3394 k1.03:0.3492
+rows 3696000  time 678s
