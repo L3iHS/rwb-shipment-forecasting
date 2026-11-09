@@ -14,4 +14,5 @@ COPY backend/*.py ./
 COPY --from=web /web/dist ./static
 ENV STATIC=/app/static BOARD=/app/static/board.json
 EXPOSE 8000
+# Behind a hosting proxy set FORWARDED_ALLOW_IPS to its address, so the per-IP limit sees real visitors.
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
