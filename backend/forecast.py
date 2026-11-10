@@ -8,6 +8,7 @@ import logging
 import os
 import sys
 import threading
+import tempfile
 from collections import OrderedDict
 from pathlib import Path
 
@@ -37,13 +38,23 @@ class Engine:
 
     def _load(self) -> None:
         try:
+            scratch = os.environ.get("RWB_SCRATCH")
+            if scratch:
+                import shutil
+                for old in Path(scratch).glob("forecast-*"):
+                    if old.is_dir() and not old.is_symlink():
+                        shutil.rmtree(old)
             from rwb.data import load_panel
             from rwb.features import cumsums
             from rwb.service import Service
 
             self.svc = Service.load(BUNDLE)
-            self.panel = load_panel()
-            self.cums = cumsums(self.panel)
+            if os.environ.get("RWB_PREPARED"):
+                from runtime import load
+                self.panel, self.cums = load()
+            else:
+                self.panel = load_panel()
+                self.cums = cumsums(self.panel)
             self.base_at(self.panel.n_times - 1)  # the console's own moment, the one the demo files use
             log.info("forecast engine ready: history until %s", self.panel.times[-1])
         except Exception as e:  # missing model or data: the endpoint says so instead of crashing the app
@@ -60,6 +71,8 @@ class Engine:
                 self._base.move_to_end(origin)
                 return self._base[origin]
         run = forecast(self.svc, self.panel, self.cums, origin)
+        # upload.py's response contract predates Service v2's explicit point/quantile names.
+        run.fc["inflow"] = run.fc["inflow_point"]
         with self._lock:
             self._base[origin] = run
             while len(self._base) > 6:
@@ -67,9 +80,24 @@ class Engine:
         return run
 
     def run(self, raw: bytes) -> dict:
-        from rwb.upload import run
+        from rwb.upload import UploadError, apply, compare, forecast, read_table
+        from rwb.monitor import DataUnavailableError
+        from runtime import mapped_cumsums
 
-        return run(self.svc, self.panel, self.cums, raw, self.base_at, BAND)
+        table = read_table(raw)
+        applied = apply(self.panel, table)
+        try:
+            base = self.base_at(applied.origin) if applied.origin < self.panel.n_times else None
+            with tempfile.TemporaryDirectory(prefix="forecast-", dir=os.environ.get("RWB_SCRATCH")) as scratch:
+                sums = mapped_cumsums(applied.panel, Path(scratch))
+                same_dock = base is not None and not applied.changed_y
+                new = forecast(self.svc, applied.panel, sums, applied.origin, base.dock if same_dock else None)
+                new.fc["inflow"] = new.fc["inflow_point"]
+                out = compare(self.svc, self.panel, applied, new, base, BAND)
+                out["file"]["rows"] = len(table)
+                return out
+        except DataUnavailableError as error:
+            raise UploadError("Время файла раньше даты обучения модели или в истории недостаточно данных") from error
 
 
 ENGINE = Engine()

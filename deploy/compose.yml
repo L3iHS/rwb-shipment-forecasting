@@ -2,7 +2,7 @@ name: rwb-shipment
 
 services:
   web:
-    image: rwb-shipment-web:${RWB_IMAGE_TAG:-local}
+    image: ${RWB_WEB_IMAGE:-rwb-shipment-web:local}
     container_name: rwb-web
     build:
       context: ..
@@ -33,8 +33,59 @@ services:
         max-file: "2"
     networks:
       - edge
+      - app
+    depends_on:
+      api:
+        condition: service_healthy
+
+  api:
+    image: ${RWB_API_IMAGE:-rwb-shipment-api:local}
+    container_name: rwb-api
+    build:
+      context: ..
+      dockerfile: deploy/backend.Dockerfile
+      target: runtime
+    env_file:
+      - path: ${RWB_BACKEND_ENV:-../../backend.env}
+        required: false
+    environment:
+      RWB_RELEASE: ${RWB_IMAGE_TAG:-local}
+      FORWARDED_ALLOW_IPS: "*"
+    restart: unless-stopped
+    expose:
+      - "8000"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m,mode=1777
+    volumes:
+      - api-scratch:/var/cache/rwb
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 640m
+    memswap_limit: 640m
+    cpus: 0.80
+    pids_limit: 128
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      start_period: 30s
+      retries: 12
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+    networks:
+      - app
 
 networks:
+  app:
   edge:
     external: true
     name: ${RWB_EDGE_NETWORK:?Set RWB_EDGE_NETWORK to the existing Docker edge network}
+
+volumes:
+  api-scratch:

@@ -24,6 +24,15 @@ if [[ "$release_sha" != "$latest_sha" ]]; then
 fi
 "${git_read[@]}" merge --ff-only "$release_sha"
 [[ "$("${git_read[@]}" rev-parse HEAD)" == "$release_sha" ]]
+IFS= read -r registry_user
+IFS= read -r registry_token
+[[ -n "$registry_user" && -n "$registry_token" ]] || { echo 'Missing short-lived registry credentials.' >&2; exit 64; }
+export DOCKER_CONFIG
+DOCKER_CONFIG=$(mktemp -d /run/rwb-registry.XXXXXX)
+trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+chmod 700 "$DOCKER_CONFIG"
+printf '%s' "$registry_token" | docker login ghcr.io --username "$registry_user" --password-stdin
+unset registry_token
 started_at=$SECONDS
-RWB_DEPLOY_BRANCH=main bash "$repo_dir/deploy/update.sh"
+RWB_DEPLOY_BRANCH=main RWB_PULL_IMAGES=1 bash "$repo_dir/deploy/update.sh"
 echo "Server deployment completed in $((SECONDS - started_at))s."

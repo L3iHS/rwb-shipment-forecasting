@@ -1,5 +1,6 @@
 # Dispatcher console: builds frontend/, serves it with backend/ and the service model on port 8000.
-# The assistant needs ANTHROPIC_API_KEY at run time; the file forecast works without it.
+# Local all-in-one image. Production uses deploy/compose.yml and the two deploy/*.Dockerfile images.
+# The assistant needs ROUTERAI_API_KEY at run time; the file forecast works without it.
 FROM node:22-alpine AS web
 WORKDIR /web
 COPY frontend/package.json frontend/package-lock.json ./

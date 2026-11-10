@@ -1,105 +1,69 @@
-# Демо на rwb.ochev.net
+# rwb.ochev.net: выпуск приложения
 
-Публикуется фронтенд «Ночная смена»: React, TypeScript, Vite и Motion, сохранённый прогноз `board.json`, демо-файлы CSV и локальные ответы ассистента. Backend и внешняя LLM не подключены: `/api` и `/api/*` возвращают 404. Расчёт прогноза по загруженному файлу требует отдельного развёртывания backend; этот workflow выпускает только фронтенд.
+`main` — релизная ветка. Push или merge запускает [.github/workflows/web.yml](../.github/workflows/web.yml): проверки, сборку двух образов в GitHub Actions и выпуск фронтенда, FastAPI и сохранённой модели LightGBM. Обучение модели и конкурсные отправки в CI/CD не выполняются.
 
-## Автодеплой из main
+## Устройство
 
-После push или merge в `main` запускается [.github/workflows/web.yml](../.github/workflows/web.yml). Для pull request в `main` выполняются те же проверки, без доступа к серверу.
+`HTTPS → существующий edge Caddy → rwb-web:8080 → /api/* → rwb-api:8000`.
 
-Один job на Ubuntu с Node 22:
+- `rwb-web`: Caddy проекта, React/TypeScript/Vite, снимок `board.json`, шрифты и демо-CSV.
+- `rwb-api`: FastAPI, модель `models/prod/service/`, история и служебные массивы, подготовленные при сборке образа. `/api/forecast` действительно пересчитывает прогноз по CSV/Parquet. `/api/agent` вызывает DeepSeek через RouterAI и функции над снимком пульта.
+- Общий edge Caddy, его сертификаты, порты 80/443 и другие проекты при выпуске не меняются.
 
-1. Получить только `frontend/`, `deploy/` и `.github/`, без моделей и конкурсных данных.
-2. Установить зависимости из lock-файла с npm cache.
-3. Выполнить три теста прогноза и две короткие проверки протокола деплоя.
-4. Проверить TypeScript и собрать Vite.
-5. Для `main` вызвать ограниченную серверную команду с SHA именно проверенного коммита.
-6. Дождаться готовности контейнера и сверить публичный HTTPS, снимок и ассеты.
+API соединён только с внутренней сетью приложения, без портов хоста. Он доверяет forwarded-заголовкам от проектного Caddy в этой сети; Caddy получает IP посетителя от edge. Внешний доступ API к RouterAI остаётся разрешён.
 
-ML-тесты, обучение, матрица версий и установка Python ML-зависимостей не запускаются. [Первый полный выпуск 10.11.2026](https://github.com/L3iHS/rwb-shipment-forecasting/actions/runs/42865135634) занял 1 минуту 45 секунд от создания workflow до завершения, включая очередь GitHub. Сам job — 1 минуту 40 секунд, шаг деплоя — 77 секунд. Это замер, а не гарантия времени очереди. Лимит job — пять минут. Повторные запуски используют npm cache и слои Docker.
+Оба контейнера работают от UID 10001, с read-only корнем, без capabilities и с `no-new-privileges`. У API один worker, лимит 640 МиБ, без swap, не больше одного расчёта файла одновременно. Рабочие файлы живут в отдельном Docker volume `api-scratch`, удаляются после запроса; остатки прерванных расчётов очищаются при старте.
 
-Одновременные деплои исключены: workflow `main` не отменяет уже начавшийся выпуск, сервер дополнительно использует `flock`. Если проверенный SHA уже уступил новому коммиту `main`, старый выпуск пропускается. При ошибке сборки сайт продолжает работать на старом образе; при ошибке запуска или проверки возвращается предыдущий образ. Обновляется только `rwb-web`.
+Для сервера с 2 ГБ RAM массивы истории и накопленных сумм читаются через memory mapping. Суммы для загрузки считаются небольшими партиями теми же функциями проекта; равенство исходным массивам проверяет тест. Веса модели не менялись. Формат пакета приведён к `Service` schema 2 существующим `scripts/prepare_service_v2.py`, по архивным прогнозам, без обучения; происхождение и хеши — [provenance.json](../models/prod/service/provenance.json).
 
-## Доступ GitHub к серверу
+## Ключ RouterAI
 
-Отдельная учётная запись `rwb-cd` не входит в группу Docker. Новый ключ работает в направлении **GitHub Actions → сервер** и разрешает только `deploy <SHA>` через root-owned [ssh-entry.sh](../deploy/ssh-entry.sh) и [main-release.sh](../deploy/main-release.sh). Обычный shell, PTY и forwarding запрещены. Привилегированная команда сверяет SHA с актуальной `origin/main`, проверяет чистоту клона и делает только fast-forward. Прежний ключ `rwb-ochev-net` работает в обратном направлении, **сервер → GitHub**, и остаётся только на сервере для чтения репозитория.
+Только на сервере: `/srv/rwb-shipment-forecasting/backend.env`, root:root, права 600:
 
-В GitHub настроены:
-
-- Variable `RWB_DEPLOY_HOST`: адрес существующего сервера.
-- Variable `RWB_DEPLOY_ENABLED`: `true` после активации доступа; до этого выполняются только проверки.
-- Secret `RWB_DEPLOY_SSH_KEY`: отдельный приватный ключ CI, доступный только шагу CD, не pull request.
-
-Проверенный публичный host key сервера закреплён в [known_hosts](../deploy/known_hosts), с обязательным `StrictHostKeyChecking`. Он прочитан через существующий административный сеанс, не принят на доверие из сетевого ответа.
-
-Приватный ключ не хранится в Git, образе или логах. На runner он создаётся во временном каталоге и удаляется после шага. На сервере root-owned копии entry points находятся в `/usr/local/libexec/rwb-deploy-entry` и `/usr/local/sbin/rwb-deploy-main`; sudo разрешает `rwb-cd` только вторую команду. Первичная установка и активация нового ключа выполняются администратором отдельно.
-
-## Ручной запуск и восстановление
-
-Обычные изменения: push в `main`, без команд на сервере. Повторить выпуск можно через **Actions → Web checks and deploy → Run workflow**, выбрав `main`.
-
-При недоступности Actions администратор может выполнить:
-
-```sh
-cd /srv/rwb-shipment-forecasting/app && runuser -u rwb -- git pull --ff-only
-bash deploy/update.sh
+```env
+ROUTERAI_API_KEY=ключ_проекта
+MODEL=deepseek/deepseek-v4.1-flash-1017
+RATE_PER_10MIN=15
+RATE_PER_HOUR=100
+AGENT_CONCURRENCY=2
+UPLOADS_PER_10MIN=10
+UPLOAD_CONCURRENCY=1
 ```
 
-[update.sh](../deploy/update.sh) проверяет ветку `main` и отсутствие местных изменений, собирает образ с тегом текущего SHA, обновляет только `web` и ждёт его готовности. Не запускать ручной выпуск параллельно с Actions. Настройки находятся в `/srv/rwb-shipment-forecasting/deploy.env`, подтверждённый SHA и предыдущий релиз — в `/srv/rwb-shipment-forecasting/deployment.json`.
+Ключ не попадает в Git, образ, браузер или GitHub Secrets. Адрес API фиксирован: `https://routerai.ru/api/v1/chat/completions`. После изменения файла нужен новый выпуск или пересоздание только `api` из уже скачанного образа с актуальной Compose-конфигурацией. Обычный `docker restart` новые переменные не подхватывает.
 
-## Репозиторий и доступ
+Без ключа прогноз по файлу работает, а `/api/agent` отдаёт 503; интерфейс использует локальные ответы. `/api/health` показывает `model_ready`, `agent_configured` и SHA выпуска, без секретов и внутренних ошибок.
 
-Источник — `L3iHS/rwb-shipment-forecasting`, релизная ветка `main`; разработка остаётся в `develop`. На Ubuntu используется отдельный пользователь `rwb` с домашним каталогом `/home/rwb` и shell `/usr/sbin/nologin`, без входящего SSH-доступа. Репозиторий размещается в `/srv/rwb-shipment-forecasting/app`; Docker-команды выполняет администратор, отдельное членство `rwb` в группе Docker не требуется.
+## Короткий CI/CD
 
-Ключ Ed25519 генерируется **только на сервере** в `/home/rwb/.ssh/rwb-ochev-net`. В GitHub добавляется только `.pub` как deploy key с названием `rwb-ochev-net`, без права записи. Приватная часть остаётся на сервере и не попадает в вывод команд, Git или образ. Каталог `.ssh` — 700, ключ и config — 600, владелец `rwb`.
+Один job с лимитом пять минут:
 
-Настройка `/home/rwb/.ssh/config`:
+1. Sparse checkout: фронтенд, бэкенд, `src`, рабочий пакет модели, `data/raw`, тесты и `deploy`; без ноутбуков, экспериментов и результатов обучения.
+2. Две проверки ограниченной SSH-команды и синтаксиса скриптов.
+3. Сборка тестового образа API. 12 проверок: ввод файла, равенство массивов, загрузка реальной модели, запрос прогноза и протокол RouterAI с подставным ответом, без платных вызовов. Контейнер проверяется с тем же лимитом памяти, что на сервере.
+4. Три frontend-теста, TypeScript и Vite внутри сборки web-образа.
+5. Для `main` — публикация приватных образов в GHCR с тегом точного SHA и проверка приватности. Используются кеши слоёв Docker.
+6. SSH-команда `deploy <SHA>` скачивает образы, ждёт готовности API с загруженной моделью, обновляет web и проверяет публичный HTTPS, ассеты и реальный расчёт по демо-CSV.
 
-```sshconfig
-Host github-rwb
-    HostName github.com
-    User git
-    IdentityFile ~/.ssh/rwb-ochev-net
-    IdentitiesOnly yes
-```
+Pull request проверяется без деплоя и серверных секретов. Ручной повтор: **Actions → App checks and deploy → Run workflow → main**. На сервере обычных команд больше не требуется.
 
-Ключ хоста GitHub сверяется с [официальными отпечатками](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints). URL клонирования для пользователя `rwb`: `git@github-rwb:L3iHS/rwb-shipment-forecasting.git`.
+Деплои сериализованы workflow и серверным `flock`. Устаревший SHA пропускается, чужие местные изменения в клоне останавливают выпуск. Ошибка скачивания оставляет старые контейнеры; ошибка запуска или проверки возвращает предыдущие образы API и web. Первый переход с одного web-контейнера при откате останавливает новый API и возвращает прежний web. Предыдущие образы сохраняются локально.
 
-Для этого демо достаточно неглубокого sparse-клона: `git clone --depth 1 --filter=blob:none --sparse --branch main URL /srv/rwb-shipment-forecasting/app`, затем `git -C /srv/rwb-shipment-forecasting/app sparse-checkout set frontend deploy docs`. Обе команды выполняются от `rwb`; модели и конкурсные данные для сборки не нужны.
+До подключения API первый frontend-выпуск занял 1:45, повторный 0:42 с очередью GitHub. Это исторические замеры прежнего workflow; полное приложение измеряется отдельно по Actions.
 
-## Архитектура и контейнер приложения
+## Два SSH-ключа
 
-`HTTPS → общий edge Caddy (TLS, 80/443) → rwb-web:8080 (Caddy проекта) → собранный React`.
+- **Сервер → GitHub:** прежний read-only deploy key `rwb-ochev-net`, `/home/rwb/.ssh/rwb-ochev-net`. SSH alias `github-rwb`, origin `git@github-rwb:L3iHS/rwb-shipment-forecasting.git`.
+- **GitHub Actions → сервер:** отдельный ключ `RWB_DEPLOY_SSH_KEY`, учётная запись `rwb-cd`. `authorized_keys` содержит `restrict,command="/usr/local/libexec/rwb-deploy-entry"`; shell, PTY и forwarding запрещены. Root-owned `/usr/local/sbin/rwb-deploy-main` принимает только один полный SHA, сверяет его с `origin/main` и делает fast-forward.
 
-Проектный контейнер на официальном `caddy:2-alpine` раздаёт статику из `/srv` по HTTP на 8080; admin API и сохранение конфигурации отключены. TLS остаётся у отдельного общего edge Caddy.
+Variables GitHub: `RWB_DEPLOY_HOST=rwb.ochev.net`, `RWB_DEPLOY_ENABLED=true` после установки. Host key сервера закреплён в [known_hosts](../deploy/known_hosts), проверка обязательна.
 
-Сборка выполняется из корня репозитория. `.dockerignore` должен разрешать содержимое `frontend/` и `deploy/`, исключая `node_modules`, `dist`, `.env` и локальные рабочие файлы.
+Для скачивания приватных образов runner передаёт краткоживущий `GITHUB_TOKEN` по защищённому SSH-вводу. Docker credentials создаются в root-only временном каталоге `/run` и удаляются после выпуска; постоянный PAT на сервере не нужен. Root-owned wrapper обновляется администратором при изменении самого протокола, а не произвольной командой через CI-ключ.
 
-Перед запуском определить фактическую Docker-сеть, доступную существующему Caddy, либо создать отдельную согласованную сеть и подключить к ней Caddy без пересоздания контейнера. Название нельзя подставлять по догадке. Скопировать `deploy/.env.example` в `/srv/rwb-shipment-forecasting/deploy.env` вне клона (права 600), заполнить `RWB_EDGE_NETWORK` и указать SHA развёртываемого коммита в `RWB_IMAGE_TAG`.
+## Серверные файлы
 
-Из `/srv/rwb-shipment-forecasting/app`:
+- Клон: `/srv/rwb-shipment-forecasting/app`, владелец `rwb`, ветка `main`, чистое рабочее дерево. Для pull достаточно sparse checkout `frontend deploy docs`; модель и данные уже в образе.
+- `/srv/rwb-shipment-forecasting/deploy.env`: `RWB_EDGE_NETWORK=remnawave-network`, опционально `RWB_BACKEND_ENV`; права 600, вне Git.
+- `/srv/rwb-shipment-forecasting/deployment.json`: SHA и предыдущие образы последнего успешно проверенного выпуска; права 600.
 
-```sh
-docker compose --env-file /srv/rwb-shipment-forecasting/deploy.env -f deploy/compose.yml config --quiet
-docker compose --env-file /srv/rwb-shipment-forecasting/deploy.env -f deploy/compose.yml up -d --build --wait web
-docker compose --env-file /srv/rwb-shipment-forecasting/deploy.env -f deploy/compose.yml ps
-```
-
-Проект Compose — `rwb-shipment`, контейнер — `rwb-web`. Он слушает 8080 только в Docker-сети, без опубликованных портов хоста. Caddy проекта работает как UID/GID 10001, корневая файловая система read-only, рабочие данные и конфигурация направлены в непостоянный `/tmp`; лимит памяти 128 MiB. `/healthz` возвращает `200 ok`.
-
-## Общий edge Caddy
-
-Существующий Caddy уже обслуживает 80/443 и сертификат домена. Его правило сохраняется без изменений:
-
-```caddyfile
-rwb.ochev.net {
-    reverse_proxy rwb-web:8080
-}
-```
-
-При обновлении проекта не менять и не пересоздавать edge Caddy, его сеть, сертификаты или другие сервисы. `RWB_EDGE_NETWORK` указывает фактическую общую сеть. Новый Caddy внутри `rwb-web` не публикует порты хоста и не получает доступ к сертификатам edge.
-
-## Проверка и обновления
-
-После запуска проверить HTTPS `https://rwb.ochev.net/healthz`, загрузку интерфейса и ассетов. У корня, `index.html` и `board.json` — `Cache-Control: no-cache`, у существующих `/assets/*` — `immutable`; отсутствующий ассет и `/api/*` возвращают 404. Обычные клиентские маршруты получают SPA HTML. Порядок `route`/`handle` в [Caddyfile](../deploy/Caddyfile) изолирует 404 от SPA fallback; это соответствует [правилам Caddy](https://caddyserver.com/docs/caddyfile/directives/route).
-
-Для обычных обновлений используется push в `main` и автоматический workflow. При необходимости ручного отката администратор задаёт `RWB_IMAGE_TAG` предыдущего сохранённого образа и выполняет Compose `up -d --no-build --no-deps --wait web`. Скрипт не удаляет старые образы. Данные и остальные сервисы этот демо-контейнер не изменяет.
+Сборку и проверки выполняет GitHub, сервер запускает только готовые образы. Для локального воспроизведения API: `docker build -f deploy/backend.Dockerfile --target test -t rwb-api-test .`, затем `docker run --rm --memory 640m --memory-swap 640m rwb-api-test`. Тесты требуют writable `/tmp` и `/var/cache/rwb`; production-ограничения задаёт [compose.yml](../deploy/compose.yml).

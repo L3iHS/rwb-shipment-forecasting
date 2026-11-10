@@ -1,4 +1,4 @@
-name: Web checks and deploy
+name: App checks and deploy
 
 on:
   push:
@@ -9,14 +9,14 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 concurrency:
   group: web-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  web:
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+  app:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -25,43 +25,83 @@ jobs:
           persist-credentials: false
           sparse-checkout: |
             frontend
+            backend
+            src
+            models/prod/service
+            data/raw
             deploy
+            tests
             .github
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci --no-audit --no-fund
-      - name: Test forecast calculations
-        working-directory: frontend
-        run: npm test
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Check deployment entry points
         run: |
           bash -n deploy/update.sh deploy/main-release.sh deploy/ssh-entry.sh
           python3 -m unittest discover -s deploy/tests -v
-      - name: TypeScript and production build
-        working-directory: frontend
-        run: npm run build
-      - name: Verify SSH endpoint during initial setup
-        if: github.event_name != 'pull_request' && vars.RWB_DEPLOY_ENABLED != 'true'
+      - name: Build backend test image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/backend.Dockerfile
+          target: test
+          load: true
+          tags: rwb-api-test:ci
+          cache-from: type=gha,scope=rwb-api
+          cache-to: type=gha,scope=rwb-api,mode=max
+      - name: Test actual saved model, file API and assistant protocol
         env:
-          DEPLOY_HOST: ${{ vars.RWB_DEPLOY_HOST }}
+          RELEASE_SHA: ${{ github.sha }}
         run: |
-          if ssh-keyscan -T 5 -t ed25519 "$DEPLOY_HOST" > "$RUNNER_TEMP/rwb-host-key"; then
-            awk '!/^#/ && NF { print $1, $2, $3 }' "$RUNNER_TEMP/rwb-host-key" > "$RUNNER_TEMP/rwb-host-key.normalized"
-            diff -u deploy/known_hosts "$RUNNER_TEMP/rwb-host-key.normalized"
-          else
-            echo '::warning::SSH endpoint is not reachable yet; CD remains disabled.'
-          fi
-      - name: Deploy main to rwb.ochev.net
-        if: github.event_name != 'pull_request' && vars.RWB_DEPLOY_ENABLED == 'true'
+          scratch="rwb-test-$GITHUB_RUN_ID"
+          trap 'docker volume rm "$scratch" >/dev/null 2>&1 || true' EXIT
+          docker run --rm --memory 640m --memory-swap 640m --cpus 1 \
+            --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m \
+            --mount "type=volume,source=$scratch,target=/var/cache/rwb" \
+            -e "RWB_RELEASE=$RELEASE_SHA" rwb-api-test:ci
+      - name: Authenticate private image registry
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Build and test frontend; publish on main
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/frontend.Dockerfile
+          push: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+          tags: ghcr.io/l3ihs/rwb-shipment-forecasting-web:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/L3iHS/rwb-shipment-forecasting
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=rwb-web
+          cache-to: type=gha,scope=rwb-web,mode=max
+      - name: Publish tested backend with saved ML model
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/backend.Dockerfile
+          target: runtime
+          push: true
+          tags: ghcr.io/l3ihs/rwb-shipment-forecasting-api:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/L3iHS/rwb-shipment-forecasting
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=rwb-api
+      - name: Verify images are private
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for image in api web; do
+            visibility=$(gh api "users/L3iHS/packages/container/rwb-shipment-forecasting-$image" --jq .visibility)
+            [[ "$visibility" == private ]] || { echo 'Expected a private image.' >&2; exit 1; }
+          done
+      - name: Deploy frontend, backend and ML to rwb.ochev.net
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.RWB_DEPLOY_ENABLED == 'true'
         env:
           DEPLOY_HOST: ${{ vars.RWB_DEPLOY_HOST }}
-          DEPLOY_USER: rwb-cd
           DEPLOY_KEY: ${{ secrets.RWB_DEPLOY_SSH_KEY }}
+          REGISTRY_TOKEN: ${{ github.token }}
           RELEASE_SHA: ${{ github.sha }}
         shell: bash
         run: |
@@ -74,23 +114,24 @@ jobs:
           printf '%s\n' "$DEPLOY_KEY" > "$ssh_dir/key"
           cp deploy/known_hosts "$ssh_dir/known_hosts"
           chmod 600 "$ssh_dir/key" "$ssh_dir/known_hosts"
-          ssh -F /dev/null -i "$ssh_dir/key" \
-            -o IdentitiesOnly=yes -o BatchMode=yes \
-            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$ssh_dir/known_hosts" \
-            -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
-            "$DEPLOY_USER@$DEPLOY_HOST" "deploy $RELEASE_SHA" | tee "$ssh_dir/result"
+          printf '%s\n%s\n' "$GITHUB_ACTOR" "$REGISTRY_TOKEN" | \
+            ssh -F /dev/null -i "$ssh_dir/key" \
+              -o IdentitiesOnly=yes -o BatchMode=yes \
+              -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$ssh_dir/known_hosts" \
+              -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+              "rwb-cd@$DEPLOY_HOST" "deploy $RELEASE_SHA" | tee "$ssh_dir/result"
           if grep -q '^Superseded release ' "$ssh_dir/result"; then
             echo 'RWB_DEPLOY_SKIPPED=true' >> "$GITHUB_ENV"
           fi
       - name: Deployment summary
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
           DEPLOY_ENABLED: ${{ vars.RWB_DEPLOY_ENABLED }}
         run: |
           if [[ "${RWB_DEPLOY_SKIPPED:-}" == true ]]; then
             printf 'A newer main commit superseded this run; deployment skipped.\n' >> "$GITHUB_STEP_SUMMARY"
           elif [[ "$DEPLOY_ENABLED" == true ]]; then
-            printf 'Published [%s](https://rwb.ochev.net/).\n' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+            printf 'Published frontend, backend and saved ML model [%s](https://rwb.ochev.net/).\n' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
           else
-            printf 'Checks passed. CD is not activated yet.\n' >> "$GITHUB_STEP_SUMMARY"
+            printf 'Full-stack checks and images passed. CD is disabled for setup.\n' >> "$GITHUB_STEP_SUMMARY"
           fi

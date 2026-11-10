@@ -1,7 +1,7 @@
-"""Dispatcher console backend: POST /api/agent (Claude with tools over board.json), POST /api/forecast (the service
+"""Dispatcher console backend: POST /api/agent (RouterAI with tools over board.json), POST /api/forecast (the service
 model on an uploaded file) and the built frontend.
 
-    uvicorn app:app --port 8000          # from backend/, needs ANTHROPIC_API_KEY
+    uvicorn app:app --port 8000          # from backend/, assistant needs ROUTERAI_API_KEY
 
 The endpoint is public, so every question has a fixed cost ceiling: short history, short answers, few model calls,
 few tool calls, a deadline, per-IP and global limits, and a cap on questions answered at the same time.
@@ -17,7 +17,7 @@ from collections import deque
 from pathlib import Path
 from typing import Literal
 
-import anthropic
+import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
@@ -35,7 +35,7 @@ if _env.exists():
 import tools  # noqa: E402  (reads BOARD from the environment)
 from forecast import ENGINE  # noqa: E402
 
-MODEL = os.environ.get("MODEL", "claude-sonnet-5-5")
+MODEL = os.environ.get("MODEL", "deepseek/deepseek-v4.1-flash-1017")
 RATE = int(os.environ.get("RATE_PER_10MIN", "30"))  # questions per IP per 10 minutes
 RATE_HOUR = int(os.environ.get("RATE_PER_HOUR", "300"))  # questions per hour from all visitors together
 CONCURRENCY = int(os.environ.get("AGENT_CONCURRENCY", "4"))  # questions answered at the same time
@@ -68,13 +68,19 @@ bias −0,003 — «сдвиг −0,3 %». Только метрику кейс�
 маршрут на экране; не сообщай об этом. На вопросы не о прогнозе отгрузок
 отвечай одной фразой, что помогаешь только с прогнозом."""
 
-# The base URL is fixed: an ANTHROPIC_BASE_URL left in the shell would otherwise receive the key.
-# No SDK retries: they sleep for the server's retry-after and would break the deadline.
-# A connection that does not open in 5 s will not: the console then answers without the model at once.
-client = anthropic.Anthropic(base_url="https://api.anthropic.com", timeout=anthropic.Timeout(20.0, connect=5.0), max_retries=0)
+# The destination is fixed; unrelated SDK credentials/base URLs in the shell are never used.
+client = httpx.Client(base_url="https://routerai.ru/api/v1/", timeout=httpx.Timeout(20.0, connect=5.0), trust_env=False)
 log = logging.getLogger("uvicorn.error")
 app = FastAPI(title="Пульт диспетчера")
 ENGINE.start()
+
+
+@app.get("/api/health")
+def health():
+    ready = ENGINE.ready.is_set() and ENGINE.error is None
+    return JSONResponse({"status": "ok" if ready else "starting", "model_ready": ready,
+                         "agent_configured": bool(os.environ.get("ROUTERAI_API_KEY")),
+                         "release": os.environ.get("RWB_RELEASE", "local")}, status_code=200 if ready else 503)
 
 
 class Msg(BaseModel):
@@ -197,7 +203,7 @@ def reachable() -> bool:
 
     def lookup() -> None:
         try:
-            socket.getaddrinfo("api.anthropic.com", 443)
+            socket.getaddrinfo("routerai.ru", 443)
             found.set()
         except OSError:
             pass
@@ -213,31 +219,37 @@ def ask_model(messages: list[dict], last: bool, left: float):
     if not reachable():
         raise HTTPException(502, "Нет связи с моделью")
     try:
-        return client.with_options(timeout=anthropic.Timeout(min(20.0, left), connect=5.0)).beta.messages.create(
-            model=MODEL, max_tokens=MAX_TOKENS, system=SYSTEM, tools=tools.TOOLS, messages=messages,
-            tool_choice={"type": "none"} if last else {"type": "auto"},
-            cache_control={"type": "ephemeral"}, output_config={"effort": "low"},
-            betas=["server-side-fallback-2026-07-01"], fallbacks="default",
-        )
-    except anthropic.EnforcedSpendLimitReachedError:
-        raise HTTPException(503, "Ассистент исчерпал лимит расходов")
-    except (anthropic.RateLimitError, anthropic.OverloadedError, anthropic.ServiceUnavailableError):
-        raise HTTPException(503, "Модель перегружена, попробуйте позже")
-    except (anthropic.AuthenticationError, anthropic.PermissionDeniedError):
-        raise HTTPException(503, "Ассистент не настроен: ключ API не подходит")
-    except anthropic.APITimeoutError:
+        response = client.post("chat/completions", headers={"Authorization": "Bearer " + os.environ["ROUTERAI_API_KEY"]},
+            timeout=httpx.Timeout(min(20.0, left), connect=5.0), json={
+                "model": MODEL, "max_tokens": MAX_TOKENS, "temperature": 0.2,
+                "messages": [{"role": "system", "content": SYSTEM}, *messages],
+                "tools": [{"type": "function", "function": {"name": t["name"], "description": t["description"],
+                           "parameters": t["input_schema"]}} for t in tools.TOOLS],
+                "tool_choice": "none" if last else "auto",
+            })
+        if response.status_code in (401, 403):
+            raise HTTPException(503, "Ассистент не настроен: ключ RouterAI не подходит")
+        if response.status_code == 402:
+            raise HTTPException(503, "Ассистент исчерпал баланс RouterAI")
+        if response.status_code == 429 or response.status_code >= 500:
+            raise HTTPException(503, "Модель перегружена, попробуйте позже")
+        if not response.is_success:
+            raise HTTPException(502, "Ошибка модели: " + str(response.status_code))
+        message = response.json()["choices"][0]["message"]
+        if not isinstance(message, dict):
+            raise ValueError("Expected a message object")
+        return message
+    except httpx.TimeoutException:
         raise HTTPException(504, "Модель не ответила вовремя")
-    except anthropic.APIStatusError as e:
-        raise HTTPException(502, f"Ошибка модели: {e.status_code}")
-    except anthropic.APIConnectionError:
+    except httpx.RequestError:
         raise HTTPException(502, "Нет связи с моделью")
-    except anthropic.AnthropicError:
-        raise HTTPException(502, "Ошибка модели")
+    except (ValueError, KeyError, IndexError, TypeError):
+        raise HTTPException(502, "Некорректный ответ модели")
 
 
 @app.post("/api/agent")
 def agent(req: AgentRequest, request: Request) -> dict:
-    if not os.environ.get("ANTHROPIC_API_KEY"):
+    if not os.environ.get("ROUTERAI_API_KEY"):
         raise HTTPException(503, "Ассистент не настроен: нет ключа API")
     if not _busy.acquire(blocking=False):
         raise HTTPException(503, "Ассистент занят, спросите через минуту")
@@ -266,32 +278,35 @@ def answer(req: AgentRequest) -> dict:
         if left < 3:
             break
         resp = ask_model(messages, last=step == STEPS - 1, left=left)
-        log.info("agent step %d: %s, tokens in %d out %d", step + 1, resp.stop_reason,
-                 resp.usage.input_tokens, resp.usage.output_tokens)
-
-        if resp.stop_reason == "refusal":
+        if resp.get("refusal"):
             actions.clear()
             return reply("Не могу ответить на этот вопрос. Спросите о маршрутах, прогнозе или его точности.")
-        if resp.stop_reason != "tool_use":
-            text = " ".join(b.text for b in resp.content if b.type == "text").strip()
+        calls = resp.get("tool_calls") or []
+        if not calls:
+            text = (resp.get("content") or "").strip()
             return reply(text or "Не получилось ответить, переформулируйте вопрос.")
 
-        messages.append({"role": "assistant", "content": resp.content})
-        results = []
-        for i, b in enumerate(b for b in resp.content if b.type == "tool_use"):
+        assistant = {"role": "assistant", "content": resp.get("content"), "tool_calls": calls}
+        for field in ("reasoning_content", "reasoning_details"):
+            if field in resp:
+                assistant[field] = resp[field]
+        messages.append(assistant)
+        for i, call in enumerate(calls):
+            function = call.get("function", {})
+            name = function.get("name", "")
             if i >= TOOLS_PER_STEP:
                 out = {"error": f"не больше {TOOLS_PER_STEP} функций за раз, ответь по уже полученным данным"}
             else:
                 try:
-                    out, act = tools.run(b.name, b.input, view)
+                    args = json.loads(function.get("arguments", "{}"))
+                    out, act = tools.run(name, args, view)
                 except (KeyError, TypeError, ValueError):  # arguments outside the schema
                     out, act = {"error": "неверные аргументы функции"}, None
-                used.append({"name": b.name, "args": b.input})
+                    args = {}
+                used.append({"name": name, "args": args})
                 if act:
                     actions[act["type"]] = act
-            results.append({"type": "tool_result", "tool_use_id": b.id, "content": json.dumps(out, ensure_ascii=False),
-                            "is_error": "error" in out})
-        messages.append({"role": "user", "content": results})
+            messages.append({"role": "tool", "tool_call_id": call["id"], "content": json.dumps(out, ensure_ascii=False)})
     return reply("Не успел собрать ответ, переформулируйте вопрос.")
 
 

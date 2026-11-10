@@ -1,6 +1,6 @@
 fastapi==0.162.2
 uvicorn==0.54.0
-anthropic==2.6.0
+httpx==0.28.1
 # The service model behind /api/forecast (src/rwb, models/prod/service): same versions as the project.
 numpy==2.5.4
 pandas==3.1.1

@@ -1,0 +1,25 @@
+{
+  "trained_new_model": false,
+  "calibration": {
+    "origins": 329,
+    "start": "2025-10-25 10:30:00",
+    "end_origin": "2025-11-01 06:30:00",
+    "last_observed_label": "2025-11-01 10:30:00",
+    "source": "archived rolling predictions",
+    "archive_sha256": "c47e9ce71a95079733dbabb86fc20660cf968509298dfd13a63a6500614be30f",
+    "training_cutoff_of_calibration_forecaster": 4293,
+    "train_sha256": "300aecbe2d3dc28be03bff957ba56ab20c7fa8ceb81b0301822d4bf6473bd076"
+  },
+  "model_files": {
+    "forecaster.json": "d5e383e134f491f2a3eb925ea0371e0cfd9289c648a801df6dd9de2b4103e6b3",
+    "h1.txt": "d889a7d98234c819255b48748797a55c3c2e00c1caed9416a4c1ba5bb75d6dde",
+    "h2.txt": "9392109fdccd74115b48129ea0184dc11ba9212ff36fa3ea73a0da4bc53428a3",
+    "h3.txt": "76411be777799f5c5a6abeedd7bb4f922ad136a54f0d7db6c878fb922351fc7e",
+    "h4.txt": "bed37a573a441b7182a3781f34fbdef59f23e92edb1f331f08d7f34ae53abaca",
+    "h5.txt": "b5112f86ee0a1dbb6c06775d6cd9476e5597efcf7efcc90c959514206a4e6623",
+    "h6.txt": "df45cd4b2b94e6b55a70ce91ca1c8ed111562b3cfc0ca1985d5f518aa953a69a",
+    "h7.txt": "24c5f57bebf2014409ec626cb8f5cb22a206b2d62ddc7a25fbd299a23d399321",
+    "h8.txt": "33b3efd6ada1a47377afccec0a5f062fa1539818545e65408737af2b7af085ed"
+  },
+  "reproduce": "python scripts/prepare_service_v2.py --output /tmp/rwb-service-v2; copy only service.json, keep model/ unchanged"
+}
