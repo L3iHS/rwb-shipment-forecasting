@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  app:
+  api:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -62,18 +62,6 @@ jobs:
         env:
           REGISTRY_TOKEN: ${{ github.token }}
         run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-      - name: Build and test frontend; publish on main
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
-          file: deploy/frontend.Dockerfile
-          push: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
-          tags: ghcr.io/l3ihs/rwb-shipment-forecasting-web:${{ github.sha }}
-          labels: |
-            org.opencontainers.image.source=https://github.com/L3iHS/rwb-shipment-forecasting
-            org.opencontainers.image.revision=${{ github.sha }}
-          cache-from: type=gha,scope=rwb-web
-          cache-to: type=gha,scope=rwb-web,mode=max
       - name: Publish tested backend with saved ML model
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -87,6 +75,49 @@ jobs:
             org.opencontainers.image.source=https://github.com/L3iHS/rwb-shipment-forecasting
             org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha,scope=rwb-api
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            frontend
+            deploy
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Authenticate private image registry
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Build and test frontend; publish on main
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/frontend.Dockerfile
+          push: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+          tags: ghcr.io/l3ihs/rwb-shipment-forecasting-web:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/L3iHS/rwb-shipment-forecasting
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=rwb-web
+          cache-to: type=gha,scope=rwb-web,mode=max
+  deploy:
+    needs: [api, web]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            frontend
+            deploy
       - name: Verify images are private
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
