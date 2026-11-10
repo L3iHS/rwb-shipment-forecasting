@@ -74,10 +74,10 @@ export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onF
   return (
     <motion.div className="space-y-8" initial="hidden" animate="show"
       variants={{ show: { transition: { staggerChildren: reduced ? 0 : 0.07 } } }}>
-      {/* Two halves: on the left what is happening, on the right what the dispatcher does about it. They sit side by side
-          when the console is wide enough, else one under the other. Sizes follow the console's own width (container
-          queries), because the assistant panel takes its share of the window when open. */}
-      <motion.section variants={item} className="grid items-center gap-x-10 gap-y-6 @5xl:grid-cols-[minmax(0,1fr)_440px]">
+      {/* On the left what is happening, on the right the one thing to do about it. Side by side when the console is wide
+          enough, else one under the other. Sizes follow the console's own width (container queries), because the
+          assistant panel takes its share of the window when open. */}
+      <motion.section variants={item} className="grid items-end gap-x-10 gap-y-6 @5xl:grid-cols-[minmax(0,1fr)_400px]">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-6">
           {/* The hidden copy holds the final width, so the heading beside it does not slide while the number counts. */}
           <span className={`relative inline-block self-start font-hero text-[104px] font-extrabold tabular-nums leading-[0.8] tracking-[-0.02em] transition-colors duration-300 sm:min-w-[3.4ch] sm:self-auto sm:text-[128px] ${k.callNow > 0 ? "text-signal" : "text-forecast"}`}>
@@ -96,61 +96,54 @@ export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onF
           </div>
         </div>
 
-        {/* The shift panel. Every line keeps its place whatever it says, so nothing jumps. Between the phone and the
-            two-half layout it lays its two groups side by side to use the width. */}
-        <div className="panel grid gap-x-8 gap-y-4 p-4 sm:p-5 @3xl:grid-cols-2 @5xl:grid-cols-1">
-          <div>
-            <div className="flex items-center gap-3 text-[14px] text-ink-2">
-              <span className="whitespace-nowrap">
-                вызвано <span className="num font-semibold text-ink"><Ticker value={total} /></span> из{" "}
-                <span className="num"><Ticker value={total + due} /></span>
-              </span>
-              <span className="relative h-1.5 min-w-8 flex-1 overflow-hidden rounded-full bg-line" aria-hidden>
-                <motion.span className="absolute inset-0 origin-left rounded-full bg-signal" initial={false}
-                  animate={{ scaleX: total / Math.max(1, total + due) }} transition={flow} />
-              </span>
-              <motion.button onClick={() => onUndo()} disabled={!last} aria-hidden={!last} initial={false}
-                animate={{ opacity: last ? 1 : 0 }} transition={base}
-                className="inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[13px] text-ink-2 ring-1 ring-inset ring-line hover:text-ink disabled:pointer-events-none"
-                title={last && last.length > 1 ? `Отменить вызов всем: ${last.length} машин` : "Отменить последний вызов"}>
-                <Undo2 size={13} />
-                <span className="num min-w-[5ch] text-left">{!last ? "" : last.length > 1 ? `все ${last.length}` : `№ ${last[0]}`}</span>
-              </motion.button>
-            </div>
-            <motion.button onClick={onCallAll} disabled={!due} whileTap={{ scale: 0.98 }}
-              className="mt-3.5 inline-flex h-11 w-full items-center justify-center gap-2.5 rounded-[10px] bg-signal px-5 text-[16px] font-semibold text-on-signal transition-colors disabled:bg-raised disabled:text-muted"
-              title="Вызвать машины всем маршрутам, которым пора: столько, сколько просит прогноз">
-              <CheckCheck size={18} strokeWidth={2.25} />
-              Вызвать всем
-              <span className="num min-w-[4ch] text-left text-[14px] font-medium opacity-80">{due || ""}</span>
+        {/* The one action of the screen, with the progress it makes. Every line keeps its place whatever it says. */}
+        <div className="w-full @2xl:max-w-[400px] @5xl:justify-self-end">
+          <motion.button onClick={onCallAll} disabled={!due} whileTap={{ scale: 0.98 }}
+            className="inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-[12px] bg-signal px-5 text-[17px] font-semibold text-on-signal transition-colors disabled:bg-raised disabled:text-muted"
+            title="Вызвать машины всем маршрутам, которым пора: столько, сколько просит прогноз">
+            <CheckCheck size={19} strokeWidth={2.25} />
+            Вызвать всем
+            <span className="num min-w-[4ch] text-left text-[15px] font-medium opacity-80">{due || ""}</span>
+          </motion.button>
+          <div className="mt-3 flex items-center gap-3 text-[14px] text-ink-2">
+            <span className="whitespace-nowrap">
+              вызвано <span className="num font-semibold text-ink"><Ticker value={total} /></span> из{" "}
+              <span className="num"><Ticker value={total + due} /></span>
+            </span>
+            <span className="relative h-1.5 min-w-8 flex-1 overflow-hidden rounded-full bg-line" aria-hidden>
+              <motion.span className="absolute inset-0 origin-left rounded-full bg-signal" initial={false}
+                animate={{ scaleX: total / Math.max(1, total + due) }} transition={flow} />
+            </span>
+            <motion.button onClick={() => onUndo()} disabled={!last} aria-hidden={!last} initial={false}
+              animate={{ opacity: last ? 1 : 0 }} transition={base}
+              className="inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[13px] text-ink-2 ring-1 ring-inset ring-line hover:text-ink disabled:pointer-events-none"
+              title={last && last.length > 1 ? `Отменить вызов всем: ${last.length} машин` : "Отменить последний вызов"}>
+              <Undo2 size={13} />
+              <span className="num min-w-[5ch] text-left">{!last ? "" : last.length > 1 ? `все ${last.length}` : `№ ${last[0]}`}</span>
             </motion.button>
-            {/* The price of the dispatcher's own decisions. */}
-            <p className="mt-2.5 h-5 text-[14px] leading-5">
-              {idle.steps > 0 ? (
-                <span className="text-alert">Ранние вызовы: машины простоят {idle.open ? "больше " : ""}{leadLabel((idle.steps * board.step_min) / 60)}</span>
-              ) : total > 0 ? (
-                <span className="text-muted">Все вызовы вовремя, простоя нет</span>
-              ) : (
-                <span className="text-muted">Столько машин прогноз просит прямо сейчас</span>
-              )}
-            </p>
           </div>
-          <div className="@container border-t border-line pt-4 @3xl:border-l @3xl:border-t-0 @3xl:pl-8 @3xl:pt-0 @5xl:border-l-0 @5xl:border-t @5xl:pl-0 @5xl:pt-4">
-            <WhatIf board={board} s={scenario} onChange={onScenario} />
-          </div>
+          {/* The price of the dispatcher's own decisions; empty until there is something to say. */}
+          <p className="mt-1.5 h-5 text-[14px] leading-5">
+            {idle.steps > 0 ? (
+              <span className="text-alert">Ранние вызовы: машины простоят {idle.open ? "больше " : ""}{leadLabel((idle.steps * board.step_min) / 60)}</span>
+            ) : total > 0 ? (
+              <span className="text-muted">Все вызовы вовремя, простоя нет</span>
+            ) : null}
+          </p>
         </div>
       </motion.section>
 
       <motion.section variants={item}>
-        <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-          <h2 className="font-display text-[22px] font-semibold leading-7">
-            Смена на одной оси <span className="ml-1.5 hidden font-sans text-[14px] font-normal text-muted sm:inline">нагрузка склада, товаров в час</span>
-          </h2>
-          <div className="flex gap-4 text-xs text-ink-2">
-            <Key swatch="h-0.5 w-3.5 rounded-full bg-ink">факт</Key>
-            <Key swatch="h-0.5 w-3.5 rounded-full bg-forecast">прогноз</Key>
-            <Key swatch="h-2.5 w-2 rounded-sm bg-signal">вызовы</Key>
-          </div>
+        {/* The conditions the plan is computed under sit right over the chart they redraw. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3">
+          <h2 className="font-display text-[22px] font-semibold leading-7">Смена на одной оси</h2>
+          <WhatIf board={board} s={scenario} onChange={onScenario} />
+        </div>
+        <div className="mb-1 mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-2">
+          <span className="hidden text-muted sm:inline">нагрузка склада, товаров в час</span>
+          <Key swatch="h-0.5 w-3.5 rounded-full bg-ink">факт</Key>
+          <Key swatch="h-0.5 w-3.5 rounded-full bg-forecast">прогноз</Key>
+          <Key swatch="h-2.5 w-2 rounded-sm bg-signal">вызовы</Key>
         </div>
         <Fan peak times={times} hist={hist} fc={n.p50} lo={n.lo} hi={n.hi} calls={wave} active={active}
           ghost={total ? before : undefined} enRoute={total && lead <= n.p50.length ? { k: lead, count: total } : undefined}

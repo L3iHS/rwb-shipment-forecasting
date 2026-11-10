@@ -8,7 +8,7 @@
   --surface: #151412;
   --raised: #211f1b;
   --line: #322e28;
-  --dot: #5a5245;
+  --dot: #403a31;
   --ink: #e6e0d3;
   --ink-2: #b8b1a3;
   --muted: #928b7e;
@@ -32,7 +32,7 @@
   --surface: #fbf9f4;
   --raised: #ebe5d8;
   --line: #dcd5c5;
-  --dot: #b9af9a;
+  --dot: #d0c8b6;
   --ink: #171512;
   --ink-2: #4d483f;
   --muted: #6b655a;
@@ -79,8 +79,9 @@
 
 html, body, #root { height: 100%; }
 html { scrollbar-gutter: stable; }
+/* The dot grid of the cover is painted on the page itself, so it scrolls with the content. Panels cover it. */
 body {
-  background: var(--ground);
+  background: var(--ground) radial-gradient(var(--dot) 1.1px, transparent 1.7px) 0 0 / 24px 24px;
   color: var(--ink);
   font-family: var(--font-sans);
   font-size: 16px;
@@ -88,18 +89,6 @@ body {
   -webkit-font-smoothing: antialiased;
   transition: background-color 0.3s, color 0.3s;
 }
-/* The dot grid of the cover over the whole page, a little fainter towards the bottom. Panels cover it. */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background-image: radial-gradient(var(--dot) 1.1px, transparent 1.7px);
-  background-size: 24px 24px;
-  mask-image: linear-gradient(to bottom, #000, rgba(0, 0, 0, 0.55) 60%, rgba(0, 0, 0, 0.3));
-  pointer-events: none;
-}
-
 .num { font-family: var(--font-mono); font-stretch: 85%; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .eyebrow { font-family: var(--font-mono); font-stretch: 85%; font-size: 11px; line-height: 16px; color: var(--muted); }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; }
