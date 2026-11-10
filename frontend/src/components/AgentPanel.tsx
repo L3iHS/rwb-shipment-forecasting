@@ -2,11 +2,10 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowUp, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { localAnswer } from "../brief";
-import { dec2, int } from "../format";
+import { pct, vol } from "../format";
 import type { Board } from "../data";
-import type { Risk } from "../plan";
 import { base, fast, panel } from "../motion";
-import { findRoutes, networkSummary, type Action } from "../tools";
+import { findRoutes, modelQuality, networkForecast, type Action } from "../tools";
 
 interface Msg { role: "user" | "assistant"; content: string; local?: boolean; why?: string }
 
@@ -22,91 +21,84 @@ async function reason(res: Response): Promise<string> {
   return res.status >= 500 ? "Сервер недоступен" : "Запрос отклонён";
 }
 
-const SUGGEST = ["Где груз ждёт без машины?", "Что если машина едет 2 часа?", "Почему маршрут 485 вызывать сейчас?", "Когда пик?"];
+const SUGGEST = ["Сколько отгрузим за 4 часа?", "Где прогноз хуже всего?", "Что с маршрутом 702?", "Насколько точна модель?"];
 
 interface Props {
   open: boolean;
   onClose: () => void;
   board: Board;
-  calls: number[];
-  leadH: number;
-  risk: Risk;
-  view: { tab: string; route: number; called: Record<number, number> };
+  view: { tab: string; route: number };
   onAction: (a: Action) => void;
+  /** Set on a shift the server's model cannot see (an uploaded file): answer from this board only, and say why. */
+  offline?: string;
 }
 
 const tile = { hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0, transition: base } };
 
-/** The shift at a glance: four numbers to press and the three routes with the most cargo. No prose. */
-function Summary({ board, calls, onAction }: { board: Board; calls: number[]; onAction: (a: Action) => void }) {
+/** The forecast at a glance: four numbers and the three largest routes. No prose. */
+function Summary({ board, onAction }: { board: Board; onAction: (a: Action) => void }) {
   const reduced = useReducedMotion();
-  const n = networkSummary(board, calls);
-  const top = findRoutes(board, calls, "call_now", 3).routes;
-  const tiles: [string, string, Action | null, string][] = [
-    ["Вызвать сейчас", int(n.call_now), { type: "filter", value: "now" }, n.call_now ? "text-signal" : "text-forecast"],
-    ["В течение часа", int(n.call_within_hour), { type: "filter", value: "soon" }, "text-ink"],
-    ["Груз без машины", int(n.waiting_without_truck), { type: "filter", value: "jam" }, n.waiting_without_truck ? "text-alert" : "text-ink"],
-    ["Пик отгрузок", n.peak_at, null, "text-ink"],
+  const n = networkForecast(board);
+  const q = modelQuality(board);
+  const top = findRoutes(board, "largest", 3).routes;
+  const tiles: [string, string, string][] = [
+    [`товаров до ${n.horizon_end}`, vol(n.volume_4h), "text-forecast"],
+    ["пик отгрузок", n.peak_at, "text-ink"],
+    ["ошибка на проверке", q.metric_case_from_1030.toFixed(3).replace(".", ","), "text-ink"],
+    ["факт в диапазоне", pct(q.band_80_coverage ?? 0), "text-ink"],
   ];
   return (
     <motion.div initial="hidden" animate="show"
       variants={{ show: { transition: { staggerChildren: reduced ? 0 : 0.05, delayChildren: reduced ? 0 : 0.12 } } }}>
       <div className="grid grid-cols-2 gap-2">
-        {tiles.map(([label, value, action, tone]) => {
-          const body = (
-            <>
-              <div className={`font-display text-[32px] font-semibold leading-9 ${tone}`}>{value}</div>
-              <div className="mt-0.5 text-[14px] leading-5 text-ink-2">{label}</div>
-            </>
-          );
-          return action ? (
-            <motion.button key={label} variants={tile} onClick={() => onAction(action)} whileTap={{ scale: 0.97 }}
-              className="rounded-[14px] bg-raised px-4 py-3 text-left ring-1 ring-inset ring-transparent transition-shadow hover:ring-line">
-              {body}
-            </motion.button>
-          ) : (
-            <motion.div key={label} variants={tile} className="rounded-[14px] bg-raised px-4 py-3">{body}</motion.div>
-          );
-        })}
+        {tiles.map(([label, value, tone]) => (
+          <motion.div key={label} variants={tile} className="rounded-[14px] bg-raised px-4 py-3">
+            <div className={`num whitespace-nowrap text-[26px] font-semibold leading-9 ${tone}`}>{value}</div>
+            <div className="mt-0.5 text-[14px] leading-5 text-ink-2">{label}</div>
+          </motion.div>
+        ))}
       </div>
-      {top.length > 0 && (
-        <motion.div variants={tile} className="mt-4">
-          <div className="text-[14px] leading-5 text-ink-2">Больше всего груза у ворот</div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {top.map((r) => (
-              <button key={r.route_id} onClick={() => onAction({ type: "open_route", id: r.route_id })}
-                className="flex items-baseline gap-2 rounded-[10px] px-3 py-2 ring-1 ring-inset ring-line transition-colors hover:bg-raised">
-                <span className="num text-[14px] font-medium text-ink">№ {r.route_id}</span>
-                <span className="text-[14px] text-ink-2">{dec2(r.backlog_loads)} кузова</span>
-              </button>
-            ))}
-          </div>
-        </motion.div>
-      )}
+      <motion.div variants={tile} className="mt-4">
+        <div className="text-[14px] leading-5 text-ink-2">Крупнейшие маршруты</div>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {top.map((r) => (
+            <button key={r.route_id} onClick={() => onAction({ type: "open_route", id: r.route_id })}
+              className="flex items-baseline gap-2 rounded-[10px] px-3 py-2 ring-1 ring-inset ring-line transition-colors hover:bg-raised">
+              <span className="num text-[14px] font-medium text-ink">№ {r.route_id}</span>
+              <span className="num text-[14px] text-ink-2">{vol(r.volume_4h)}</span>
+            </button>
+          ))}
+        </div>
+      </motion.div>
     </motion.div>
   );
 }
 
-/** Three dots while the answer is on its way; static under reduced motion. */
 function Thinking() {
-  const reduced = useReducedMotion();
-  return (
-    <div className="flex gap-1 py-1" aria-label="Считаю">
-      {[0, 1, 2].map((i) => (
-        <motion.span key={i} className="size-1.5 rounded-full bg-signal"
-          animate={reduced ? { opacity: 0.6 } : { opacity: [0.3, 1, 0.3] }}
-          transition={reduced ? { duration: 0 } : { duration: 1.2, repeat: Infinity, delay: i * 0.15 }} />
-      ))}
-    </div>
-  );
+  return <div role="status" className="text-[14px] leading-5 text-muted">Считаю…</div>;
 }
 
-export function AgentPanel({ open, onClose, board, calls, leadH, risk, view, onAction }: Props) {
+/** "Сервер недоступен" -> "сервер недоступен", leaving acronyms like "API" alone. */
+const lower = (t: string) => (/^.[a-zа-яё]/.test(t) ? t[0].toLowerCase() + t.slice(1) : t);
+
+export function AgentPanel({ open, onClose, board, view, onAction, offline }: Props) {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const reduced = useReducedMotion();
   const scroller = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLInputElement>(null);
+
+  // A ref, so a new onClose from each parent render does not re-run the effect and steal focus.
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    if (!open) return;
+    input.current?.focus({ preventScroll: true });
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close.current(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
 
   useEffect(() => {
     const el = scroller.current;
@@ -125,12 +117,13 @@ export function AgentPanel({ open, onClose, board, calls, leadH, risk, view, onA
     setMsgs(history);
     setText("");
     setBusy(true);
-    let why = "Сервер недоступен";
+    let why = offline ?? "Сервер недоступен";
     try {
+      if (offline) throw new Error(offline); // straight to the answer computed here, from the board on screen
       const res = await fetch("/api/agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history.slice(-KEEP).map(({ role, content }) => ({ role, content: content.slice(0, 1000) })), view: { ...view, lead_h: leadH, risk } }),
+        body: JSON.stringify({ messages: history.slice(-KEEP).map(({ role, content }) => ({ role, content: content.slice(0, 1000) })), view }),
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
       if (!res.ok) {
@@ -138,15 +131,18 @@ export function AgentPanel({ open, onClose, board, calls, leadH, risk, view, onA
         throw new Error(why);
       }
       const data: { reply?: string; actions?: Action[] } = await res.json();
-      if (!data.reply) throw new Error("empty reply");
+      if (!data.reply) {
+        why = "Модель ответила пусто";
+        throw new Error(why);
+      }
       setMsgs((m) => [...m, { role: "assistant", content: data.reply! }]);
       data.actions?.forEach(act);
     } catch (e) {
       if (e instanceof DOMException && e.name === "TimeoutError") why = "Модель не ответила вовремя";
-      const a = localAnswer(board, calls, q, leadH, risk);
+      const a = localAnswer(board, q);
       setMsgs((m) => [...m, {
         role: "assistant", local: true, why,
-        content: a?.text ?? "Без языковой модели я отвечаю на вопросы о маршруте по номеру, о грузе без машины, о времени подачи и о пике.",
+        content: a?.text ?? "Без модели отвечу про маршрут по номеру, общий прогноз, точность модели, крупные и неточные маршруты.",
       }]);
       a?.actions.forEach(act);
     } finally {
@@ -171,26 +167,25 @@ export function AgentPanel({ open, onClose, board, calls, leadH, risk, view, onA
             <button onClick={onClose} className="grid size-8 place-items-center rounded-[10px] text-ink-2 transition-colors hover:bg-raised hover:text-ink" aria-label="Закрыть"><X size={16} /></button>
           </div>
           <div ref={scroller} className="flex-1 space-y-5 overflow-y-auto p-5 text-[16px] leading-[24px]">
-            <Summary board={board} calls={calls} onAction={act} />
+            <Summary board={board} onAction={act} />
             {msgs.map((m, i) => (
               <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={base}
                 className={m.role === "user" ? "ml-auto w-fit max-w-[85%] rounded-[14px] rounded-br-md bg-ink px-3.5 py-2 text-ground" : "mr-4"}>
                 {m.content}
-                {m.local && <div className="mt-1.5 text-[13px] leading-5 text-muted">Ответ без языковой модели. {m.why}</div>}
+                {m.local && <div className="mt-1.5 text-[13px] leading-5 text-muted">офлайн{m.why ? `: ${lower(m.why)}` : ""}</div>}
               </motion.div>
             ))}
             {busy && <Thinking />}
           </div>
           <div className="border-t border-line p-4">
-            {msgs.length === 0 && (
-              <div className="mb-2 flex flex-wrap gap-1.5">
-                {SUGGEST.map((s) => (
-                  <button key={s} onClick={() => ask(s)} className="rounded-full px-3.5 py-2 text-[14px] leading-5 text-ink-2 ring-1 ring-inset ring-line transition-colors hover:bg-raised hover:text-ink">{s}</button>
+            {/* The examples stay after the first answer: one tap asks the next question. */}
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {SUGGEST.map((s) => (
+                <button key={s} onClick={() => ask(s)} disabled={busy} className="rounded-full px-3.5 py-2 text-[14px] leading-5 text-ink-2 ring-1 ring-inset ring-line transition-colors hover:bg-raised hover:text-ink disabled:opacity-40">{s}</button>
                 ))}
-              </div>
-            )}
+            </div>
             <form onSubmit={(e) => { e.preventDefault(); ask(text); }} className="flex items-center gap-2 rounded-[14px] bg-raised px-3.5 py-2.5 focus-within:ring-1 focus-within:ring-ink-2">
-              <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Вопрос" maxLength={500}
+              <input ref={input} value={text} onChange={(e) => setText(e.target.value)} placeholder="Вопрос" maxLength={500}
                 className="flex-1 bg-transparent text-[16px] outline-none placeholder:text-muted" />
               <button type="submit" disabled={!text.trim() || busy} className="grid size-7 place-items-center rounded-lg bg-ink text-ground transition-opacity disabled:opacity-30" aria-label="Отправить">
                 <ArrowUp size={14} />

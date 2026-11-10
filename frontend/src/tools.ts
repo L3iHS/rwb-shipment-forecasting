@@ -1,70 +1,58 @@
-// Assistant tools over board.json. The backend (/api/agent) must return the same numbers; see docs/web.md.
+// Assistant tools over board.json. The backend (/api/agent, backend/tools.py) returns the same numbers; see docs/web.md.
 import type { Board, Route } from "./data";
 import { hhmm } from "./format";
-import { callStep, clock, confidenceCuts, inbound, kpis, leadSteps, peakStep, spread, waitsWithoutTruck, type Risk } from "./plan";
+import { clock } from "./plan";
 
-export type Action =
-  | { type: "open_route"; id: number }
-  | { type: "filter"; value: "now" | "soon" | "hour" | "jam" | "all" } // "soon" comes from the summary tiles, not from the model
-  | { type: "scenario"; lead_h: number; risk: Risk };
+export type Action = { type: "open_route"; id: number };
 
-export const plan = (board: Board, leadH: number, risk: Risk) =>
-  board.routes.map((r) => callStep(r, leadSteps(board, leadH), risk));
+/** Half-width of the 80% band relative to the forecast over the horizon: 0.44 means ±44%. */
+export const band = (p10: number[], p50: number[], p90: number[]) =>
+  p90.reduce((s, v, k) => s + v - p10[k], 0) / 2 / Math.max(1, p50.reduce((a, b) => a + b, 0));
 
-export function routeStatus(board: Board, id: number, leadH: number, risk: Risk) {
+const peak = (p50: number[]) => p50.indexOf(Math.max(...p50));
+const last = (a: number[]) => a[a.length - 1];
+
+export function routeForecast(board: Board, id: number) {
   const r = board.routes.find((q) => q.id === id);
   if (!r) return null;
-  const call = callStep(r, leadSteps(board, leadH), risk);
+  const k = peak(r.p50);
   return {
     route_id: r.id,
-    call_at: call < 0 ? null : hhmm(clock(board, call)),
-    call_now: call === 0,
-    backlog_loads: r.bl,
-    trucks_called: inbound(r),
-    capacity: r.cap,
-    forecast_4h: r.c50[7],
-    forecast_4h_p90: r.c90[7],
+    volume_4h: last(r.c50),
+    peak_at: hhmm(clock(board, k + 1)),
+    peak_per_hour: r.p50[k],
+    band_80: band(r.p10, r.p50, r.p90),
+    error_wape: r.wape,
+    bias: r.bias,
   };
 }
 
-type Condition = "call_now" | "call_within_hour" | "waiting_without_truck" | "low_confidence";
+export type Order = "largest" | "least_accurate" | "most_accurate" | "widest_band";
 
-export function findRoutes(board: Board, calls: number[], condition: Condition, limit = 10) {
-  const unsure = confidenceCuts(board.routes)[1];
-  const withinHour = (call: number) => call >= 0 && call <= 2;
-  const test: Record<Condition, (r: Route, call: number) => boolean> = {
-    call_now: (_, call) => call === 0,
-    call_within_hour: (_, call) => withinHour(call),
-    waiting_without_truck: waitsWithoutTruck,
-    low_confidence: (r, call) => withinHour(call) && spread(r) > unsure,
+export function findRoutes(board: Board, order: Order, limit = 10) {
+  const key: Record<Order, (r: Route) => number> = {
+    largest: (r) => -last(r.c50),
+    least_accurate: (r) => -(r.wape ?? 0),
+    most_accurate: (r) => r.wape ?? 0,
+    widest_band: (r) => -band(r.p10, r.p50, r.p90),
   };
-  const hit = board.routes
-    .map((r, i) => ({ r, call: calls[i] }))
-    .filter(({ r, call }) => test[condition](r, call))
-    .sort((a, b) => b.r.bl - a.r.bl);
-  return { count: hit.length, routes: hit.slice(0, limit).map(({ r, call }) => ({ route_id: r.id, backlog_loads: r.bl, call_in_steps: call })) };
+  const top = [...board.routes].sort((a, b) => key[order](a) - key[order](b) || a.id - b.id).slice(0, limit);
+  return { order, routes: top.map((r) => ({ route_id: r.id, volume_4h: last(r.c50), error_wape: r.wape, band_80: band(r.p10, r.p50, r.p90) })) };
 }
 
-export function networkSummary(board: Board, calls: number[]) {
-  const k = kpis(board.routes, calls);
-  const peak = peakStep(board);
-  return { call_now: k.callNow, call_within_hour: k.callHour, new_trucks: k.fleet, new_trucks_cautious: k.fleetCautious,
-    volume_4h: k.vol4, waiting_without_truck: k.waiting, peak_at: hhmm(clock(board, peak)), peak_volume: board.network.p50[peak - 1] };
-}
-
-export function whatIf(board: Board, leadH: number, risk: Risk) {
-  const base = plan(board, board.model.lead_h, "p50");
-  const scenario = plan(board, leadH, risk);
+export function networkForecast(board: Board) {
+  const n = board.network;
+  const k = peak(n.p50);
   return {
-    lead_h: leadH, risk,
-    call_now: scenario.filter((c) => c === 0).length,
-    call_now_base: base.filter((c) => c === 0).length,
-    changed: scenario.filter((c, i) => c !== base[i]).length,
+    volume_4h: board.routes.reduce((s, r) => s + last(r.c50), 0),
+    horizon_end: hhmm(clock(board, n.p50.length)),
+    peak_at: hhmm(clock(board, k + 1)),
+    peak_per_hour: n.p50[k],
+    band_80: band(n.lo, n.p50, n.hi),
   };
 }
 
-export function evidence(board: Board) {
-  const row = board.backtest.sensitivity.find((s) => s.lead_h === board.model.lead_h && s.fill_hours === board.model.fill_hours)!;
-  return { loss_per_truck_min: { reactive: row.reactive, last_2h_pace: row.last_2h_pace, same_time_last_week: row.same_time_last_week, model: row.model_p50 },
-    coverage: board.backtest.intervals, week: board.backtest.week };
+export function modelQuality(board: Board) {
+  const bt = board.backtest;
+  return { week: bt.week, metric_case_from_1030: bt.point_1030 ?? bt.point, band_80_coverage: bt.intervals["80%"], per_day: board.monitor };
 }

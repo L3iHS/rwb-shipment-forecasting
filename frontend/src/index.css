@@ -51,6 +51,20 @@
   --glow-forecast: none;
 }
 
+/* A shift computed from an uploaded file wears butter where the console's own forecast wears coral,
+   so the two never get mixed up on screen. */
+.from-file {
+  --signal: var(--alert);
+  --signal-soft: var(--alert-soft);
+  --signal-ink: var(--alert);
+  --on-signal: #2a2108;
+  --glow-signal: drop-shadow(0 0 8px rgba(233, 196, 106, 0.3));
+}
+:root[data-theme="light"] .from-file {
+  --on-signal: #ffffff;
+  --glow-signal: none;
+}
+
 @theme inline {
   --color-ground: var(--ground);
   --color-surface: var(--surface);
@@ -75,6 +89,10 @@
   --font-display: "Sofia Sans Semi Condensed Variable", "Sofia Sans Variable", ui-sans-serif, system-ui, sans-serif;
   --font-hero: "Sofia Sans Condensed Variable", "Sofia Sans Semi Condensed Variable", ui-sans-serif, sans-serif;
   --font-mono: "Martian Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+@layer base {
+  button:not(:disabled), [role="option"] { cursor: pointer; }
 }
 
 html, body, #root { height: 100%; }
@@ -108,17 +126,19 @@ body {
 .tick { font: 400 10px/14px var(--font-mono); font-stretch: 85%; fill: var(--muted); }
 .mark { font: 500 10px/14px var(--font-mono); font-stretch: 85%; fill: var(--ink-2); }
 
-:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 6px; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* A dashboard fades in when its tab opens; the charts then draw themselves in. The same on both tabs. */
+.tab { animation: tab-in 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes tab-in {
+  from { opacity: 0; }
+}
 
 /* The only thing that moves on its own: the "now" beacon. */
 .beacon { transform-box: fill-box; transform-origin: center; animation: beacon 2.4s cubic-bezier(0.22, 1, 0.36, 1) infinite; }
 @keyframes beacon {
   from { transform: scale(1); opacity: 0.8; }
   to { transform: scale(3.6); opacity: 0; }
-}
-.live-dot { animation: live 2.4s ease-in-out infinite; }
-@keyframes live {
-  50% { opacity: 0.35; }
 }
 
 @media (prefers-reduced-motion: reduce) {

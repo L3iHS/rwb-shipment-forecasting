@@ -14,6 +14,8 @@ export interface Route {
   c50: number[];
   c90: number[]; // cumulative inflow to the dock over 1..8 steps
   cr: number[]; // cumulative inflow the call rule uses (calibrated median)
+  wape?: number; // the route's error over the validation week
+  bias?: number; // the relative bias of its total over that week
 }
 
 interface Rule {
@@ -49,6 +51,7 @@ export interface Board {
     per_day: Record<string, Rule>;
     intervals: Record<string, number>;
     point: number;
+    point_1030?: number; // the same metric, forecasts from 10:30 only, as in the test
     week: [string, string];
   };
 }

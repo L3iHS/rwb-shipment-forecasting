@@ -131,7 +131,13 @@ def board_data(a: argparse.Namespace) -> dict:
 
     # Network band: ratio actual / forecast of the all-route total per horizon over the latest week.
     ev = np.load(ROLL / f"{a.name}_fold0.npz")
-    ratio = truth_at(panel, ev["origins"]).sum(axis=1) / ev["pred"].astype(np.float64).sum(axis=1)  # (n_o, H)
+    truth = truth_at(panel, ev["origins"])
+    ratio = truth.sum(axis=1) / ev["pred"].astype(np.float64).sum(axis=1)  # (n_o, H)
+    # Each route's error over the same week: WAPE and the relative bias of its total, all origins and horizons.
+    pred = ev["pred"].astype(np.float64)
+    shipped = np.maximum(truth.sum(axis=(0, 2)), 1.0)
+    route_wape = np.abs(pred - truth).sum(axis=(0, 2)) / shipped
+    route_bias = pred.sum(axis=(0, 2)) / shipped - 1
     net_lo, net_hi = np.quantile(ratio, 0.1, axis=0), np.quantile(ratio, 0.9, axis=0)
 
     now = panel.times[o]
@@ -147,6 +153,7 @@ def board_data(a: argparse.Namespace) -> dict:
         "p90": np.round(fc["p90"][r]).astype(int).tolist(),
         "c50": np.round(fc["inflow"][r]).astype(int).tolist(), "c90": np.round(fc["inflow_p90"][r]).astype(int).tolist(),
         "cr": np.round(fc["inflow_risk"][r]).astype(int).tolist(),  # inflow the call rule uses
+        "wape": round(float(route_wape[r]), 4), "bias": round(float(route_bias[r]), 4),  # over the validation week
     } for r in range(panel.n_routes)]
     p50_total = fc["p50"].sum(axis=0)
     data = {
@@ -163,7 +170,7 @@ def board_data(a: argparse.Namespace) -> dict:
                     "action": r.action} for r in al.itertuples()],
         "backtest": {"sensitivity": bt["dispatch"]["sensitivity"], "per_day": bt["dispatch"]["per_day"],
                      "intervals": {k: v["coverage"] for k, v in bt["intervals"].items() if isinstance(v, dict)},
-                     "point": bt["point"]["all_origins"], "week": [str(panel.times[ev["origins"][0]].date()),
+                     "point": bt["point"]["all_origins"], "point_1030": bt["point"]["at_10_30"], "week": [str(panel.times[ev["origins"][0]].date()),
                                                                    str(panel.times[ev["origins"][-1]].date())]},
     }
     return data

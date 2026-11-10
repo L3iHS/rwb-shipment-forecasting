@@ -3,13 +3,16 @@
 import { motion, useReducedMotion } from "motion/react";
 import { Truck } from "lucide-react";
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { dec2, vol, volShort } from "../format";
+import { vol } from "../format";
 import { ease, flow, useFirstRender } from "../motion";
 
 type Pt = [number, number];
 /** Below this width there is no room for the axes: draw nothing rather than marks of negative size. */
 const MIN_W = 140;
 const f = (v: number) => v.toFixed(1);
+const tickNum = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 });
+/** Rough width of a 10px mono label, enough to keep labels apart. */
+const textW = (s: string) => s.length * 6.3;
 
 /** Width of the element in px; charts draw at real size so text never scales. */
 export function useWidth<T extends HTMLElement>() {
@@ -47,8 +50,6 @@ function curve(p: Pt[]): string {
 }
 /** Closed shape between two curves that share their x positions. */
 const between = (top: Pt[], bottom: Pt[]) => `${curve(top)} L${curve([...bottom].reverse()).slice(1)} Z`;
-/** Closed shape from a curve down to a baseline. */
-const under = (top: Pt[], base: number) => `${curve(top)} L${f(top[top.length - 1][0])} ${f(base)} L${f(top[0][0])} ${f(base)} Z`;
 
 /** Round axis values covering [min, max]. */
 function niceTicks(min: number, max: number, count = 4): number[] {
@@ -95,13 +96,20 @@ interface FanProps {
   onSlot?: (k: number) => void;
   ghost?: number[]; // the bars as the forecast planned them, before the dispatcher called anything
   enRoute?: { k: number; count: number }; // trucks called from the console and the step they arrive at
+  baseFc?: number[]; // the forecast without an uploaded file: dashed, the gap to `fc` shaded unless shadeGap is off
+  shadeGap?: boolean; // off where the band is wide: two fills over each other read as one mess
+  histBase?: number[]; // the stored history where an uploaded file changed it
+  mark?: { from: number; label: string; short?: string }; // a stretch of the history to point at, from this index up to "now"
+  after?: number[]; // what was really shipped after "now", when the chart is about the past
+  ghostLabel?: string; // what the ghost bars were: "было по плану" on the shift, "исходный" on an upload
 }
 
 /** Fact (ink) up to "now", then the forecast (sky) with its 10-90 % band; optionally the wave of truck calls beneath. */
-export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, active, onSlot, ghost, enRoute }: FanProps) {
+export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, active, onSlot, ghost, enRoute, baseFc, shadeGap = true, histBase, mark, after, ghostLabel = "было по плану" }: FanProps) {
   const [ref, W] = useWidth<HTMLDivElement>();
   const reduced = useReducedMotion();
   const first = useFirstRender();
+  const intro = true; // a chart draws itself in every time it appears: on load, on a new result, on coming back to its tab
   const clip = useId().replace(/:/g, "");
   const [hover, setHover] = useState<number | null>(null);
   const [overBars, setOverBars] = useState(false); // only the bars are clickable, so only they get the pointer cursor
@@ -115,23 +123,49 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
   const n = h0 + fc.length;
   const slot = (W - L - R) / n;
   const x = (i: number) => L + slot * i;
-  const tk = zero ? niceTicks(0, Math.max(...hi, ...hist), 3) : niceTicks(Math.min(...lo, ...hist), Math.max(...hi, ...hist), 3);
+  const seen = [...hist, ...(baseFc ?? []), ...(histBase ?? []), ...(after ?? [])];
+  const tk = zero ? niceTicks(0, Math.max(...hi, ...seen), 3) : niceTicks(Math.min(...lo, ...seen), Math.max(...hi, ...seen), 3);
   const [d0, d1] = [tk[0], tk[tk.length - 1]];
   const y = (v: number) => plotB - ((v - d0) / (d1 - d0)) * height;
+  // One unit for the whole axis, written once above it.
+  const [div, unit] = d1 >= 1e6 ? [1e6, "млн товаров в час"] : d1 >= 1e3 ? [1e3, "тыс. товаров в час"] : [1, "товаров в час"];
+  const unitY = top - 12;
 
   const nowPt: Pt = [x(h0), y(hist[h0])];
   const fact = hist.map((v, i): Pt => [x(i), y(v)]);
   const line = [nowPt, ...fc.map((v, k): Pt => [x(h0 + k + 1), y(v)])];
   const upper = [nowPt, ...hi.map((v, k): Pt => [x(h0 + k + 1), y(v)])];
   const lower = [nowPt, ...lo.map((v, k): Pt => [x(h0 + k + 1), y(v)])];
+  const baseLine = baseFc ? [nowPt, ...baseFc.map((v, k): Pt => [x(h0 + k + 1), y(v)])] : null;
+  const histChanged = !!histBase && histBase.some((v, i) => Math.abs(v - hist[i]) > 0.5);
   const pk = fc.indexOf(Math.max(...fc));
   const labelStep = Math.max(1, Math.ceil(58 / slot));
   const maxCall = calls ? Math.max(1, ...calls, ...(ghost ?? [])) : 1;
+  // The old value of a bar goes over its outline when there is room; when it is close to the new one, it is printed
+  // struck through right before the new value instead.
+  const wasAbove = (i: number) => !!ghost && !!calls && ghost[i] > calls[i] && (calls[i] === 0 || (barsH * (ghost[i] - calls[i])) / maxCall >= 14);
+  const wasInline = (i: number) => !!ghost && !!calls && ghost[i] !== calls[i] && !wasAbove(i);
   const barW = Math.min(22, Math.max(6, slot - 6));
   const activeKs = calls && active ? calls.map((_, k) => k).filter((k) => active(k)) : [];
   const t = (tr: object) => (reduced ? { duration: 0 } : tr);
   const k = hover == null ? -1 : hover - h0;
   const canPick = !!calls && !!onSlot && overBars && k >= 0 && k < calls.length && calls[k] > 0; // a bar under the cursor
+
+  // Direct labels instead of a legend. "факт" sits just left of now, above the line unless it would hit "сейчас".
+  const near = fact.filter(([px]) => px >= nowPt[0] - 48).map(([, py]) => py);
+  const factY = Math.min(...near) - 8 >= top + 8 ? Math.min(...near) - 8 : Math.min(plotB - 4, Math.max(...near) + 16);
+  // Forecast and baseline ends: the higher label goes above its line, the lower one below.
+  const endX = W - R;
+  const fcY = y(fc[fc.length - 1]);
+  const bY = baseFc ? y(baseFc[baseFc.length - 1]) : 0;
+  const fcAbove = baseFc ? fcY <= bY : !(peak && x(h0 + pk + 1) > endX - 70); // the peak label takes the room above
+  const place = (py: number, above: boolean) => (above ? Math.max(top - 2, py - 8) : Math.min(plotB + 8, py + 15));
+  // The mark label goes inside its stretch when, left of it, it would run into the unit or off the chart;
+  // there it sits a row higher, over the stretch, clear of the "сейчас" label.
+  // On a narrow chart the full label fits neither side, so the short one is used.
+  const markLabel = !mark ? "" : x(mark.from) - 6 - textW(mark.label) >= textW(unit) + 10 || x(mark.from) + 6 + textW(mark.label) <= W - R
+    ? mark.label : mark.short ?? mark.label;
+  const markIn = !!mark && x(mark.from) - 6 - textW(markLabel) < textW(unit) + 10;
 
   return (
     <div ref={ref} className="relative select-none" style={{ height: H }}>
@@ -140,7 +174,7 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
           aria-label={calls ? "Нагрузка склада и число вызовов по времени" : "Отгрузки маршрута: факт и прогноз"}>
           <defs>
             <clipPath id={clip}>
-              <motion.rect x={nowPt[0] - 2} y={0} height={H} initial={{ width: 0 }} animate={{ width: W - nowPt[0] + 24 }}
+              <motion.rect x={nowPt[0] - 2} y={0} height={H} initial={intro ? { width: 0 } : false} animate={{ width: W - nowPt[0] + 24 }}
                 transition={t({ duration: 0.7, delay: 0.55, ease })} />
             </clipPath>
             <clipPath id={`${clip}b`}><rect x={0} y={0} width={W} height={barsB} /></clipPath>
@@ -149,12 +183,32 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
           {tk.map((v) => (
             <g key={v}>
               <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke="var(--line)" />
-              <text className="tick" x={L - 8} y={y(v) + 4} textAnchor="end">{volShort(v)}</text>
+              <text className="tick" x={L - 8} y={y(v) + 4} textAnchor="end">{tickNum.format(v / div)}</text>
             </g>
           ))}
+          <text className="tick" x={0} y={unitY}>{unit}</text>
+
+          {mark && mark.from < h0 && (
+            <g>
+              <rect x={x(mark.from)} y={top - 26} width={nowPt[0] - x(mark.from)} height={plotB - top + 26} fill="var(--alert-soft)" />
+              <line x1={x(mark.from)} x2={x(mark.from)} y1={top - 26} y2={plotB} stroke="var(--alert)" strokeWidth={1.5} />
+              <text className="mark" x={markIn ? x(mark.from) + 6 : x(mark.from) - 6} y={markIn ? top - 31 : top - 15} textAnchor={markIn ? "start" : "end"} style={{ fill: "var(--alert)", fontWeight: 600 }}>{markLabel}</text>
+            </g>
+          )}
 
           <g clipPath={`url(#${clip})`}>
             <motion.path fill="var(--forecast-soft)" initial={false} animate={{ d: between(upper, lower) }} transition={t(flow)} />
+            {baseLine && (
+              <>
+                {shadeGap && <motion.path fill="var(--alert-soft)" initial={false} animate={{ d: between(baseLine, line) }} transition={t(flow)} />}
+                <motion.path fill="none" stroke="var(--ink-2)" strokeWidth={1.75} strokeDasharray="5 5" strokeLinecap="round"
+                  initial={false} animate={{ d: curve(baseLine) }} transition={t(flow)} />
+              </>
+            )}
+            {after && (
+              <motion.path fill="none" stroke="var(--ink)" strokeWidth={2} strokeDasharray="1 5" strokeLinecap="round" initial={false}
+                animate={{ d: curve([nowPt, ...after.map((v, k): Pt => [x(h0 + k + 1), y(v)])]) }} transition={t(flow)} />
+            )}
             <motion.path fill="none" stroke="var(--forecast)" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"
               style={{ filter: "var(--glow-forecast)" }} initial={false} animate={{ d: curve(line) }} transition={t(flow)} />
             {peak && (
@@ -168,11 +222,27 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
                 )}
               </g>
             )}
+            <motion.g initial={false} animate={{ x: endX, y: place(fcY, fcAbove) }} transition={t(flow)}>
+              <text className="mark" textAnchor="end" style={{ fill: "var(--forecast-ink)" }}>прогноз</text>
+            </motion.g>
+            {baseFc && (
+              <motion.g initial={false} animate={{ x: endX, y: place(bY, !fcAbove) }} transition={t(flow)}>
+                <text className="mark" textAnchor="end">исходный</text>
+              </motion.g>
+            )}
           </g>
 
+          {histChanged && (
+            <path fill="none" stroke="var(--ink-2)" strokeWidth={1.5} strokeDasharray="4 4" d={curve(histBase!.map((v, i): Pt => [x(i), y(v)]))} />
+          )}
           <motion.path fill="none" stroke="var(--ink)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
-            initial={{ pathLength: 0, d: curve(fact) }} animate={{ pathLength: 1, d: curve(fact) }}
+            initial={intro ? { pathLength: 0, d: curve(fact) } : false} animate={{ pathLength: 1, d: curve(fact) }}
             transition={t({ pathLength: { duration: 0.7, ease }, d: flow })} />
+          {W >= 360 && (
+            <motion.g initial={false} animate={{ x: nowPt[0] - 10, y: factY }} transition={t(flow)}>
+              <text className="mark" textAnchor="end">факт</text>
+            </motion.g>
+          )}
 
           <line x1={nowPt[0]} x2={nowPt[0]} y1={top - 12} y2={barsB} stroke="var(--muted)" strokeDasharray="2 4" />
           <text className="mark" x={nowPt[0] - 8} y={top - 6} textAnchor="end">сейчас</text>
@@ -191,10 +261,10 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
                     <motion.rect key={i} x={x(h0 + i) - barW / 2} width={barW} rx={Math.min(5, barW / 2)}
                       fill={tone === "later" ? "var(--ink-2)" : "var(--signal)"}
                       style={{ filter: tone === "now" ? "var(--glow-signal)" : undefined }}
-                      initial={{ y: barsB, height: 6, opacity: 0 }}
+                      initial={intro ? { y: barsB, height: 6, opacity: 0 } : false}
                       animate={{ y: barsB - h, height: h + 6, opacity: tone === "now" ? 1 : tone === "soon" ? (k === i ? 0.7 : 0.5) : k === i ? 0.5 : 0.3 }}
                       // A tween, not a spring: a spring overshoots below zero height when a bar collapses.
-                      transition={t({ duration: 0.45, ease, delay: first ? 0.7 + i * 0.045 : 0 })} />
+                      transition={t({ duration: 0.45, ease, delay: intro && first ? 0.7 + i * 0.045 : 0 })} />
                   );
                 })}
                 {/* What the plan was before the calls: a dotted outline where the bar has shrunk since. */}
@@ -208,7 +278,7 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
               </g>
               {ghost?.map((g, i) =>
                 // The old value is printed only where it has room above the current one; otherwise the tooltip carries it.
-                g > calls[i] && (slot >= 30 || i === 0) && (calls[i] === 0 || (barsH * (g - calls[i])) / maxCall >= 14) ? (
+                wasAbove(i) && (slot >= 30 || i === 0) ? (
                   <text key={`was${i}`} className="tick" x={x(h0 + i)} y={barsB - Math.max(3, (barsH * g) / maxCall) - 6}
                     textAnchor="middle" textDecoration="line-through">{g}</text>
                 ) : null,
@@ -225,7 +295,7 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
                     {/* Right of the truck while it fits; otherwise the short form, or to the left of the truck. */}
                     {(() => {
                       const full = `едут ${enRoute.count}, будут в ${times[h0 + enRoute.k]}`, short = `едут ${enRoute.count}`;
-                      const room = W - 4 - (x(h0 + enRoute.k) + 14), w = (s: string) => s.length * 6.3;
+                      const room = W - 4 - (x(h0 + enRoute.k) + 14), w = textW;
                       const label = w(full) <= room ? full : short;
                       return w(label) <= room
                         ? <text className="mark" x={14} y={roadY + 4} style={{ fill: "var(--ink)" }}>{label}</text>
@@ -241,8 +311,11 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
                 return (
                   <motion.text key={i} x={x(h0 + i)} textAnchor="middle" className="mark"
                     style={{ fill: on || k === i ? "var(--ink)" : "var(--muted)", fontWeight: on ? 600 : 400 }}
-                    initial={{ y: barsB - 6, opacity: 0 }} animate={{ y: barsB - h - 6, opacity: 1 }}
-                    transition={t({ ...flow, delay: first ? 0.7 + i * 0.045 : 0 })}>
+                    initial={intro ? { y: barsB - 6, opacity: 0 } : false} animate={{ y: barsB - h - 6, opacity: 1 }}
+                    transition={t({ ...flow, delay: intro && first ? 0.7 + i * 0.045 : 0 })}>
+                    {wasInline(i) && (slot >= 44 || i === 0) && (
+                      <tspan textDecoration="line-through" style={{ fill: "var(--muted)", fontWeight: 400 }}>{ghost![i]} </tspan>
+                    )}
                     {c}
                   </motion.text>
                 );
@@ -285,228 +358,23 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
         <Tooltip x={x(hover)} y={top} width={W}>
           <div className="num mb-1 font-semibold text-ink">{times[hover]}</div>
           {hover <= h0 ? (
-            <TipRow k="факт" v={vol(hist[hover])} swatch="var(--ink)" />
+            <>
+              <TipRow k="факт" v={vol(hist[hover])} swatch="var(--ink)" />
+              {histChanged && histBase![hover] !== hist[hover] && <TipRow k="в истории" v={vol(histBase![hover])} />}
+            </>
           ) : (
             <>
               <TipRow k="прогноз" v={vol(fc[hover - h0 - 1])} swatch="var(--forecast)" />
-              <TipRow k="коридор" v={`${volShort(lo[hover - h0 - 1])} … ${volShort(hi[hover - h0 - 1])}`} />
+              {baseFc && <TipRow k="исходный" v={vol(baseFc[hover - h0 - 1])} />}
+              {after && <TipRow k="было на деле" v={vol(after[hover - h0 - 1])} swatch="var(--ink)" />}
+              <TipRow k="диапазон" v={`${vol(lo[hover - h0 - 1])} … ${vol(hi[hover - h0 - 1])}`} />
             </>
           )}
           {calls && k >= 0 && k < calls.length && <TipRow k="вызвать" v={String(calls[k])} swatch="var(--signal)" />}
-          {ghost && k >= 0 && k < ghost.length && ghost[k] !== calls?.[k] && <TipRow k="было по плану" v={String(ghost[k])} />}
+          {ghost && k >= 0 && k < ghost.length && ghost[k] !== calls?.[k] && <TipRow k={ghostLabel} v={String(ghost[k])} />}
           {enRoute && enRoute.count > 0 && k === enRoute.k && <TipRow k="приедут" v={String(enRoute.count)} swatch="var(--ink)" />}
         </Tooltip>
       )}
     </div>
-  );
-}
-
-interface DockProps {
-  times: string[]; // now and the 8 steps after it
-  line: number[]; // truckloads at the dock by the inflow the call rule decides on
-  hi: number[]; // the cautious scenario, never below the line
-  need: number; // level at which one more truck is needed
-  callK?: number; // step of the call; undefined when no call is needed within the horizon
-  arriveK?: number;
-  runKey: string; // changes when the truck should drive again: route, call or lead time
-  /** Trucks the dispatcher already called for this route and when they arrive. `wait` is set when they came ahead of
-   *  their load: until which step the last one stands idle (null = beyond the horizon) and the label saying how long. */
-  made?: { arriveK: number; count: number; wait?: { untilK: number | null; label: string } };
-}
-
-/** Truckloads at the dock over the horizon: the curve climbs to the "one more truck" level, the truck is called a lead time before. */
-export function Dock({ times, line, hi, need, callK, arriveK, runKey, made }: DockProps) {
-  const [ref, W] = useWidth<HTMLDivElement>();
-  const reduced = useReducedMotion();
-  const grad = useId().replace(/:/g, "");
-  const [hover, setHover] = useState<number | null>(null);
-
-  const L = 28, R = 18, top = 40, height = 170, road = 20;
-  const B = top + height;
-  const H = B + road + 30;
-  const n = line.length - 1;
-  const slot = (W - L - R) / n;
-  const x = (k: number) => L + slot * k;
-  const max = Math.ceil(Math.max(need + 0.4, ...hi) * 1.05);
-  const y = (v: number) => B - (v / max) * height;
-  const step = max > 8 ? 2 : 1;
-  const pts = line.map((v, k): Pt => [x(k), y(v)]);
-  const cautious = hi.map((v, k): Pt => [x(k), y(v)]);
-  const t = (tr: object) => (reduced ? { duration: 0 } : tr);
-  const called = callK != null && arriveK != null;
-  const cross = line.findIndex((v) => v >= need); // first step with a full load for one more truck; -1 if none
-  const roadY = B + road;
-  const anchor = (px: number) => (px > W - 120 ? { x: px - 6, textAnchor: "end" as const } : { x: px + 6, textAnchor: "start" as const });
-
-  return (
-    <div ref={ref} className="relative select-none" style={{ height: H }}>
-      {W > MIN_W && (
-        <svg width={W} height={H} className="block overflow-visible" role="img" aria-label="Груз у ворот по времени, в кузовах">
-          <defs>
-            <linearGradient id={grad} x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0" stopColor="var(--forecast)" stopOpacity={0.3} />
-              <stop offset="1" stopColor="var(--forecast)" stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          {Array.from({ length: Math.floor(max / step) + 1 }, (_, i) => i * step).map((v) => (
-            <g key={v}>
-              <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke="var(--line)" />
-              <text className="tick" x={L - 8} y={y(v) + 4} textAnchor="end">{v}</text>
-            </g>
-          ))}
-
-          {/* One line per truck already called: cargo up to that level has a truck coming. The next one is the dashed level. */}
-          {Array.from({ length: Math.min(need - 1, 8) }, (_, i) => i + 1).map((lv) => (
-            <motion.g key={lv} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={t({ duration: 0.3 })}>
-              <line x1={L} x2={W - R} y1={y(lv)} y2={y(lv)} stroke="var(--ink-2)" strokeOpacity={0.5} />
-              <Truck x={W - R + 3} y={y(lv) - 7} width={13} height={13} strokeWidth={1.9} color="var(--ink-2)" />
-            </motion.g>
-          ))}
-
-          <motion.path fill="var(--forecast-soft)" initial={false} animate={{ d: between(cautious, pts) }} transition={t(flow)} />
-          <motion.path fill={`url(#${grad})`} initial={false} animate={{ d: under(pts, B) }} transition={t(flow)} />
-          <motion.path fill="none" stroke="var(--forecast)" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"
-            style={{ filter: "var(--glow-forecast)" }}
-            initial={{ pathLength: 0, d: curve(pts) }} animate={{ pathLength: 1, d: curve(pts) }}
-            transition={t({ pathLength: { duration: 0.8, ease }, d: flow })} />
-
-          {/* The label goes where the curve is not: right of the crossing (above the level if the curve never reaches it,
-              below if it does), or top left when the crossing itself is at the right edge. */}
-          <motion.g initial={false} animate={{ y: y(need) }} transition={t(flow)}>
-            <line x1={L} x2={W - R} stroke="var(--ink-2)" strokeDasharray="6 4" />
-            {cross < 0 || x(cross) < W - R - 130 ? (
-              <text className="mark" x={W - R - 4} y={cross < 0 ? -7 : 15} textAnchor="end">нужна ещё машина</text>
-            ) : (
-              <text className="mark" x={L + 10} y={-7}>нужна ещё машина</text>
-            )}
-          </motion.g>
-
-          {called && (
-            <g>
-              <motion.g initial={false} animate={{ x: x(callK) }} transition={t(flow)}>
-                <line y1={top - 26} y2={made ? B : roadY} stroke="var(--signal)" strokeWidth={2} style={{ filter: "var(--glow-signal)" }} />
-              </motion.g>
-              <text className="mark" style={{ fill: "var(--signal-ink)" }} y={top - 18} {...anchor(x(callK))}>
-                {made ? "следующий вызов" : "вызов"} {callK === 0 ? "сейчас" : times[callK]}
-              </text>
-              <motion.g initial={false} animate={{ x: x(arriveK) }} transition={t(flow)}>
-                <line y1={top - 10} y2={made ? B : roadY} stroke="var(--signal)" strokeWidth={1.5} strokeDasharray="2 4" />
-              </motion.g>
-              <text className="mark" style={{ fill: "var(--signal-ink)" }} y={top - 2} {...anchor(x(arriveK))}>
-                прибытие {times[arriveK]}
-              </text>
-              <motion.circle r={5.5} fill="var(--signal)" stroke="var(--surface)" strokeWidth={2} initial={false}
-                animate={{ cx: x(arriveK), cy: y(line[arriveK]) }} transition={t(flow)} />
-              {/* The road: its length is the lead time, and the truck drives it once per plan.
-                  Once a truck is really called, the road below belongs to it instead. */}
-              {!made && (
-                <>
-                  <motion.line y1={roadY} y2={roadY} stroke="var(--signal)" strokeOpacity={0.35} strokeWidth={2} strokeLinecap="round"
-                    initial={false} animate={{ x1: x(callK), x2: x(arriveK) }} transition={t(flow)} />
-                  <motion.g key={runKey} initial={{ x: x(callK), opacity: 0 }} animate={{ x: x(arriveK), opacity: 1 }}
-                    transition={t({ x: { duration: 1.5, delay: 0.35, ease }, opacity: { duration: 0.2, delay: 0.3 } })}>
-                    <circle cx={0} cy={roadY} r={11} fill="var(--surface)" />
-                    <Truck x={-9} y={roadY - 9} width={18} height={18} strokeWidth={1.9} color="var(--signal)" />
-                  </motion.g>
-                </>
-              )}
-            </g>
-          )}
-
-          {/* The truck the dispatcher called: it leaves now and the label says when it arrives. */}
-          {made && made.arriveK <= n && (
-            <g>
-              <line x1={x(0)} x2={x(made.arriveK)} y1={roadY} y2={roadY} stroke="var(--ink)" strokeOpacity={0.3} strokeWidth={2} strokeLinecap="round" />
-              {/* Idle time: from the arrival to the moment the curve reaches this truck's level. */}
-              {made.wait && (
-                <g>
-                  <motion.line y1={roadY} y2={roadY} stroke="var(--alert)" strokeWidth={3} strokeLinecap="round"
-                    strokeDasharray={made.wait.untilK == null ? "1 7" : undefined} initial={false}
-                    animate={{ x1: x(made.arriveK), x2: x(made.wait.untilK ?? n) }} transition={t(flow)} />
-                  {made.wait.untilK != null && (
-                    <>
-                      <motion.line stroke="var(--alert)" strokeDasharray="2 4" initial={false}
-                        animate={{ x1: x(made.wait.untilK), x2: x(made.wait.untilK), y1: y(need - 1), y2: roadY }} transition={t(flow)} />
-                      <motion.circle r={5} fill="var(--alert)" stroke="var(--surface)" strokeWidth={2} initial={false}
-                        animate={{ cx: x(made.wait.untilK), cy: y(need - 1) }} transition={t(flow)} />
-                    </>
-                  )}
-                </g>
-              )}
-              <motion.g key={`${runKey}-${made.count}`} initial={{ x: x(0), opacity: 0 }} animate={{ x: x(made.arriveK), opacity: 1 }}
-                transition={t({ x: { duration: 1.5, delay: 0.2, ease }, opacity: { duration: 0.2, delay: 0.15 } })}>
-                <circle cx={0} cy={roadY} r={11} fill="var(--surface)" />
-                <Truck x={-9} y={roadY - 9} width={18} height={18} strokeWidth={1.9} color="var(--ink)" />
-                {(() => {
-                  const full = `${made.count > 1 ? `едут ${made.count}, будут` : "едет, будет"} в ${times[made.arriveK]}`;
-                  const ride = full.length * 6.3 <= W - 4 - (x(made.arriveK) + 15) ? full : made.count > 1 ? `едут ${made.count}` : "едет";
-                  // A waiting truck says how long it waits; the stroke keeps the words readable over the idle line.
-                  return made.wait
-                    ? <text className="mark" x={15} y={roadY + 4} style={{ fill: "var(--alert)", paintOrder: "stroke", stroke: "var(--surface)", strokeWidth: 5 }}>{made.wait.label}</text>
-                    : <text className="mark" x={15} y={roadY + 4} style={{ fill: "var(--ink)" }}>{ride}</text>;
-                })()}
-              </motion.g>
-            </g>
-          )}
-
-          {times.map((label, k) =>
-            slot >= 54 || k % 2 === 0 ? (
-              <text key={k} className="tick" x={x(k)} y={H - 4} textAnchor="middle"
-                style={k === 0 ? { fill: "var(--ink)", fontWeight: 600 } : undefined}>{label}</text>
-            ) : null,
-          )}
-
-          {hover != null && (
-            <g pointerEvents="none">
-              <line x1={x(hover)} x2={x(hover)} y1={top} y2={B} stroke="var(--ink-2)" strokeOpacity={0.5} />
-              <circle cx={x(hover)} cy={y(line[hover])} r={5} fill="var(--forecast)" stroke="var(--surface)" strokeWidth={2} />
-            </g>
-          )}
-          <rect x={L - slot / 2} y={top} width={W - L - R + slot} height={height} fill="transparent"
-            onPointerMove={(e) => {
-              const box = e.currentTarget.ownerSVGElement!.getBoundingClientRect();
-              setHover(Math.max(0, Math.min(n, Math.round((e.clientX - box.left - L) / slot))));
-            }}
-            onPointerLeave={() => setHover(null)} />
-        </svg>
-      )}
-      {hover != null && W > MIN_W && (
-        <Tooltip x={x(hover)} y={top + 8} width={W}>
-          <div className="num mb-1 font-semibold text-ink">{times[hover]}</div>
-          <TipRow k="у ворот" v={`${dec2(line[hover])} кузова`} swatch="var(--forecast)" />
-          {hi[hover] - line[hover] > 0.005 && <TipRow k="осторожно до" v={dec2(hi[hover])} />}
-        </Tooltip>
-      )}
-    </div>
-  );
-}
-
-/** A truck whose body fills with the cargo waiting at the dock: one full body = one truckload. */
-export function TruckGauge({ loads }: { loads: number }) {
-  const full = loads >= 1;
-  return (
-    <svg width={50} height={24} viewBox="0 0 58 28" aria-hidden className="shrink-0">
-      <rect x={1} y={3} width={38} height={18} rx={4} fill="none" stroke="var(--ink-2)" strokeWidth={1.5} />
-      <clipPath id="truck-body"><rect x={3.5} y={5.5} width={33} height={13} rx={2} /></clipPath>
-      <g clipPath="url(#truck-body)">
-        <motion.rect x={3.5} y={5.5} height={13} fill={full ? "var(--signal)" : "var(--forecast)"} initial={false}
-          animate={{ width: 33 * Math.min(1, loads) }} transition={flow} />
-      </g>
-      <path d="M41.5 8.5h7.2l6.3 6v6.5h-13.5z" fill="none" stroke="var(--ink-2)" strokeWidth={1.5} strokeLinejoin="round" />
-      <circle cx={11} cy={23} r={3.2} fill="var(--surface)" stroke="var(--ink-2)" strokeWidth={1.5} />
-      <circle cx={47} cy={23} r={3.2} fill="var(--surface)" stroke="var(--ink-2)" strokeWidth={1.5} />
-    </svg>
-  );
-}
-
-/** Width of the forecast band as a three-step meter: more bars = a more certain forecast. */
-export function Meter({ level }: { level: 1 | 2 | 3 }) {
-  return (
-    <span className="inline-flex items-end gap-[3px]" aria-hidden>
-      {[1, 2, 3].map((i) => (
-        <motion.i key={i} className="w-[5px] rounded-[2px]" style={{ height: 4 + i * 4 }} initial={false}
-          animate={{ backgroundColor: i <= level ? "var(--ink)" : "var(--line)" }} />
-      ))}
-    </span>
   );
 }

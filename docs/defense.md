@@ -41,7 +41,7 @@
 
 ## Живая демонстрация: порядок действий
 
-1. Открыть файл `outputs/dispatch_board.html`: он работает в браузере без интернета.
+1. Открыть приложение (`docker run -p 8000:8000 --env-file backend/.env rwb-dispatcher`, затем http://localhost:8000).
 2. Показать верхнюю строку: «Вызвать сейчас — 274 маршрута», «Новых машин до 14:30 — 1 725».
 3. Нажать фильтр «Вызвать сейчас», открыть первый маршрут. Показать график накопления: линия прогноза пересекает уровень кузова как раз к моменту прибытия машины.
 4. Пролистать к «Проверке на истории», переключить время подачи 30 мин / 1 ч / 2 ч.
@@ -116,7 +116,5 @@
 
 ## Материалы
 
-- Пульт диспетчера: `outputs/dispatch_board.html` (создаёт `python scripts/pipeline.py report`).
-- Разбор с графиками: `notebooks/solution_service.ipynb`.
+- Приложение: `frontend/`, `backend/`, `Dockerfile`, устройство — `docs/web.md`.
 - Код сервиса: `src/rwb/forecaster.py`, `intervals.py`, `dispatch.py`, `monitor.py`, `service.py`, `scripts/pipeline.py`.
-- История моделей: `notebooks/solution_v1.ipynb`, `solution_v2.ipynb`, `solution_v3.ipynb`.

@@ -1,13 +1,13 @@
 import { MotionConfig, motion, useReducedMotion } from "motion/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AgentPanel } from "./components/AgentPanel";
-import { bucketOf, queueRows, type Filter } from "./components/CallQueue";
-import { Header } from "./components/Header";
-import { Shift } from "./components/Shift";
+import { FileForecast, useFileRun } from "./components/FileForecast";
+import { Header, type Tab } from "./components/Header";
+import { Forecast } from "./components/Forecast";
 import { loadBoard, type Board } from "./data";
-import { base, panel } from "./motion";
-import { calledIdle, callStep, kpis, leadSteps, trucksDue, type Scenario } from "./plan";
+import { base, IntroScope, panel } from "./motion";
 import type { Action } from "./tools";
+import { fileBoard, overlayOf, type Overlay } from "./upload";
 
 function useTheme(): [boolean, () => void] {
   // Night is the product's default look; day is a choice the user makes and we remember.
@@ -29,6 +29,22 @@ function useTheme(): [boolean, () => void] {
   return [dark, () => setDark((d) => !d)];
 }
 
+/** The open screen, kept in the address (#file) so a link or a reload opens the same one. */
+function useTab(): [Tab, (t: Tab) => void] {
+  const read = (): Tab => (location.hash === "#file" ? "file" : "shift");
+  const [tab, setTab] = useState<Tab>(read);
+  useEffect(() => {
+    const on = () => setTab(read());
+    addEventListener("hashchange", on);
+    return () => removeEventListener("hashchange", on);
+  }, []);
+  return [tab, (t: Tab) => {
+    history.replaceState(null, "", t === "file" ? "#file" : location.pathname + location.search);
+    setTab(t);
+    scrollTo({ top: 0 });
+  }];
+}
+
 export default function App() {
   const [board, setBoard] = useState<Board | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +55,7 @@ export default function App() {
   if (!board) return <Centered>Загружаю прогноз…</Centered>;
   return (
     <MotionConfig reducedMotion="user" transition={base}>
-      <Console board={board} />
+      <Root board={board} />
     </MotionConfig>
   );
 }
@@ -61,106 +77,66 @@ function useMedia(query: string): boolean {
 }
 
 const AGENT_WIDTH = 420; // px, the assistant panel (see AgentPanel)
+const BACK = 8; // steps of history on the network chart (Forecast.tsx)
 
-function Console({ board: source }: { board: Board }) {
+interface Chrome {
+  dark: boolean;
+  onTheme: () => void;
+  tab: Tab;
+  onTab: (t: Tab) => void;
+  onOtherFile?: () => void;
+}
+
+/**
+ * Two dashboards: the console's own forecast, and the forecast from an uploaded file, shown the same way.
+ * Both stay mounted while the other tab is open, so each keeps its open route.
+ */
+function Root({ board }: { board: Board }) {
+  const [dark, onTheme] = useTheme();
+  const [tab, onTab] = useTab();
+  const file = useFileRun();
+  const chrome: Chrome = { dark, onTheme, tab, onTab };
+  const run = file.state.status === "done" ? file.state.run : null;
+  const fb = useMemo(() => (run ? fileBoard(board, run) : null), [board, run]);
+  const overlay = useMemo(() => (run ? overlayOf(run, BACK) : undefined), [run]);
+  return (
+    <>
+      {/* The two dashboards are the same console and behave the same: the same entrance, the same assistant panel.
+          Only the highlight colour differs (.from-file), on purpose. */}
+      <div hidden={tab !== "shift"} className="tab h-full">
+        <IntroScope.Provider value="shift">
+          <Console board={board} chrome={chrome} />
+        </IntroScope.Provider>
+      </div>
+      <div hidden={tab !== "file"} className="from-file tab h-full">
+        {fb && file.state.status === "done" ? (
+          <IntroScope.Provider value={`file:${file.state.name}-${run!.now}`}>
+            <Console key={`${file.state.name}-${run!.now}`} board={fb} overlay={overlay} chrome={{ ...chrome, onOtherFile: file.reset }}
+              offline="по своему файлу отвечаю без модели: она знает только прогноз пульта" />
+          </IntroScope.Provider>
+        ) : (
+          <div className="dotted min-h-full overflow-x-clip">
+            <Header {...chrome} />
+            <main className="@container mx-auto max-w-[1440px] px-4 py-6 sm:px-6 sm:py-8">
+              <FileForecast state={file.state} onFile={(f) => file.send(f, f.name)} onDemo={file.demo} />
+            </main>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+/** `offline`: why the assistant here answers without the model (a file's forecast is not what the server's tools see). */
+function Console({ board, overlay, chrome, offline }: { board: Board; overlay?: Overlay; chrome: Chrome; offline?: string }) {
   const reduced = useReducedMotion();
   const wide = useMedia("(min-width: 1280px)"); // room for the assistant beside a console that keeps its layout; below it overlays
-
-  // Trucks called from this console, as batches of route ids: one call is a batch of one, "call all" is one big batch,
-  // so either is taken back in one step. Nothing is stored: a reload starts the shift from the forecast again.
-  const [log, setLog] = useState<number[][]>([]);
-  const called = useMemo(() => {
-    const n: Record<number, number> = {};
-    for (const batch of log) for (const id of batch) n[id] = (n[id] ?? 0) + 1;
-    return n;
-  }, [log]);
-  const total = useMemo(() => log.reduce((sum, batch) => sum + batch.length, 0), [log]);
-  // A called truck is on its way, so the rule plans the route's next call around it: the whole console reads this board.
-  const board = useMemo<Board>(
-    () => (log.length ? { ...source, routes: source.routes.map((r) => (called[r.id] ? { ...r, way: r.way + called[r.id] } : r)) } : source),
-    [source, called, log.length],
-  );
-  const [dark, toggleTheme] = useTheme();
   const [agentOpen, setAgentOpen] = useState(false);
-  const [scenario, setScenario] = useState<Scenario>({ leadH: board.model.lead_h, risk: "p50" });
-  const [filter, setFilter] = useState<Filter>("now");
-  const lead = leadSteps(board, scenario.leadH);
-  const calls = useMemo(() => board.routes.map((r) => callStep(r, lead, scenario.risk)), [board, lead, scenario.risk]);
-  const [selected, setSelected] = useState(() => (queueRows(board, calls, "now")[0]?.r ?? board.routes[0]).id);
-  const [query, setQuery] = useState("");
-  const k = useMemo(() => kpis(board.routes, calls), [board, calls]);
-  // The plan as the forecast gave it, before any call made here: the timeline shows it as a ghost behind the current one.
-  const planned = useMemo(() => source.routes.map((r) => callStep(r, lead, scenario.risk)), [source, lead, scenario.risk]);
-  // Every truck the rule asks for right now: a route whose cargo already exceeds its trucks needs more than one.
-  const dueNow = useMemo(
-    () => board.routes.flatMap((r) => new Array<number>(trucksDue(r, lead, scenario.risk)).fill(r.id)),
-    [board, lead, scenario.risk],
-  );
-  // What the calls made ahead of the rule cost: hours of trucks standing at the dock without a load.
-  const idle = useMemo(() => {
-    let steps = 0, open = false;
-    for (const r of board.routes) {
-      if (!called[r.id]) continue;
-      const i = calledIdle(r, called[r.id], lead, scenario.risk);
-      steps += i.steps;
-      open ||= i.open;
-    }
-    return { steps, open };
-  }, [board, called, lead, scenario.risk]);
-
-  // Latest scenario and selection for handlers: one assistant reply can carry several actions in a row.
-  const live = useRef({ scenario, selected });
-  live.current = { scenario, selected };
-  const callsNow = () =>
-    board.routes.map((r) => callStep(r, leadSteps(board, live.current.scenario.leadH), live.current.scenario.risk));
-  const select = (id: number) => {
-    live.current.selected = id;
-    setSelected(id);
-  };
-
-  /** Filter the list; if the open route is not in it, open the top row (done here, not in an effect, so open_route wins). */
-  function pick(f: Filter) {
-    setQuery("");
-    setFilter(f);
-    const rows = queueRows(board, callsNow(), f);
-    if (rows.length && !rows.some((x) => x.r.id === live.current.selected)) select(rows[0].r.id);
-  }
-
-  /** Call for the route: every truck it is due, or one truck ahead of the rule. The card stays and shows what changed. */
-  function markCalled(id: number) {
-    const r = board.routes.find((q) => q.id === id);
-    if (r) setLog((l) => [...l, new Array<number>(Math.max(1, trucksDue(r, lead, scenario.risk))).fill(id)]);
-  }
-  /** Call every truck that is due now, as one step that one undo takes back. */
-  function callAll() {
-    if (dueNow.length) setLog((l) => [...l, dueNow]);
-  }
-  /** Take back the latest step (a call or a "call all"), or the latest call of one route. */
-  function undoCall(id?: number) {
-    setLog((l) => {
-      if (id == null) return l.slice(0, -1);
-      let at = l.length - 1;
-      while (at >= 0 && !l[at].includes(id)) at--;
-      if (at < 0) return l;
-      const batch = [...l[at]];
-      batch.splice(batch.lastIndexOf(id), 1);
-      return batch.length ? [...l.slice(0, at), batch, ...l.slice(at + 1)] : [...l.slice(0, at), ...l.slice(at + 1)];
-    });
-  }
+  // The route open in the card: the largest by volume at first, or the one the file changed most.
+  const [selected, setSelected] = useState(() => firstRoute(board, overlay));
 
   function act(a: Action) {
-    if (a.type === "filter") pick(a.value);
-    if (a.type === "scenario") {
-      live.current.scenario = { leadH: a.lead_h, risk: a.risk };
-      setScenario(live.current.scenario);
-    }
-    if (a.type === "open_route") {
-      const i = board.routes.findIndex((r) => r.id === a.id);
-      if (i < 0) return;
-      setQuery("");
-      setFilter(bucketOf(callsNow()[i]));
-      select(a.id);
-    }
+    if (a.type === "open_route" && board.routes.some((r) => r.id === a.id)) setSelected(a.id);
   }
 
   return (
@@ -168,15 +144,23 @@ function Console({ board: source }: { board: Board }) {
     // the charts follow the width as it changes.
     <motion.div className="dotted min-h-full overflow-x-clip" initial={false}
       animate={{ paddingRight: agentOpen && wide ? AGENT_WIDTH : 0 }} transition={reduced ? { duration: 0 } : panel}>
-      <Header board={board} onAgent={() => setAgentOpen((o) => !o)} agentOpen={agentOpen} dark={dark} onTheme={toggleTheme} />
+      <Header {...chrome} onAgent={() => setAgentOpen((o) => !o)} agentOpen={agentOpen} />
       <main className="@container mx-auto max-w-[1440px] px-4 py-6 sm:px-6 sm:py-8">
-        <Shift board={board} calls={calls} k={k} lead={lead} scenario={scenario} onScenario={setScenario} filter={filter}
-          onFilter={pick} query={query} onQuery={setQuery} selected={selected} onSelect={select}
-          total={total} last={log[log.length - 1]} called={called} planned={planned} due={dueNow.length} idle={idle}
-          onCalled={markCalled} onCallAll={callAll} onUndo={undoCall} />
+        <Forecast board={board} overlay={overlay} selected={selected} onSelect={setSelected} />
       </main>
-      <AgentPanel open={agentOpen} onClose={() => setAgentOpen(false)} board={board} calls={calls} leadH={scenario.leadH}
-        risk={scenario.risk} view={{ tab: "shift", route: selected, called }} onAction={act} />
+      <AgentPanel open={agentOpen} onClose={() => setAgentOpen(false)} board={board}
+        view={{ tab: "shift", route: selected }} onAction={act} offline={offline} />
     </motion.div>
   );
+}
+
+function firstRoute(board: Board, overlay?: Overlay): number {
+  const last = (a: number[]) => a[a.length - 1];
+  const score = (i: number) => {
+    const b = overlay?.baseRoutes?.[i];
+    return b ? Math.abs(last(board.routes[i].c50) / Math.max(1, last(b.c50)) - 1) : last(board.routes[i].c50);
+  };
+  let best = 0;
+  for (let i = 1; i < board.routes.length; i++) if (score(i) > score(best)) best = i;
+  return board.routes[best].id;
 }

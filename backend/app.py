@@ -1,4 +1,5 @@
-"""Dispatcher console backend: POST /api/agent (Claude with tools over board.json) and the built frontend.
+"""Dispatcher console backend: POST /api/agent (Claude with tools over board.json), POST /api/forecast (the service
+model on an uploaded file) and the built frontend.
 
     uvicorn app:app --port 8000          # from backend/, needs ANTHROPIC_API_KEY
 
@@ -9,6 +10,7 @@ few tool calls, a deadline, per-IP and global limits, and a cap on questions ans
 import json
 import logging
 import os
+import socket
 import threading
 import time
 from collections import deque
@@ -17,6 +19,7 @@ from typing import Literal
 
 import anthropic
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -30,6 +33,7 @@ if _env.exists():
             os.environ.setdefault(k.strip(), v.strip().strip('"'))
 
 import tools  # noqa: E402  (reads BOARD from the environment)
+from forecast import ENGINE  # noqa: E402
 
 MODEL = os.environ.get("MODEL", "claude-sonnet-5-5")
 RATE = int(os.environ.get("RATE_PER_10MIN", "30"))  # questions per IP per 10 minutes
@@ -45,28 +49,32 @@ KEEP = 8  # latest messages of the conversation sent to the model
 MAX_MSG = 1000  # characters of one message the model sees
 MAX_CHARS = 6000  # their total length
 MAX_BODY = 64_000  # bytes of a request to /api/
-ACTION_ORDER = ["scenario", "filter", "open_route"]  # a filter must not replace the opened route
+MAX_UPLOAD = 16_000_000  # bytes of a file to /api/forecast
+UPLOADS = int(os.environ.get("UPLOADS_PER_10MIN", "20"))  # forecasts per IP per 10 minutes
+UPLOAD_CONCURRENCY = int(os.environ.get("UPLOAD_CONCURRENCY", "1"))  # each peaks near 900 MB over the 1.5 GB engine
+ACTION_ORDER = ["open_route"]
 
-SYSTEM = f"""Ты ассистент диспетчера склада в пульте вызова машин. Склад отгружает товары по 1000 маршрутам.
-Сейчас {tools.clock(0)}, прогноз на 4 часа вперёд, до {tools.clock(8)}. Шаг данных 30 минут.
-
-Решение, когда вызывать машину, принимает правило сервиса: следующая машина нужна, когда груз у ворот плюс ожидаемый
-приток покрывают на кузов больше, чем уже вызвано; вызывают её за время подачи до этого момента. Ты объясняешь это
-решение и пересчитываешь сценарии, но не меняешь его.
+SYSTEM = f"""Ты ассистент на экране прогноза отгрузок склада. Склад отгружает товары по 1000 маршрутам.
+Сейчас {tools.clock(0)}, прогноз на 4 часа вперёд, до {tools.clock(8)}, шаг 30 минут. Модель (LightGBM) прогнозирует,
+сколько товаров маршрут отгрузит за час, и даёт диапазон прогноза: в 8 случаях из 10 факт внутри него. Называй его «диапазон», не «коридор». По одному
+маршруту диапазон широкий, потому что товары уходят партиями; по всем маршрутам вместе он узкий.
 
 Отвечай по-русски, 1–3 коротких предложения, без markdown-разметки и без вступлений. Длинное тире не ставь:
 пиши запятую или двоеточие. Сначала ответ, потом одна причина.
 Каждое число бери только из результатов функций; если нужного числа нет, вызови функцию или скажи, что не знаешь.
-Округляй: груз у ворот — до десятых кузова, объёмы — до тыс. или млн товаров. Правило вызова пересказывай, только если
-о нём спросили. Вместимость кузова и время подачи — параметры сервиса, в данных их нет; не выдавай их за факт.
-Функции, которые ты вызываешь, сами переключают экран пульта (открывают маршрут, фильтруют список, меняют условия);
-не сообщай об этом. На вопросы не о работе склада и пульта отвечай одной фразой, что помогаешь только со сменой."""
+Округляй объёмы до тыс. или млн товаров. Доли пиши процентами: band_80 0,435 — «диапазон ±44 %», error_wape 0,386 — «ошибка 39 %»,
+bias −0,003 — «сдвиг −0,3 %». Только метрику кейса (metric_case_*) пиши числом до тысячных: 0,328.
+Машин, их вместимости и времени подачи в данных нет: на вопросы о машинах так и отвечай. Функции сами открывают
+маршрут на экране; не сообщай об этом. На вопросы не о прогнозе отгрузок
+отвечай одной фразой, что помогаешь только с прогнозом."""
 
 # The base URL is fixed: an ANTHROPIC_BASE_URL left in the shell would otherwise receive the key.
 # No SDK retries: they sleep for the server's retry-after and would break the deadline.
-client = anthropic.Anthropic(base_url="https://api.anthropic.com", timeout=20, max_retries=0)
+# A connection that does not open in 5 s will not: the console then answers without the model at once.
+client = anthropic.Anthropic(base_url="https://api.anthropic.com", timeout=anthropic.Timeout(20.0, connect=5.0), max_retries=0)
 log = logging.getLogger("uvicorn.error")
 app = FastAPI(title="Пульт диспетчера")
+ENGINE.start()
 
 
 class Msg(BaseModel):
@@ -76,24 +84,7 @@ class Msg(BaseModel):
 
 class View(BaseModel):
     tab: Literal["shift", "evidence"] = "shift"
-    route: int | None = Field(None, ge=0, le=1_000_000)
-    lead_h: float = tools.B["model"]["lead_h"]
-    risk: Literal["p50", "p90"] = "p50"
-    called: dict[int, int] = Field(default_factory=dict, max_length=len(tools.R))  # route id -> trucks called here
-
-    @field_validator("called")
-    @classmethod
-    def known_calls(cls, v: dict[int, int]) -> dict[int, int]:
-        if any(k not in tools.BY_ID or not 1 <= n <= 50 for k, n in v.items()):
-            raise ValueError("вызовы: номер маршрута из данных и от 1 до 50 машин")
-        return v
-
-    @field_validator("lead_h")
-    @classmethod
-    def known_lead(cls, v: float) -> float:
-        if v not in tools.LEADS:
-            raise ValueError(f"подача машины одна из {tools.LEADS}")
-        return v
+    route: int | None = Field(None, ge=0, le=1_000_000)  # the route open on screen
 
 
 class AgentRequest(BaseModel):
@@ -148,14 +139,81 @@ def admit(ip: str) -> None:
 async def limit_body(request: Request, call_next):
     if request.method == "POST" and request.url.path.startswith("/api/"):
         n = request.headers.get("content-length", "")
-        if not n.isdigit() or int(n) > MAX_BODY:
-            return JSONResponse({"detail": "Слишком большой запрос"}, 413)
+        limit = MAX_UPLOAD if request.url.path == "/api/forecast" else MAX_BODY
+        if not n.isdigit():
+            return JSONResponse({"detail": "Нужен заголовок Content-Length"}, 411)
+        if int(n) > limit:
+            return JSONResponse({"detail": "Файл больше 16 МБ" if limit == MAX_UPLOAD else "Слишком большой запрос"}, 413)
     return await call_next(request)
 
 
-def ask_model(messages: list[dict], last: bool, left: float):
+_uploads: dict[str, deque] = {}
+_crunch = threading.BoundedSemaphore(UPLOAD_CONCURRENCY)
+
+
+@app.post("/api/forecast")
+async def forecast_file(request: Request) -> dict:
+    """Body: the file itself (CSV or Parquet with the train columns). Answer: the forecast before and after it."""
+    ip = request.client.host if request.client else "?"
+    now = time.monotonic()
+    with _lock:
+        q = _uploads.setdefault(ip, deque())
+        while q and now - q[0] > 600:
+            q.popleft()
+        if len(q) >= UPLOADS:
+            raise HTTPException(429, "Слишком много расчётов, попробуйте через несколько минут")
+    raw = await request.body()
+    if not await run_in_threadpool(ENGINE.ready.wait, 60):
+        raise HTTPException(503, "Модель ещё загружается, попробуйте через минуту")
+    if ENGINE.error:
+        raise HTTPException(503, "Модель не загрузилась на сервере")
+    if not _crunch.acquire(blocking=False):
+        raise HTTPException(503, "Сервер занят другим расчётом, попробуйте через минуту")
+    with _lock:  # only a request that gets to compute counts against the limit
+        _uploads.setdefault(ip, deque()).append(now)
     try:
-        return client.with_options(timeout=min(20.0, left)).beta.messages.create(
+        from rwb.upload import UploadError
+
+        try:
+            return await run_in_threadpool(ENGINE.run, raw)
+        except UploadError as e:
+            raise HTTPException(422, str(e))
+        except Exception:
+            log.exception("forecast on an uploaded file failed")
+            raise HTTPException(500, "Не получилось посчитать прогноз по этому файлу")
+    finally:
+        _crunch.release()
+
+
+_net = {"down_until": 0.0}  # while the API host does not resolve, answer without the model at once
+
+
+def reachable() -> bool:
+    """Whether the API host resolves within 3 s. A dead network hangs in DNS for 15 s, which no client timeout cuts;
+    after a failure the next 30 s skip the check, so later questions get the answer without the model at once."""
+    if time.monotonic() < _net["down_until"]:
+        return False
+    found = threading.Event()
+
+    def lookup() -> None:
+        try:
+            socket.getaddrinfo("api.anthropic.com", 443)
+            found.set()
+        except OSError:
+            pass
+
+    threading.Thread(target=lookup, daemon=True).start()
+    if found.wait(3.0):
+        return True
+    _net["down_until"] = time.monotonic() + 30
+    return False
+
+
+def ask_model(messages: list[dict], last: bool, left: float):
+    if not reachable():
+        raise HTTPException(502, "Нет связи с моделью")
+    try:
+        return client.with_options(timeout=anthropic.Timeout(min(20.0, left), connect=5.0)).beta.messages.create(
             model=MODEL, max_tokens=MAX_TOKENS, system=SYSTEM, tools=tools.TOOLS, messages=messages,
             tool_choice={"type": "none"} if last else {"type": "auto"},
             cache_control={"type": "ephemeral"}, output_config={"effort": "low"},
@@ -192,11 +250,7 @@ def agent(req: AgentRequest, request: Request) -> dict:
 
 def answer(req: AgentRequest) -> dict:
     view = req.view.model_dump()
-    forecast = "осторожный" if view["risk"] == "p90" else "обычный"
-    opened = f", открыт маршрут № {view['route']}" if view["route"] is not None else ""
-    made = sum(view["called"].values())
-    calls = f", с пульта уже вызвано машин: {made} (они учтены как едущие)" if made else ""
-    state = f"[Пульт: подача машины {view['lead_h']} ч, прогноз {forecast}{opened}{calls}]"
+    state = f"[Экран: открыт маршрут № {view['route']}]" if view["route"] is not None else "[Экран: прогноз по всем маршрутам]"
     messages = history(req.messages)
     messages[-1]["content"] = f"{state}\n{messages[-1]['content']}"
 
@@ -217,7 +271,7 @@ def answer(req: AgentRequest) -> dict:
 
         if resp.stop_reason == "refusal":
             actions.clear()
-            return reply("Не могу ответить на этот вопрос. Спросите о маршрутах, машинах или прогнозе.")
+            return reply("Не могу ответить на этот вопрос. Спросите о маршрутах, прогнозе или его точности.")
         if resp.stop_reason != "tool_use":
             text = " ".join(b.text for b in resp.content if b.type == "text").strip()
             return reply(text or "Не получилось ответить, переформулируйте вопрос.")
@@ -235,8 +289,6 @@ def answer(req: AgentRequest) -> dict:
                 used.append({"name": b.name, "args": b.input})
                 if act:
                     actions[act["type"]] = act
-                    if act["type"] == "scenario":  # later calls see the switched scenario
-                        view.update(lead_h=act["lead_h"], risk=act["risk"])
             results.append({"type": "tool_result", "tool_use_id": b.id, "content": json.dumps(out, ensure_ascii=False),
                             "is_error": "error" in out})
         messages.append({"role": "user", "content": results})

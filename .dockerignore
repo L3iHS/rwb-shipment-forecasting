@@ -1,6 +1,9 @@
 *
 !frontend
 !backend
+!src
+!models/prod/service
+!data/raw
 frontend/node_modules
 frontend/dist
 backend/.venv

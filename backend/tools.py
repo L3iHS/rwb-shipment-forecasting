@@ -17,103 +17,61 @@ def clock(k: int) -> str:
     return (NOW + timedelta(minutes=k * STEP)).strftime("%H:%M")
 
 
-def lead_steps(lead_h: float) -> int:
-    return round(lead_h * 60 / STEP)
+def band(p10: list[float], p50: list[float], p90: list[float]) -> float:
+    """Half-width of the 80% band relative to the forecast over the horizon: 0.44 means ±44%."""
+    return sum(hi - lo for lo, hi in zip(p10, p90)) / 2 / max(1, sum(p50))
 
 
-def call_step(r: dict, lead: int, risk: str) -> int:
-    """Steps until the next truck call (0 = now, -1 = not within the horizon); rwb.dispatch.call_plan."""
-    inflow = r["c90"] if risk == "p90" else r["cr"]
-    backlog = r["bl"] * r["cap"]
-    need = r["cap"] * (1 + r["way"] + r["dock"])
-    if backlog >= need:
-        return 0
-    for k in range(len(inflow) - lead + 1):
-        if backlog + inflow[k + lead - 1] >= need:
-            return k
-    return -1
+def peak(p50: list[float]) -> int:
+    return max(range(len(p50)), key=p50.__getitem__)
 
 
-def with_calls(called: dict[int, int] | None) -> list[dict]:
-    """Routes after the trucks the dispatcher called from the console: each call is one more truck on the way."""
-    if not called:
-        return R
-    return [{**r, "way": r["way"] + called[r["id"]]} if r["id"] in called else r for r in R]
-
-
-def plan(lead_h: float, risk: str, routes: list[dict] = R) -> list[int]:
-    return [call_step(r, lead_steps(lead_h), risk) for r in routes]
-
-
-def spread(r: dict) -> float:
-    """Relative width of the 80% band."""
-    return sum(hi - lo for hi, lo in zip(r["p90"], r["p10"])) / max(1, sum(r["p50"]))
-
-
-LOW_CONFIDENCE = sorted(spread(r) for r in R)[len(R) * 2 // 3]
-
-
-def route_status(route_id: int, lead_h: float, risk: str, routes: list[dict] = R) -> dict:
-    r = BY_ID.get(route_id) if routes is R else next((q for q in routes if q["id"] == route_id), None)
+def route_forecast(route_id: int) -> dict:
+    r = BY_ID.get(route_id)
     if r is None:
         return {"error": f"маршрута {route_id} нет, номера 0..{len(R) - 1}"}
-    call = call_step(r, lead_steps(lead_h), risk)
+    k = peak(r["p50"])
     return {
-        "route_id": route_id, "call_at": None if call < 0 else clock(call), "call_now": call == 0,
-        "backlog_loads": r["bl"], "trucks_called": r["way"] + r["dock"], "capacity": r["cap"],
+        "route_id": route_id, "volume_4h": r["c50"][-1], "horizon_end": clock(len(r["p50"])),
+        "peak_at": clock(k + 1), "peak_per_hour": r["p50"][k], "band_80": round(band(r["p10"], r["p50"], r["p90"]), 3),
         "history_8h": {clock(i - len(r["h"]) + 1): v for i, v in enumerate(r["h"])},
-        "forecast": [{"at": clock(k + 1), "p10": lo, "p50": mid, "p90": hi}
-                     for k, (lo, mid, hi) in enumerate(zip(r["p10"], r["p50"], r["p90"]))],
-        "inflow_4h": r["c50"][-1], "inflow_4h_p90": r["c90"][-1],
-        "confidence": "низкая" if spread(r) > LOW_CONFIDENCE else "обычная",
+        "forecast": [{"at": clock(i + 1), "p10": lo, "p50": mid, "p90": hi}
+                     for i, (lo, mid, hi) in enumerate(zip(r["p10"], r["p50"], r["p90"]))],
+        "check_week": {"error_wape": r.get("wape"), "bias": r.get("bias")},
     }
 
 
-def find_routes(condition: str, limit: int, lead_h: float, risk: str, routes: list[dict] = R) -> dict:
-    def matches(r: dict, call: int) -> bool:
-        if condition == "call_now":
-            return call == 0
-        if condition == "call_within_hour":
-            return 0 <= call <= 2
-        if condition == "waiting_without_truck":
-            return r["bl"] >= 1 and r["way"] + r["dock"] == 0
-        return 0 <= call <= 2 and spread(r) > LOW_CONFIDENCE  # low_confidence
-
-    hit = sorted(((r, c) for r, c in zip(routes, plan(lead_h, risk, routes)) if matches(r, c)), key=lambda t: -t[0]["bl"])
-    return {"count": len(hit), "routes": [{"route_id": r["id"], "backlog_loads": r["bl"],
-                                           "call_at": None if c < 0 else clock(c)} for r, c in hit[:limit]]}
+ORDERS = ["largest", "least_accurate", "most_accurate", "widest_band"]
 
 
-def network_summary(lead_h: float, risk: str, routes: list[dict] = R) -> dict:
-    calls = plan(lead_h, risk, routes)
-    p50 = B["network"]["p50"]
-    peak = max(range(len(p50)), key=p50.__getitem__)
+def find_routes(order: str, limit: int) -> dict:
+    key = {
+        "largest": lambda r: -r["c50"][-1],
+        "least_accurate": lambda r: -(r.get("wape") or 0),
+        "most_accurate": lambda r: r.get("wape") or 0,
+        "widest_band": lambda r: -band(r["p10"], r["p50"], r["p90"]),
+    }[order]
+    top = sorted(R, key=lambda r: (key(r), r["id"]))[:limit]
+    return {"order": order, "routes": [{"route_id": r["id"], "volume_4h": r["c50"][-1], "error_wape": r.get("wape"),
+                                        "band_80": round(band(r["p10"], r["p50"], r["p90"]), 3)} for r in top]}
+
+
+def network_forecast() -> dict:
+    n = B["network"]
+    k = peak(n["p50"])
     return {
-        "call_now": sum(c == 0 for c in calls), "call_within_hour": sum(0 < c <= 2 for c in calls),
-        "new_trucks": sum(max(0, int(r["bl"] + r["c50"][-1] / r["cap"]) - r["way"] - r["dock"]) for r in routes),
-        "new_trucks_cautious": sum(max(0, int(r["bl"] + r["c90"][-1] / r["cap"]) - r["way"] - r["dock"]) for r in routes),
-        "volume_4h": sum(r["c50"][-1] for r in routes),
-        "waiting_without_truck": sum(r["bl"] >= 1 and r["way"] + r["dock"] == 0 for r in routes),
-        "peak_at": clock(peak + 1), "peak_volume_per_hour": p50[peak], "horizon_end": clock(len(p50)),
+        "volume_4h": sum(r["c50"][-1] for r in R), "routes": len(R), "now": clock(0), "horizon_end": clock(len(n["p50"])),
+        "peak_at": clock(k + 1), "peak_per_hour": n["p50"][k], "band_80": round(band(n["lo"], n["p50"], n["hi"]), 3),
+        "forecast": [{"at": clock(i + 1), "p50": mid, "lo": lo, "hi": hi}
+                     for i, (lo, mid, hi) in enumerate(zip(n["lo"], n["p50"], n["hi"]))],
     }
 
 
-def what_if(lead_h: float, risk: str, routes: list[dict] = R) -> dict:
-    base, now = plan(B["model"]["lead_h"], "p50", routes), plan(lead_h, risk, routes)
-    return {"lead_h": lead_h, "risk": risk, "call_now": sum(c == 0 for c in now),
-            "call_now_service_plan": sum(c == 0 for c in base), "routes_changed": sum(a != b for a, b in zip(now, base))}
-
-
-def evidence() -> dict:
+def model_quality() -> dict:
     bt = B["backtest"]
-    return {"week": bt["week"], "loss_minutes_per_truck": bt["sensitivity"], "per_day": bt["per_day"],
-            "band_coverage": bt["intervals"], "quality_log": B["monitor"], "alerts": B["alerts"],
-            "note": "вместимость кузова и время подачи — параметры, в данных их нет"}
-
-
-LEADS = [0.5, 1, 2]
-RISKS = ["p50", "p90"]
-CONDITIONS = ["call_now", "call_within_hour", "waiting_without_truck", "low_confidence"]
+    return {"week": bt["week"], "metric_case_from_1030": bt.get("point_1030"), "metric_case_all_origins": bt["point"],
+            "band_80_coverage": bt["intervals"].get("80%"), "per_day": B["monitor"],
+            "metric": "WAPE + |относительный сдвиг суммы|, чем меньше, тем лучше"}
 
 
 def _schema(props: dict, required: list[str]) -> dict:
@@ -121,47 +79,36 @@ def _schema(props: dict, required: list[str]) -> dict:
 
 
 TOOLS = [
-    {"name": "route_status", "strict": True,
-     "description": "Всё о маршруте при текущем сценарии пульта: когда вызывать машину, груз у ворот (в кузовах), "
-                    "вызванные машины, история за 8 ч, прогноз отгрузок с диапазоном 10–90 %, приток за 4 ч, уверенность.",
+    {"name": "route_forecast", "strict": True,
+     "description": "Прогноз маршрута на 4 часа: объём, пик, коридор 80 %, история за 8 ч, прогноз по получасам "
+                    "(p10, p50, p90), ошибка и сдвиг на проверочной неделе.",
      "input_schema": _schema({"route_id": {"type": "integer"}}, ["route_id"])},
     {"name": "find_routes", "strict": True,
-     "description": "Маршруты по условию, по убыванию груза у ворот: call_now — вызвать сейчас, call_within_hour — "
-                    "в течение часа, waiting_without_truck — полный кузов у ворот без машины, low_confidence — "
-                    "вызов в ближайший час при неуверенном прогнозе.",
-     "input_schema": _schema({"condition": {"type": "string", "enum": CONDITIONS}, "limit": {"type": "integer"}},
-                             ["condition", "limit"])},
-    {"name": "network_summary", "strict": True,
-     "description": "Сводка по складу при текущем сценарии: вызовы сейчас и в течение часа, новых машин до конца "
-                    "горизонта, объём за 4 ч, груз без машины, пик отгрузок сети.",
+     "description": "Маршруты по признаку: largest — больше всего товаров за 4 ч, least_accurate — самая большая "
+                    "ошибка на проверке, most_accurate — самая маленькая, widest_band — самый широкий коридор.",
+     "input_schema": _schema({"order": {"type": "string", "enum": ORDERS}, "limit": {"type": "integer"}},
+                             ["order", "limit"])},
+    {"name": "network_forecast", "strict": True,
+     "description": "Прогноз по всем маршрутам вместе: товаров за 4 ч, пик, коридор 80 %, прогноз по получасам.",
      "input_schema": _schema({}, [])},
-    {"name": "what_if", "strict": True,
-     "description": "Пересчёт очереди при другом времени подачи машины (часы) и сценарии прогноза (p50 обычный, "
-                    "p90 осторожный) против плана сервиса. Пульт переключится на этот сценарий.",
-     "input_schema": _schema({"lead_h": {"type": "number", "enum": LEADS}, "risk": {"type": "string", "enum": RISKS}},
-                             ["lead_h", "risk"])},
-    {"name": "evidence", "strict": True,
-     "description": "Проверка на истории: потери на машину (минуты) для правил вызова при разных подаче и кузове, "
-                    "машины за день, честность диапазонов, журнал качества по дням.",
+    {"name": "model_quality", "strict": True,
+     "description": "Точность модели на неделе, которую она не видела: метрика кейса, попадание в коридор 80 %, "
+                    "ошибка и сдвиг по дням.",
      "input_schema": _schema({}, [])},
 ]
 
 
 def run(name: str, args: dict, view: dict) -> tuple[dict, dict | None]:
-    """Execute a tool; return its result and the console action it implies."""
-    lead, risk = view["lead_h"], view["risk"]
-    routes = with_calls(view.get("called"))  # the console's own calls are trucks already on the way
-    if name == "route_status":
-        out = route_status(args["route_id"], lead, risk, routes)
+    """Execute a tool; return its result and the screen action it implies (open a route)."""
+    if name == "route_forecast":
+        out = route_forecast(args["route_id"])
         return out, None if "error" in out else {"type": "open_route", "id": args["route_id"]}
     if name == "find_routes":
-        out = find_routes(args["condition"], max(1, min(args["limit"], 20)), lead, risk, routes)
-        f = {"call_now": "now", "call_within_hour": "hour", "waiting_without_truck": "jam"}.get(args["condition"])
-        return out, None if f is None else {"type": "filter", "value": f}
-    if name == "network_summary":
-        return network_summary(lead, risk, routes), None
-    if name == "what_if":
-        return what_if(args["lead_h"], args["risk"], routes), {"type": "scenario", "lead_h": args["lead_h"], "risk": args["risk"]}
-    if name == "evidence":
-        return evidence(), None
+        out = find_routes(args["order"], max(1, min(args["limit"], 20)))
+        first = out["routes"][0]["route_id"] if out["routes"] else None
+        return out, None if first is None else {"type": "open_route", "id": first}
+    if name == "network_forecast":
+        return network_forecast(), None
+    if name == "model_quality":
+        return model_quality(), None
     return {"error": f"нет функции {name}"}, None
