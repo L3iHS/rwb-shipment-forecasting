@@ -96,40 +96,42 @@ export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onF
           </div>
         </div>
 
-        {/* The one action of the screen, with the progress it makes. Every line keeps its place whatever it says. */}
+        {/* The one action of the screen. Over it the progress reads left to right: trucks called, the bar, trucks due in
+            all. The bar is as long as the button. Every line keeps its place whatever it says. */}
         <div className="w-full @2xl:max-w-[400px] @5xl:justify-self-end">
-          <motion.button onClick={onCallAll} disabled={!due} whileTap={{ scale: 0.98 }}
-            className="inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-[12px] bg-signal px-5 text-[17px] font-semibold text-on-signal transition-colors disabled:bg-raised disabled:text-muted"
-            title="Вызвать машины всем маршрутам, которым пора: столько, сколько просит прогноз">
-            <CheckCheck size={19} strokeWidth={2.25} />
-            Вызвать всем
-            <span className="num min-w-[4ch] text-left text-[15px] font-medium opacity-80">{due || ""}</span>
-          </motion.button>
-          <div className="mt-3 flex items-center gap-3 text-[14px] text-ink-2">
-            <span className="whitespace-nowrap">
-              вызвано <span className="num font-semibold text-ink"><Ticker value={total} /></span> из{" "}
-              <span className="num"><Ticker value={total + due} /></span>
-            </span>
-            <span className="relative h-1.5 min-w-8 flex-1 overflow-hidden rounded-full bg-line" aria-hidden>
+          <div className="flex items-center gap-3" role="img" aria-label={`Вызвано ${total} из ${total + due} машин`}>
+            <span className="num min-w-[4ch] text-[18px] font-semibold text-ink" title="Машин вызвано"><Ticker value={total} /></span>
+            <span className="relative h-2 flex-1 overflow-hidden rounded-full bg-line">
               <motion.span className="absolute inset-0 origin-left rounded-full bg-signal" initial={false}
                 animate={{ scaleX: total / Math.max(1, total + due) }} transition={flow} />
             </span>
+            <span className="num min-w-[4ch] text-right text-[18px] font-medium text-ink-2" title="Машин нужно всего"><Ticker value={total + due} /></span>
+          </div>
+          <motion.button onClick={onCallAll} disabled={!due} whileTap={{ scale: 0.98 }}
+            className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-[12px] bg-signal px-5 text-[17px] font-semibold text-on-signal transition-colors disabled:bg-raised disabled:text-muted"
+            title={due ? `Вызвать машины всем маршрутам, которым пора: ${due}` : "Все нужные машины вызваны"}>
+            <CheckCheck size={19} strokeWidth={2.25} />
+            Вызвать всем
+          </motion.button>
+          {/* The price of the dispatcher's own decisions on the left, the way back on the right. */}
+          <div className="mt-2 flex h-7 items-center justify-between gap-3 text-[14px]">
+            <span className="truncate">
+              {idle.steps > 0 ? (
+                <span className="text-alert" title="Машины, вызванные раньше времени, простоят без груза">
+                  Простой машин: {idle.open ? "больше " : ""}{leadLabel((idle.steps * board.step_min) / 60)}
+                </span>
+              ) : total > 0 ? (
+                <span className="text-muted">Простоя нет</span>
+              ) : null}
+            </span>
             <motion.button onClick={() => onUndo()} disabled={!last} aria-hidden={!last} initial={false}
               animate={{ opacity: last ? 1 : 0 }} transition={base}
-              className="inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[13px] text-ink-2 ring-1 ring-inset ring-line hover:text-ink disabled:pointer-events-none"
+              className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[13px] text-ink-2 ring-1 ring-inset ring-line hover:text-ink disabled:pointer-events-none"
               title={last && last.length > 1 ? `Отменить вызов всем: ${last.length} машин` : "Отменить последний вызов"}>
               <Undo2 size={13} />
-              <span className="num min-w-[5ch] text-left">{!last ? "" : last.length > 1 ? `все ${last.length}` : `№ ${last[0]}`}</span>
+              <span className="num">{!last ? "" : last.length > 1 ? `все ${last.length}` : `№ ${last[0]}`}</span>
             </motion.button>
           </div>
-          {/* The price of the dispatcher's own decisions; empty until there is something to say. */}
-          <p className="mt-1.5 h-5 text-[14px] leading-5">
-            {idle.steps > 0 ? (
-              <span className="text-alert">Ранние вызовы: машины простоят {idle.open ? "больше " : ""}{leadLabel((idle.steps * board.step_min) / 60)}</span>
-            ) : total > 0 ? (
-              <span className="text-muted">Все вызовы вовремя, простоя нет</span>
-            ) : null}
-          </p>
         </div>
       </motion.section>
 
