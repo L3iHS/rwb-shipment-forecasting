@@ -35,7 +35,7 @@ jobs:
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci --no-audit --no-fund
-      - name: Test dispatch calculations
+      - name: Test forecast calculations
         working-directory: frontend
         run: npm test
       - name: Check deployment entry points
