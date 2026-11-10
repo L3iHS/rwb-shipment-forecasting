@@ -51,7 +51,8 @@ jobs:
           DEPLOY_HOST: ${{ vars.RWB_DEPLOY_HOST }}
         run: |
           if ssh-keyscan -T 5 -t ed25519 "$DEPLOY_HOST" > "$RUNNER_TEMP/rwb-host-key"; then
-            diff -u deploy/known_hosts "$RUNNER_TEMP/rwb-host-key"
+            awk '!/^#/ && NF { print $1, $2, $3 }' "$RUNNER_TEMP/rwb-host-key" > "$RUNNER_TEMP/rwb-host-key.normalized"
+            diff -u deploy/known_hosts "$RUNNER_TEMP/rwb-host-key.normalized"
           else
             echo '::warning::SSH endpoint is not reachable yet; CD remains disabled.'
           fi
