@@ -1,0 +1,95 @@
+name: Web checks and deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  web:
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            frontend
+            deploy
+            .github
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+      - name: Test dispatch calculations
+        working-directory: frontend
+        run: npm test
+      - name: Check deployment entry points
+        run: |
+          bash -n deploy/update.sh deploy/main-release.sh deploy/ssh-entry.sh
+          python3 -m unittest discover -s deploy/tests -v
+      - name: TypeScript and production build
+        working-directory: frontend
+        run: npm run build
+      - name: Verify SSH endpoint during initial setup
+        if: github.event_name != 'pull_request' && vars.RWB_DEPLOY_ENABLED != 'true'
+        env:
+          DEPLOY_HOST: ${{ vars.RWB_DEPLOY_HOST }}
+        run: |
+          if ssh-keyscan -T 5 -t ed25519 "$DEPLOY_HOST" > "$RUNNER_TEMP/rwb-host-key"; then
+            diff -u deploy/known_hosts "$RUNNER_TEMP/rwb-host-key"
+          else
+            echo '::warning::SSH endpoint is not reachable yet; CD remains disabled.'
+          fi
+      - name: Deploy main to rwb.ochev.net
+        if: github.event_name != 'pull_request' && vars.RWB_DEPLOY_ENABLED == 'true'
+        env:
+          DEPLOY_HOST: ${{ vars.RWB_DEPLOY_HOST }}
+          DEPLOY_USER: rwb-cd
+          DEPLOY_KEY: ${{ secrets.RWB_DEPLOY_SSH_KEY }}
+          RELEASE_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9.-]+$ ]]
+          [[ -n "$DEPLOY_KEY" && -s deploy/known_hosts ]]
+          ssh_dir=$(mktemp -d "$RUNNER_TEMP/rwb-ssh.XXXXXX")
+          trap 'rm -rf "$ssh_dir"' EXIT
+          chmod 700 "$ssh_dir"
+          printf '%s\n' "$DEPLOY_KEY" > "$ssh_dir/key"
+          cp deploy/known_hosts "$ssh_dir/known_hosts"
+          chmod 600 "$ssh_dir/key" "$ssh_dir/known_hosts"
+          ssh -F /dev/null -i "$ssh_dir/key" \
+            -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$ssh_dir/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            "$DEPLOY_USER@$DEPLOY_HOST" "deploy $RELEASE_SHA" | tee "$ssh_dir/result"
+          if grep -q '^Superseded release ' "$ssh_dir/result"; then
+            echo 'RWB_DEPLOY_SKIPPED=true' >> "$GITHUB_ENV"
+          fi
+      - name: Deployment summary
+        if: github.event_name != 'pull_request'
+        env:
+          DEPLOY_ENABLED: ${{ vars.RWB_DEPLOY_ENABLED }}
+        run: |
+          if [[ "${RWB_DEPLOY_SKIPPED:-}" == true ]]; then
+            printf 'A newer main commit superseded this run; deployment skipped.\n' >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$DEPLOY_ENABLED" == true ]]; then
+            printf 'Published [%s](https://rwb.ochev.net/).\n' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          else
+            printf 'Checks passed. CD is not activated yet.\n' >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -45,3 +45,5 @@ outputs/*
 .claude/
 *.sh
 !/deploy/update.sh
+!/deploy/main-release.sh
+!/deploy/ssh-entry.sh

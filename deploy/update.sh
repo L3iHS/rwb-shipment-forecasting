@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Run as the server administrator after pulling the approved develop commit.
+# Run as the server administrator after pulling the release branch.
 set -Eeuo pipefail
 
 repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 env_file="${RWB_DEPLOY_ENV:-$repo_dir/../deploy.env}"
 public_url="https://rwb.ochev.net"
+release_branch="${RWB_DEPLOY_BRANCH:-main}"
 
 if [[ $EUID -ne 0 ]]; then
   echo 'Run with sudo or from the administrator shell.' >&2
@@ -13,7 +14,7 @@ fi
 [[ -f "$env_file" ]] || { echo "Missing $env_file" >&2; exit 1; }
 git_owner="$(stat -c %U "$repo_dir")"
 git_read=(runuser -u "$git_owner" -- git -C "$repo_dir")
-[[ "$("${git_read[@]}" branch --show-current)" == develop ]] || { echo 'Expected develop.' >&2; exit 1; }
+[[ "$("${git_read[@]}" branch --show-current)" == "$release_branch" ]] || { echo "Expected $release_branch." >&2; exit 1; }
 [[ -z "$("${git_read[@]}" status --porcelain)" ]] || { echo 'Working tree has local changes; leaving the running site unchanged.' >&2; exit 1; }
 release_sha="$("${git_read[@]}" rev-parse HEAD)"
 export RWB_IMAGE_TAG="$release_sha"
@@ -26,7 +27,7 @@ previous_sha="${previous_image#rwb-shipment-web:}"
 "${compose[@]}" build web
 
 rollback() {
-  trap - ERR
+  trap - ERR INT TERM HUP
   echo 'Release verification failed.' >&2
   if [[ "$previous_image" == rwb-shipment-web:* && "$previous_sha" =~ ^[a-f0-9]{40}$ ]]; then
     echo "Restoring $previous_sha" >&2
@@ -34,7 +35,7 @@ rollback() {
   fi
   exit 1
 }
-trap rollback ERR
+trap rollback ERR INT TERM HUP
 "${compose[@]}" up -d --no-build --no-deps --wait --wait-timeout 90 web
 
 # Verify HTTPS, the data snapshot and every asset referenced by this exact build.
@@ -84,6 +85,6 @@ state_path.write_text(json.dumps(state, indent=2) + '\n')
 state_path.chmod(0o600)
 print(f'HTTPS, snapshot and {len(assets)} assets verified: {commit}')
 PY
-trap - ERR
+trap - ERR INT TERM HUP
 "${compose[@]}" ps web
 echo "Updated $public_url to $release_sha"
