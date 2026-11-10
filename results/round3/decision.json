@@ -1,0 +1,62 @@
+{
+  "round": 3,
+  "selected_model": "latent_ridge_h1_hybrid",
+  "previous_model": "hgb_direct_norm_advanced",
+  "original_baseline": "ridge_calendar",
+  "accepted": true,
+  "selection_endpoint": "Lowest mean per-origin development score over18-31October among the five registered new candidates. Original25-31October is descriptive, not the selection endpoint.",
+  "promotion_rule": "Must improve over incumbent on development14mean AND freshcontrol7mean. Goal below.32 evaluated on original7,development14,andfreshcontrol7 separately.",
+  "goal_below_0_32": false,
+  "scores": {
+    "development14": {
+      "latent_ridge_h1_hybrid": 0.333307155128344,
+      "incumbent_halfhour_projection": 0.33478541387265626,
+      "hgb_direct_norm_advanced": 0.33503523560129794,
+      "hgb_global_halfhour": 0.3353530264028427,
+      "latent_ridge_direct": 0.3360618655549938,
+      "hgb_global_context": 0.33826809372249117,
+      "ridge_calendar": 0.33854231039312394
+    },
+    "original7": {
+      "hgb_global_halfhour": 0.3332661111669499,
+      "latent_ridge_h1_hybrid": 0.3339237354437941,
+      "incumbent_halfhour_projection": 0.3344876458185126,
+      "hgb_direct_norm_advanced": 0.3345382495225352,
+      "hgb_global_context": 0.33635709478071046,
+      "latent_ridge_direct": 0.33763537200330046,
+      "ridge_calendar": 0.3388639634919857
+    },
+    "control7": {
+      "latent_ridge_h1_hybrid": 0.33754230156689546,
+      "hgb_direct_norm_advanced": 0.3395902053097753,
+      "ridge_calendar": 0.3431414631054209
+    }
+  },
+  "paired_wins": {
+    "development14": 12,
+    "control7": 6
+  },
+  "relative_improvement_vs_previous": {
+    "development14": 0.005157906659735256,
+    "control7": 0.006030514752366711
+  },
+  "control_note": "Newcontrol earlier than development, present in development fit histories; robustness check not fully independent futureholdout.",
+  "selection_locked_at_utc": "2026-11-06T20:46:17.165376+00:00",
+  "config_sha256": "3ac19f420c27f997f6dc964ac9af77da49c0e01ba40d1f7b9ae194a052682a51",
+  "platform_submission": false,
+  "submission": "submissions/latent_ridge_h1_hybrid.csv",
+  "submission_sha256": "6b33860469640c495584a06b6628725b495168b0a02b997dfd0601ae14fca5d9",
+  "submission_rows": 8000,
+  "target_mean_score": 0.32,
+  "target_by_split": {
+    "development14": false,
+    "original7": false,
+    "control7": false
+  },
+  "validation": {
+    "tests_passed": 159,
+    "independent_control_audit": true,
+    "independent_submission_audit": true,
+    "original_notebook_preserved": true
+  }
+}

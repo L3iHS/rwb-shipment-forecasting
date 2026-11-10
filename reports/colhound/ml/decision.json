@@ -1,0 +1,14 @@
+{
+  "status": "provisional_service_candidate",
+  "service_model": "lgbm_huber_blr",
+  "competition_model": "ensemble_v2",
+  "forward_service_minus_ensemble_mean": -0.0017236407432576564,
+  "service_wins_of_7": 4,
+  "within_engineering_tolerance": true,
+  "limitations": [
+    "Both October weeks were used in prior model development.",
+    "OOF dates/route ordering are inferred from default_folds and validated against raw truth.",
+    "Forward calibration tests parameter chronology, not an untouched model selection holdout."
+  ],
+  "production_ready": false
+}

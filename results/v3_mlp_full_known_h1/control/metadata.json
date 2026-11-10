@@ -1,0 +1,33 @@
+{
+  "model": "phase8_h1_full_causal_known_offset",
+  "stage": "historical control",
+  "origins": [
+    "2025-08-30 10:30:00",
+    "2025-08-31 10:30:00",
+    "2025-09-01 10:30:00",
+    "2025-09-02 10:30:00",
+    "2025-09-03 10:30:00",
+    "2025-09-04 10:30:00",
+    "2025-09-05 10:30:00"
+  ],
+  "means": {
+    "latent_mass_blend50": 0.329052352479393,
+    "mae_share_mass25": 0.3284630107874859,
+    "phase8_h1_full_causal_known_offset": 0.33007092415831923,
+    "v3_totals_mlp_shares50": 0.3308398454382883,
+    "vlado_t_h1s600_reference": 0.3330357903638038
+  },
+  "wins": {
+    "v3_totals_mlp_shares50": 4,
+    "vlado_t_h1s600_reference": 7,
+    "mae_share_mass25": 5,
+    "latent_mass_blend50": 5
+  },
+  "development_mean": 0.326405186936159,
+  "lower_all_four": false,
+  "platform_submission": false,
+  "comparison": "Earlier historical origins with only 4 to 10 morning training days available to V3. H1-only adjustment and V3/MLP anchor share the same fit within each origin.",
+  "runtime": "MLP was evaluated in an isolated process after the initial native runtime stalled before the first score. The finalist, dates, features and numerical recipe were fixed throughout.",
+  "participant_reported_public_score": 0.328,
+  "public_score_reported_on": "2026-11-07"
+}

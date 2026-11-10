@@ -1,0 +1,47 @@
+{
+  "dataset_sha256": "300aecbe2d3dc28be03bff957ba56ab20c7fa8ceb81b0301822d4bf6473bd076",
+  "source_sha256": {
+    "src/rwb_forecasting/__init__.py": "ebf5cb9c4602355f8596a4776aec62ef50651ee371633604d53cca2730af14db",
+    "src/rwb_forecasting/data.py": "060486f5799443b6fab4b305242ad300a1e9d89e6547028b63df6a6d9e58e0be",
+    "src/rwb_forecasting/metrics.py": "e6cd79c08ea13484cd3681ba10438afd540149445b7d4d545d621fc577ccebfc",
+    "src/rwb_forecasting/models.py": "1fbf54375d8d4efa6a44ddc5d6faf5f8e2d2b669c84c990a445e9ceba29cb39b",
+    "src/rwb_forecasting/validation.py": "c0b9b2937445d1a73e155705e1f471e27b2c82aa61b11c48b2a47d704bd0fc90",
+    "scripts/run_backtest.py": "35c0a2aa622113b0910eaf0f506c07ab35b4b088336a66353fe28b9b266a7634",
+    "requirements.txt": "3e6287b08026819aec06dd1f9e18f24a614ed4e91267d44861b455bcc41c230f"
+  },
+  "python": "3.14.6",
+  "libraries": {
+    "numpy": "2.5.4",
+    "pandas": "3.1.1",
+    "pyarrow": "26.0.1",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1"
+  },
+  "origins": [
+    "2025-10-25 10:30:00",
+    "2025-10-26 10:30:00",
+    "2025-10-27 10:30:00",
+    "2025-10-28 10:30:00",
+    "2025-10-29 10:30:00",
+    "2025-10-30 10:30:00",
+    "2025-10-31 10:30:00"
+  ],
+  "forecast_points": 8,
+  "step_minutes": 30,
+  "routes": 1000,
+  "points_per_fold": 8000,
+  "primary_comparison": "arithmetic mean of official score across fixed-origin folds",
+  "pooled_note": "Pooled bias can cancel across folds; pooled score is secondary.",
+  "ridge": {
+    "features": "six statuses at source timestamp and one-hot route_id",
+    "source_window_days": 14,
+    "alpha": 4.0,
+    "solver": "lsqr",
+    "tol": 1e-06,
+    "negative_predictions": "clipped to zero",
+    "sampling": "none; all available sources in the declared window"
+  },
+  "leakage_contract": "Predictors receive only observations through origin; all training labels end at or before origin.",
+  "elapsed_seconds": 6.741629416006617,
+  "platform_submission": false
+}

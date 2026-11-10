@@ -1,0 +1,98 @@
+{
+  "model": "vlado_t_h1s600_reference",
+  "model_config": "configs/v3_tweedie_h1_600.json",
+  "status": "Development evaluation complete; subsequent historical control reported separately",
+  "origins": [
+    "2025-10-18 10:30:00",
+    "2025-10-19 10:30:00",
+    "2025-10-20 10:30:00",
+    "2025-10-21 10:30:00",
+    "2025-10-22 10:30:00",
+    "2025-10-23 10:30:00",
+    "2025-10-24 10:30:00",
+    "2025-10-25 10:30:00",
+    "2025-10-26 10:30:00",
+    "2025-10-27 10:30:00",
+    "2025-10-28 10:30:00",
+    "2025-10-29 10:30:00",
+    "2025-10-30 10:30:00",
+    "2025-10-31 10:30:00"
+  ],
+  "metric": "arithmetic mean per-origin WAPE + absolute relative bias",
+  "means": {
+    "latent_mass_blend50": 0.33257029416795386,
+    "mae_share_mass25": 0.3321490697129303,
+    "vlado_t_h1s600_reference": 0.32793738197332045
+  },
+  "wins_vs_mae_share_mass25": 11,
+  "data_sha256": "300aecbe2d3dc28be03bff957ba56ab20c7fa8ceb81b0301822d4bf6473bd076",
+  "libraries": {
+    "lightgbm": "4.7.0",
+    "numpy": "2.5.4",
+    "pandas": "3.1.1",
+    "scipy": "1.18.1",
+    "scikit-learn": "1.9.1",
+    "pyarrow": "26.0.1",
+    "threadpoolctl": "3.8.0"
+  },
+  "python": "3.14.6",
+  "attribution": {
+    "repo": "L3iHS/rwb-shipment-forecasting",
+    "branch_readonly": "vlado",
+    "commit": "bd61c6d560f4a838dc436fbc13139fa42ccb99be",
+    "git_blob": "d09105b0cf3f31c442d7743db24f50c554cd6786",
+    "source_path": "experiments/exp_gbm.py",
+    "recipe_path": "experiments/logs/batch4.sh"
+  },
+  "evaluation_implementation": "Pinned reference adapter for the attributed source; fresh fit for each origin",
+  "reference_adapter_sha256": "0ef181939f3b4cb911f8a9e9d9fc378ef2df9b3eb11979cc11c269cf5338ed9e",
+  "new_project_sources_sha256": {
+    "src/rwb_forecasting/v3_features.py": "dbd18654f1de13ff2fab5930084ac810bdafa089b05acf51d2e8fea6e670fb25",
+    "src/rwb_forecasting/v3_boosting.py": "34ee449843ce7da18d406ffe079f29fb20ef18c7c3dd9bdfc7dd444da1792cda",
+    "scripts/run_v3.py": "8608f93328ea93b398edc0a7b3c952b0b664d77346d91482ec1db46acdb3eb54",
+    "configs/v3_tweedie_h1_600.json": "831bc15b4b47f73473eba52441b55b88a270f3d7ec205bab9333af214f4ca342"
+  },
+  "implementation_validation": {
+    "feature_training_design_synthetic_parity": "bit exact against pinned reference",
+    "generated600tree_prediction_parity": "bit exact,24forecastvalues",
+    "full14_rerun_with_explicit_project_modules": false,
+    "full_history_feature_equivalence": {
+      "origin": "2025-11-01 10:30:00",
+      "causal_arrays_bit_exact": 15,
+      "source_indices_exact": 462,
+      "feature_blocks_exact": [
+        "current",
+        "first_training",
+        "middle_training",
+        "last_training"
+      ],
+      "sampled_training_labels_and_scales": "bit exact at first, middle and last source",
+      "new_fits_or_scores": 0,
+      "evidence_sha256": "3e69f98f8fa1c2e58bb766a70897318a567e9f0b02c5c146fc2b235393b79d1f"
+    }
+  },
+  "verification": {
+    "unique_prediction_keys": 112000,
+    "fold_metrics_recomputed": 42,
+    "native_forecasts_to_CSV": "bit exact",
+    "source_label_cutoffs": "all at or before each origin",
+    "independent_review": "passed"
+  },
+  "evaluation_prediction_file_sha256": "ee72797c99bfc23aa04d2c15bde09d3ad7cc3d12fd66420b62291f2cb3352a49",
+  "submission": {
+    "filename": "v3_tweedie_h1_600.csv",
+    "sha256": "b9974b280b64aa38e5ff50ae5e76999adce78967a5adadacd233cb75822e9769",
+    "rows": 8000,
+    "origin": "2025-11-01 10:30:00",
+    "latest_fitted_label": "2025-10-31 17:00:00"
+  },
+  "public_score": null,
+  "platform_submission": false,
+  "limitations": [
+    "Development dates reused across model research.",
+    "Six-origin screening preceded full14; all14 outcomes retained.",
+    "Development scores are separate from the later historical control and platform scores."
+  ],
+  "new_control_status_at_development_export": "not_opened",
+  "subsequent_control": "../control/metadata.json"
+}

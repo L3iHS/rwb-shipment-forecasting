@@ -18,7 +18,13 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from rwb.data import HORIZON, ROOT, load_panel
-from rwb.dispatch import inflow_actual, inflow_forecast, simulate
+from rwb.dispatch import inflow_actual, simulate
+from rwb.flows import legacy_cumulative_inflow
+
+
+def inflow_forecast(pred, x0, k):
+    """Keep this historical v1 experiment reproducible; use validate_service_v2.py for v2."""
+    return legacy_cumulative_inflow(pred, x0)[..., k - 1]
 from rwb.features import DAY, WEEK, cumsums
 from rwb.intervals import Conformal, coverage, pinball
 

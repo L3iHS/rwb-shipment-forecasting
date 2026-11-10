@@ -1,0 +1,13 @@
+{
+  "selected_model": "hgb_direct_norm_advanced",
+  "accepted": true,
+  "research_baseline": 0.3388639634919857,
+  "research_selected": 0.3345382495225352,
+  "control_baseline": 0.33822065729426204,
+  "control_selected": 0.3355322216800608,
+  "control_windows_won": 4,
+  "goal_below_032_reached": false,
+  "promotion_rule": "Research and control means both strictly better than ridge_calendar; otherwise retain baseline.",
+  "no_model_reselection_after_control": true,
+  "platform_submission": false
+}

@@ -1,0 +1,28 @@
+{
+  "model": "v3_totals_mlp_shares50",
+  "stage": "historical control",
+  "origins": [
+    "2025-09-13 10:30:00",
+    "2025-09-14 10:30:00",
+    "2025-09-15 10:30:00",
+    "2025-09-16 10:30:00",
+    "2025-09-17 10:30:00",
+    "2025-09-18 10:30:00",
+    "2025-09-19 10:30:00"
+  ],
+  "means": {
+    "latent_mass_blend50": 0.3262124243214239,
+    "mae_share_mass25": 0.32661988450001217,
+    "v3_totals_mlp_shares50": 0.33010337167095055,
+    "vlado_t_h1s600_reference": 0.33076787662672863
+  },
+  "wins": {
+    "vlado_t_h1s600_reference": 6,
+    "mae_share_mass25": 4,
+    "latent_mass_blend50": 4
+  },
+  "accepted_against_all_references": false,
+  "public_score": null,
+  "platform_submission": false,
+  "perspective": "Earlier historical period, September 13\u201319. Shorter V3 training prefixes than the final test."
+}

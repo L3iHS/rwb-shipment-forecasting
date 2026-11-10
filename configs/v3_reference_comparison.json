@@ -1,0 +1,152 @@
+{
+  "description": "Reference models for the published V3 comparisons. Run V3 separately with scripts/run_v3.py.",
+  "compute_threads": 2,
+  "baseline": "latent_mass_blend50",
+  "selected_model": "mae_share_mass25",
+  "comparison_models": [
+    "mae_share_mass25",
+    "latent_mass_blend50"
+  ],
+  "research_origins": [
+    "2025-10-18 10:30:00",
+    "2025-10-19 10:30:00",
+    "2025-10-20 10:30:00",
+    "2025-10-21 10:30:00",
+    "2025-10-22 10:30:00",
+    "2025-10-23 10:30:00",
+    "2025-10-24 10:30:00",
+    "2025-10-25 10:30:00",
+    "2025-10-26 10:30:00",
+    "2025-10-27 10:30:00",
+    "2025-10-28 10:30:00",
+    "2025-10-29 10:30:00",
+    "2025-10-30 10:30:00",
+    "2025-10-31 10:30:00"
+  ],
+  "control_origins": [
+    "2025-09-20 10:30:00",
+    "2025-09-21 10:30:00",
+    "2025-09-22 10:30:00",
+    "2025-09-23 10:30:00",
+    "2025-09-24 10:30:00",
+    "2025-09-25 10:30:00",
+    "2025-09-26 10:30:00"
+  ],
+  "models": {
+    "mae_share_mass25": {
+      "kind": "mass_preserving",
+      "params": {
+        "weight": 0.25
+      },
+      "incumbent": {
+        "kind": "mass_preserving",
+        "params": {
+          "weight": 0.5
+        },
+        "incumbent": {
+          "kind": "latent_hybrid",
+          "params": {
+            "train_days": 14,
+            "alpha": 4.0,
+            "rounding_tolerance": 0.5
+          },
+          "incumbent": {
+            "kind": "weighted_boosting",
+            "params": {
+              "base": {
+                "normalize": true,
+                "loss": "squared_error",
+                "calibrate": false,
+                "advanced": true,
+                "direct": true,
+                "residual": false,
+                "global_context": false,
+                "halfhour": false,
+                "train_days": 28,
+                "source_stride": 4,
+                "max_iter": 180,
+                "max_leaf_nodes": 31,
+                "learning_rate": 0.08,
+                "l2_regularization": 10.0,
+                "name": "objective_sq_scale1"
+              },
+              "scale_weight_power": 1.0
+            }
+          }
+        },
+        "alternative": {
+          "kind": "latent",
+          "params": {
+            "train_days": 14,
+            "alpha": 4.0,
+            "rounding_tolerance": 0.5
+          }
+        }
+      },
+      "alternative": {
+        "kind": "weighted_boosting",
+        "params": {
+          "base": {
+            "normalize": true,
+            "loss": "absolute_error",
+            "calibrate": false,
+            "advanced": true,
+            "direct": true,
+            "residual": false,
+            "global_context": false,
+            "halfhour": false,
+            "train_days": 28,
+            "source_stride": 4,
+            "max_iter": 180,
+            "max_leaf_nodes": 31,
+            "learning_rate": 0.08,
+            "l2_regularization": 10.0,
+            "name": "objective_mae_scale1"
+          },
+          "scale_weight_power": 1.0
+        }
+      }
+    },
+    "latent_mass_blend50": {
+      "kind": "mass_preserving",
+      "params": {
+        "weight": 0.5
+      },
+      "incumbent": {
+        "kind": "latent_hybrid",
+        "params": {
+          "train_days": 14,
+          "alpha": 4.0,
+          "rounding_tolerance": 0.5
+        },
+        "incumbent": {
+          "kind": "boosting",
+          "params": {
+            "name": "hgb_direct_norm_advanced",
+            "normalize": true,
+            "loss": "squared_error",
+            "calibrate": false,
+            "advanced": true,
+            "direct": true,
+            "residual": false,
+            "train_days": 28,
+            "source_stride": 4,
+            "max_iter": 180,
+            "max_leaf_nodes": 31,
+            "learning_rate": 0.08,
+            "l2_regularization": 10.0
+          },
+          "research_round": 2
+        }
+      },
+      "alternative": {
+        "kind": "latent",
+        "params": {
+          "train_days": 14,
+          "alpha": 4.0,
+          "rounding_tolerance": 0.5
+        }
+      }
+    }
+  }
+}

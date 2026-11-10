@@ -218,6 +218,7 @@ const nf1 = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 1 });
 const nf2 = new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const nf3 = new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 function vol(v) {
+  if (v === null || !Number.isFinite(v)) return "нет оценки";
   const a = Math.abs(v);
   if (a >= 1e9) return nf2.format(v / 1e9) + " млрд";
   if (a >= 1e6) return nf1.format(v / 1e6) + " млн";
@@ -243,21 +244,22 @@ document.getElementById("asof").textContent =
 document.getElementById("model").innerHTML =
   `<span class="chip"><span class="dot"></span>Модель обучена на данных до ${new Date(M.trained_until).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>` +
   `<span class="chip">LightGBM, ${M.objective === "huber" ? "Huber" : M.objective}</span>` +
-  `<span class="chip">Подача машины ${nf1.format(M.lead_h)} ч</span>`;
+  `<span class="chip">Подача машины ${nf1.format(M.lead_h)} ч</span>` +
+  `<span class="chip">Остаток и вместимость: сценарий</span>`;
 
 // Summary
-const loadsAt = (r, k, key) => r.bl + r[key][k] / r.cap;
+const loadsAt = (r, k, key) => r.bl + (r[key][k] ?? r.cpoint[k]) / r.cap;
 const callNow = R.filter(r => r.call === 0).length;
 const callHour = R.filter(r => r.call > 0 && r.call <= 2).length;
 const fleet50 = R.reduce((s, r) => s + Math.max(0, Math.floor(loadsAt(r, 7, "c50")) - r.way - r.dock), 0);
 const fleet90 = R.reduce((s, r) => s + Math.max(0, Math.floor(loadsAt(r, 7, "c90")) - r.way - r.dock), 0);
 const waiting = R.filter(r => r.bl >= 1 && r.way + r.dock === 0).length;
-const vol4 = R.reduce((s, r) => s + r.c50[7], 0);
-const vol4hi = R.reduce((s, r) => s + r.c90[7], 0);
+const vol4 = D.network.inflow_point[7];
+const vol4hi = D.network.inflow_p90[7];
 document.getElementById("kpis").innerHTML = [
   ["call", "Вызвать сейчас", callNow.toLocaleString("ru-RU"), `${routesWord(callNow)}, ещё ${callHour} в течение часа`],
   ["", "Новых машин до " + hhmm(at(8)), fleet50.toLocaleString("ru-RU"), `при осторожном прогнозе до ${fleet90.toLocaleString("ru-RU")}`],
-  ["", "Объём к отгрузке за 4 ч", vol(vol4), `с вероятностью 90% не больше ${vol(vol4hi)} по маршрутам`],
+  ["", "Оценка потока за 4 ч", vol(vol4), `p90 суммы сети: ${vol(vol4hi)}; калибровка на истории`],
   ["", "Груз ждёт без машины", waiting.toLocaleString("ru-RU"), `${routesWord(waiting)} с полным кузовом у ворот`],
 ].map(([c, t, v, s]) => `<div class="kpi ${c}"><div class="eyebrow">${t}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
 
@@ -316,7 +318,8 @@ function niceMax(v) {
 function fan(el, hist, p50, lo, hi, opts = {}) {
   const W = 640, H = 220, L = 58, Rm = 12, T = 12, B = 28;
   const n0 = hist.length - 1, n = n0 + p50.length;
-  const ymax = niceMax(Math.max(...hist, ...hi) * 1.05);
+  const bandValid = [...lo, ...hi].every(v => v !== null && Number.isFinite(v));
+  const ymax = niceMax(Math.max(...hist, ...p50, ...(bandValid ? hi : [])) * 1.05);
   const x = i => L + (i / n) * (W - L - Rm);
   const y = v => T + (1 - v / ymax) * (H - T - B);
   let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${opts.label || ""}">`;
@@ -330,7 +333,7 @@ function fan(el, hist, p50, lo, hi, opts = {}) {
   }
   const bandTop = hi.map((v, k) => `${x(n0 + 1 + k)},${y(v)}`);
   const bandBot = lo.map((v, k) => `${x(n0 + 1 + k)},${y(v)}`).reverse();
-  s += `<polygon points="${x(n0)},${y(hist[n0])} ${bandTop.join(" ")} ${bandBot.join(" ")}" fill="var(--band)"/>`;
+  if (bandValid) s += `<polygon points="${x(n0)},${y(hist[n0])} ${bandTop.join(" ")} ${bandBot.join(" ")}" fill="var(--band)"/>`;
   s += `<line x1="${x(n0)}" x2="${x(n0)}" y1="${T}" y2="${H - B}" stroke="var(--muted)" stroke-dasharray="3 4"/>`;
   s += `<text class="lbl" x="${x(n0) + 4}" y="${T + 10}">сейчас</text>`;
   s += `<polyline points="${hist.map((v, i) => `${x(i)},${y(v)}`).join(" ")}" fill="none" stroke="var(--ink)" stroke-width="2"/>`;
@@ -341,8 +344,8 @@ function fan(el, hist, p50, lo, hi, opts = {}) {
 function dockChart(el, r) {
   const W = 640, H = 210, L = 58, Rm = 12, T = 12, B = 28, n = 8;
   const inbound = r.way + r.dock;
-  const p50 = [r.bl, ...r.c50.map(c => r.bl + c / r.cap)];
-  const p90 = [r.bl, ...r.c90.map(c => r.bl + c / r.cap)];
+  const p50 = [r.bl, ...r.cpoint.map(c => r.bl + c / r.cap)];
+  const p90 = [r.bl, ...r.c90.map((c, i) => r.bl + (c ?? r.cpoint[i]) / r.cap)];
   const ymax = Math.max(Math.ceil(Math.max(...p90, inbound + 1) + 0.3), 2);
   const x = i => L + (i / n) * (W - L - Rm);
   const y = v => T + (1 - v / ymax) * (H - T - B);
@@ -372,12 +375,12 @@ function dockChart(el, r) {
 function advice(r) {
   const inbound = r.way + r.dock;
   if (r.call === 0) {
-    return `<div class="advice"><b>Вызвать машину сейчас.</b> К ${hhmm(at(LEAD))}, когда она доедет, у ворот наберётся ` +
+    return `<div class="advice"><b>По сценарию — вызвать машину сейчас.</b> К ${hhmm(at(LEAD))} ожидается ` +
       `полный кузов${inbound ? `, считая ${inbound} уже вызванн${inbound === 1 ? "ую" : "ых"}` : ""}.</div>`;
   }
   if (r.call > 0) {
     return `<div class="advice"><b>Вызвать в ${hhmm(at(r.call))}.</b> Полный кузов наберётся примерно к ${hhmm(at(r.call + LEAD))}, ` +
-      `а машина едет ${nf1.format(M.lead_h)} ч. Раньше вызывать — машина будет стоять.</div>`;
+      `а машина едет ${nf1.format(M.lead_h)} ч. Более ранний вызов может увеличить простой.</div>`;
   }
   return `<div class="advice calm"><b>Новый вызов до ${hhmm(at(8))} не нужен.</b> ` +
     (inbound ? `Вызванных машин хватает на ожидаемый груз.` : `Груза на полный кузов за это время не наберётся.`) + `</div>`;
@@ -394,6 +397,7 @@ function select(id) {
       <div class="fact"><div class="eyebrow">Вызвано машин</div><div class="v">${r.way + r.dock}</div><div class="muted">${r.dock ? "одна у ворот" : "в пути"}</div></div>
       <div class="fact"><div class="eyebrow">Кузов</div><div class="v">${vol(r.cap)}</div><div class="muted">ед. объёма</div></div>
     </div>
+    ${r.stale ? '<div class="advice">Неполные данные: сезонный прогноз. Диапазоны недоступны.</div>' : ''}
     ${advice(r)}
     <div class="charts">
       <div>
@@ -407,18 +411,17 @@ function select(id) {
         <div id="ch2"></div>
       </div>
     </div>`;
-  fan(document.getElementById("ch1"), r.h, r.p50, r.p10, r.p90, { label: "Отгрузки маршрута за час: факт и прогноз" });
+  fan(document.getElementById("ch1"), r.h, r.point, r.p10, r.p90, { label: "Отгрузки маршрута за час: факт и точечный прогноз" });
   dockChart(document.getElementById("ch2"), r);
 }
 
 // Network
 const N = D.network;
-fan(document.getElementById("net"), N.hist, N.p50, N.lo, N.hi, { label: "Отгрузки всей сети за час" });
-const netSum = N.p50.reduce((a, b) => a + b, 0), netLo = N.lo.reduce((a, b) => a + b, 0), netHi = N.hi.reduce((a, b) => a + b, 0);
+fan(document.getElementById("net"), N.hist, N.point, N.lo, N.hi, { label: "Отгрузки всей сети за час" });
 document.getElementById("net-note").textContent =
-  `Сумма часовых значений до ${hhmm(at(8))}: ${vol(netSum)}, диапазон ${vol(netLo)} – ${vol(netHi)}. ` +
-  `Ошибка в общем уровне сети стоит столько же, сколько ошибки по всем маршрутам вместе: на проверке её дневной разброс около 2%, ` +
-  `поэтому уровень отслеживается отдельно (контроль качества ниже).`;
+  `Часовые точки перекрываются: складывать их как независимые отгрузки нельзя. ` +
+  `Оценка получасового потока за 4 часа: ${vol(N.inflow_point[7])}, p90 суммы сети: ${vol(N.inflow_p90[7])}. ` +
+  `Диапазон сети откалиброван отдельно; складской остаток восстановлен симуляцией.`;
 
 // Evidence
 const BT = D.backtest;
@@ -455,7 +458,7 @@ document.getElementById("partial").innerHTML =
   RULES.slice(1, 4).map(([k, name]) => `<tr><td style="font-family:var(--font-body)">${name}</td><td>${nf1.format(PD[k].partial)}</td>` +
     `<td>${Math.round(PD[k].idle_h).toLocaleString("ru-RU")}</td><td>${Math.round(PD[k].late_h).toLocaleString("ru-RU")}</td></tr>`).join("");
 document.getElementById("cov").innerHTML = `<tr><th>Диапазон</th><th>Должно попасть</th><th>Попало</th></tr>` +
-  ["50%", "80%", "90%"].map(k => `<tr><td style="font-family:var(--font-body)">${k} центральный</td><td>${k}</td><td>${pct(BT.intervals[k])}</td></tr>`).join("");
+  Object.entries(BT.intervals).map(([k, v]) => `<tr><td style="font-family:var(--font-body)">${k} центральный</td><td>${k}</td><td>${pct(v)}</td></tr>`).join("");
 const alertDays = new Set(D.alerts.map(a => a.day));
 document.getElementById("mon").innerHTML = `<tr><th>День</th><th>WAPE</th><th>Перекос суммы</th><th>В 80% диапазоне</th><th>Статус</th></tr>` +
   D.monitor.map(m => `<tr><td>${m.day}</td><td>${nf3.format(m.wape)}</td><td>${signed(m.bias)}</td><td>${pct(m.cov)}</td>` +

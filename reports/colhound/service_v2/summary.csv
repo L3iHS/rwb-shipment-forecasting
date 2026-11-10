@@ -1,0 +1,3 @@
+method,wape_all_horizons,coverage_80,relative_band_width,negative_flows,decreasing_point,decreasing_median,quantile_crossings,network_coverage_80,dispatch_lost_minutes_per_truck
+legacy_v1,0.18237067463784787,0.8033301671732522,0.594414458666573,1854,1854,847,0,0.8670212765957447,20.252035380440244
+nonnegative_hourly_least_squares_v1,0.1817253665176325,0.8034042553191489,0.5924611053863835,0,0,0,0,0.8734802431610942,20.225773623308584

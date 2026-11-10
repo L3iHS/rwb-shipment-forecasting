@@ -1,0 +1,86 @@
+{
+  "lean_matches_saved_bundle": true,
+  "lean_matches_oof_log_excluding_thread_count": true,
+  "runtime_threads_excluded_from_comparison": true,
+  "bundle_config": {
+    "cfg": {
+      "lib": "lgbm",
+      "days": 28,
+      "stride": 4,
+      "rounds": 400,
+      "lr": 0.05,
+      "leaves": 31,
+      "min_child": 1000,
+      "feature_fraction": 0.7,
+      "bagging": 0.7,
+      "l2": 1.0,
+      "objective": "huber",
+      "tod_weight": 0.0,
+      "tod_center": 21,
+      "tod_width": 4.0,
+      "route_cat": false,
+      "clip_q": 0.0,
+      "label_smooth": 0.0,
+      "pooled": false,
+      "global_feats": false,
+      "flow_feats": false,
+      "feat_sets": "lowrank12",
+      "drop": "",
+      "route_tiers": 1,
+      "base": "lowrank",
+      "base_days": 28,
+      "decay": 1.0,
+      "target": "y",
+      "seed": 0,
+      "extra": {
+        "alpha": 1.0
+      }
+    },
+    "label_cutoff": 4629
+  },
+  "oof_log_record": {
+    "name": "lgbm_huber_blr",
+    "cfg": {
+      "lib": "lgbm",
+      "days": 28,
+      "stride": 4,
+      "rounds": 400,
+      "lr": 0.05,
+      "leaves": 31,
+      "min_child": 1000,
+      "feature_fraction": 0.7,
+      "bagging": 0.7,
+      "l2": 1.0,
+      "objective": "huber",
+      "tod_weight": 0.0,
+      "tod_center": 21,
+      "tod_width": 4.0,
+      "route_cat": false,
+      "clip_q": 0.0,
+      "label_smooth": 0.0,
+      "pooled": false,
+      "global_feats": false,
+      "flow_feats": false,
+      "feat_sets": "lowrank12",
+      "drop": "",
+      "route_tiers": 1,
+      "base": "lowrank",
+      "decay": 1.0,
+      "target": "y",
+      "seed": 0,
+      "extra": {
+        "num_threads": 6,
+        "alpha": 1.0
+      }
+    },
+    "summary": {
+      "fold0": 0.3278834345734031,
+      "fold1": 0.32641300479743635,
+      "mean": 0.32714821968541974
+    },
+    "best_scale": 0.99,
+    "scaled": 0.3270792507275314,
+    "sec": 669
+  },
+  "limitation": "OOF files have no embedded config or route IDs; log association is not a cryptographic training audit."
+}

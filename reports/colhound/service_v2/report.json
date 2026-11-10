@@ -1,0 +1,182 @@
+{
+  "schema_version": 2,
+  "flow_method": "nonnegative_hourly_least_squares_v1",
+  "point": {
+    "all_origins": 0.33367746344807425,
+    "at_10_30": 0.32788343433757766
+  },
+  "intervals": {
+    "80%": {
+      "coverage": 0.7988731003039514,
+      "coverage_10_30": 0.8134821428571428
+    }
+  },
+  "network_hourly_coverage_80": 0.8662613981762918,
+  "dispatch": {
+    "sensitivity": [
+      {
+        "lead_h": 0.5,
+        "fill_hours": 1.0,
+        "reactive": 29.95803774721036,
+        "last_2h_pace": 19.014507629335704,
+        "same_time_last_week": 17.744910921572185,
+        "model_p50": 15.387827415235138,
+        "oracle": 0.017452225315109624
+      },
+      {
+        "lead_h": 0.5,
+        "fill_hours": 2.0,
+        "reactive": 29.983765212247825,
+        "last_2h_pace": 19.15162930872104,
+        "same_time_last_week": 17.83650404972688,
+        "model_p50": 15.480443138141533,
+        "oracle": 0.00037650602409638556
+      },
+      {
+        "lead_h": 0.5,
+        "fill_hours": 4.0,
+        "reactive": 29.9954408449634,
+        "last_2h_pace": 19.271904773939195,
+        "same_time_last_week": 17.947383052389497,
+        "model_p50": 15.486121644168056,
+        "oracle": 0.0
+      },
+      {
+        "lead_h": 1.0,
+        "fill_hours": 1.0,
+        "reactive": 59.91240875912409,
+        "last_2h_pace": 27.923840376232793,
+        "same_time_last_week": 23.429447277049643,
+        "model_p50": 20.211388426233203,
+        "oracle": 0.1739592781409314
+      },
+      {
+        "lead_h": 1.0,
+        "fill_hours": 2.0,
+        "reactive": 59.97462249381344,
+        "last_2h_pace": 27.976326458885108,
+        "same_time_last_week": 23.41482709259399,
+        "model_p50": 20.225773623308584,
+        "oracle": 0.038780120481927714
+      },
+      {
+        "lead_h": 1.0,
+        "fill_hours": 4.0,
+        "reactive": 59.99314094096128,
+        "last_2h_pace": 28.020319963606035,
+        "same_time_last_week": 23.44285497649497,
+        "model_p50": 20.351480516853364,
+        "oracle": 0.004546487838145033
+      },
+      {
+        "lead_h": 2.0,
+        "fill_hours": 1.0,
+        "reactive": 119.27565315928413,
+        "last_2h_pace": 38.65100863833824,
+        "same_time_last_week": 30.415752461322082,
+        "model_p50": 26.262045043296414,
+        "oracle": 1.1734642812460903
+      },
+      {
+        "lead_h": 2.0,
+        "fill_hours": 2.0,
+        "reactive": 119.96152332093106,
+        "last_2h_pace": 40.95796493331335,
+        "same_time_last_week": 30.100129239494585,
+        "model_p50": 25.803075608714224,
+        "oracle": 0.4054969879518072
+      },
+      {
+        "lead_h": 2.0,
+        "fill_hours": 4.0,
+        "reactive": 119.98773789756035,
+        "last_2h_pace": 41.00105852109481,
+        "same_time_last_week": 30.08039032282529,
+        "model_p50": 25.87439295831647,
+        "oracle": 0.031825414867015234
+      }
+    ],
+    "per_day": {
+      "reactive": {
+        "trucks": 11555.598784194528,
+        "idle_h": 0.0,
+        "late_h": 11550.711246200608,
+        "partial": 0.0,
+        "fill": 1.0,
+        "peak_backlog": 1.6116143150137698
+      },
+      "last_2h_pace": {
+        "trucks": 11623.148936170212,
+        "idle_h": 3050.990881458966,
+        "late_h": 2368.5592705167173,
+        "partial": 62.29787234042553,
+        "fill": 0.9990097600619385,
+        "peak_backlog": 1.1396489387957727
+      },
+      "same_time_last_week": {
+        "trucks": 11618.917933130699,
+        "idle_h": 2481.702127659574,
+        "late_h": 2052.5471124620058,
+        "partial": 30.638297872340424,
+        "fill": 0.9995454265930237,
+        "peak_backlog": 1.0980228710610793
+      },
+      "model_p50": {
+        "trucks": 11612.352583586626,
+        "idle_h": 1796.4255319148936,
+        "late_h": 2118.0547112462004,
+        "partial": 6.127659574468085,
+        "fill": 0.9999559387650079,
+        "peak_backlog": 1.0966053654352594
+      },
+      "oracle": {
+        "trucks": 11625.045592705166,
+        "idle_h": 0.0,
+        "late_h": 7.513677811550152,
+        "partial": 0.0,
+        "fill": 1.0,
+        "peak_backlog": 0.9493936413648465
+      }
+    }
+  },
+  "comparison": [
+    {
+      "method": "legacy_v1",
+      "wape_all_horizons": 0.18237067463784787,
+      "coverage_80": 0.8033301671732522,
+      "relative_band_width": 0.594414458666573,
+      "negative_flows": 1854,
+      "decreasing_point": 1854,
+      "decreasing_median": 847,
+      "quantile_crossings": 0,
+      "network_coverage_80": 0.8670212765957447,
+      "dispatch_lost_minutes_per_truck": 20.252035380440244
+    },
+    {
+      "method": "nonnegative_hourly_least_squares_v1",
+      "wape_all_horizons": 0.1817253665176325,
+      "coverage_80": 0.8034042553191489,
+      "relative_band_width": 0.5924611053863835,
+      "negative_flows": 0,
+      "decreasing_point": 0,
+      "decreasing_median": 0,
+      "quantile_crossings": 0,
+      "network_coverage_80": 0.8734802431610942,
+      "dispatch_lost_minutes_per_truck": 20.225773623308584
+    }
+  ],
+  "purged_calibration_origins": 7,
+  "calibration_end_label": "2025-10-25 10:30:00",
+  "evaluation_start": "2025-10-25 10:30:00",
+  "adjustment_relative_to_hourly_total": 6.36515636627701e-05,
+  "limitations": [
+    "Previously reviewed periods, no independent holdout",
+    "Simulated capacity, dock state and lead time",
+    "Half-hour ground truth is reconstructed from hourly observations",
+    "Marginal bands are not joint path guarantees"
+  ],
+  "timing": {
+    "reconciliation_calibration_and_evaluation_seconds": 0.1416510003618896,
+    "total_seconds": 12.706495400052518
+  }
+}

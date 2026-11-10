@@ -1,7 +1,12 @@
 """Load the competition files into dense route x time arrays."""
 
 from dataclasses import dataclass
+import hashlib
+import logging
+import os
 from pathlib import Path
+import tempfile
+from zipfile import BadZipFile
 
 import numpy as np
 import pandas as pd
@@ -11,6 +16,16 @@ RAW = ROOT / "data/raw"
 STEP = pd.Timedelta(minutes=30)
 HORIZON = 8
 STATUS_COLS = [f"status_{i}" for i in range(1, 7)]
+CACHE_VERSION = 1
+log = logging.getLogger(__name__)
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 @dataclass
@@ -33,11 +48,20 @@ class Panel:
 def load_panel(cache: bool = True) -> Panel:
     cache_path = ROOT / "data/processed/panel.npz"
     test = pd.read_parquet(RAW / "test_solo_track.parquet")
+    train_path = RAW / "train_solo_track.parquet"
+    train_digest = _sha256(train_path) if cache else None
     if cache and cache_path.exists():
-        z = np.load(cache_path, allow_pickle=False)
-        return Panel(pd.DatetimeIndex(z["times"]), z["routes"], z["y"], z["s"], test)
+        try:
+            with np.load(cache_path, allow_pickle=False) as z:
+                if z["cache_version"].item() == CACHE_VERSION and z["train_sha256"].item() == train_digest:
+                    times, routes, y, s = pd.DatetimeIndex(z["times"]), z["routes"], z["y"], z["s"]
+                    if y.shape == (len(routes), len(times)) and s.shape == (6, len(routes), len(times)):
+                        return Panel(times, routes, y, s, test)
+            log.info("Panel cache is outdated; rebuilding from raw data")
+        except (OSError, ValueError, KeyError, EOFError, BadZipFile):
+            log.warning("Panel cache is unreadable or has no source fingerprint; rebuilding")
 
-    train = pd.read_parquet(RAW / "train_solo_track.parquet")
+    train = pd.read_parquet(train_path)
     routes = np.sort(train["route_id"].unique())
     times = pd.date_range(train["timestamp"].min(), train["timestamp"].max(), freq=STEP)
     r_idx = np.searchsorted(routes, train["route_id"].to_numpy())
@@ -50,7 +74,15 @@ def load_panel(cache: bool = True) -> Panel:
         s[k, r_idx, t_idx] = train[col].to_numpy(np.float32)
     if cache:
         cache_path.parent.mkdir(parents=True, exist_ok=True)
-        np.savez(cache_path, times=times.to_numpy(), routes=routes, y=y, s=s)
+        # Replace atomically: an interrupted writer must not expose a partial cache.
+        with tempfile.NamedTemporaryFile(dir=cache_path.parent, prefix="panel_", suffix=".npz", delete=False) as stream:
+            temporary = Path(stream.name)
+        try:
+            np.savez(temporary, times=times.to_numpy(), routes=routes, y=y, s=s,
+                     cache_version=CACHE_VERSION, train_sha256=train_digest)
+            os.replace(temporary, cache_path)
+        finally:
+            temporary.unlink(missing_ok=True)
     return Panel(times, routes, y, s, test)
 
 

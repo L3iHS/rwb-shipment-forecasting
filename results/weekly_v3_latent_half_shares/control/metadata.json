@@ -1,0 +1,38 @@
+{
+  "model": "weekly_v3_latent_half_shares",
+  "stage": "held-out historical week",
+  "origins": [
+    "2025-09-06 10:30:00",
+    "2025-09-07 10:30:00",
+    "2025-09-08 10:30:00",
+    "2025-09-09 10:30:00",
+    "2025-09-10 10:30:00",
+    "2025-09-11 10:30:00",
+    "2025-09-12 10:30:00"
+  ],
+  "development_mean": 0.3260693936281687,
+  "means": {
+    "h1_centered_stage_flow": 0.3308159518727872,
+    "latent_mass_blend50": 0.3330656635013778,
+    "mae_share_mass25": 0.33201347496272404,
+    "phase8_h1_full_causal_known_offset": 0.3310460524371086,
+    "v3_totals_mlp_shares50": 0.33231012992924985,
+    "vlado_t_h1s600_reference": 0.3333536102463924,
+    "weekly_v3_latent_half_shares": 0.33083723827450656
+  },
+  "paired_wins_out_of_7": {
+    "h1_centered_stage_flow": 2,
+    "latent_mass_blend50": 4,
+    "mae_share_mass25": 4,
+    "phase8_h1_full_causal_known_offset": 5,
+    "v3_totals_mlp_shares50": 6,
+    "vlado_t_h1s600_reference": 7
+  },
+  "weekly_booster_fit_origin": "2025-09-06 10:30:00",
+  "weekly_training_mornings": 11,
+  "final_submission_training_mornings": 42,
+  "october_weights_used_in_control": false,
+  "control_oof_sha256": "a890762fb62d5a0b33a965adefa3ea626e08d1f294032ec26945bfdcf4a1f55c",
+  "all_comparators_beaten_on_mean": false,
+  "local_target_below_0_320": false
+}

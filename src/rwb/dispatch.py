@@ -14,18 +14,16 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from rwb.flows import reconcile_hourly
+
 STEP_H = 0.5  # hours per step
 
 
 def inflow_forecast(pred: np.ndarray, x0: np.ndarray, k: int) -> np.ndarray:
-    """Expected half-hour volume over the next k steps from hourly forecasts.
-
-    pred: (n_o, R, H) forecasts of y[o+j] = x[o+j] + x[o+j-1]; x0: (n_o, R) the known x[o].
-    Summing y_1..y_k counts x_1..x_{k-1} twice, x_0 and x_k once, so
-    sum x_1..x_k = (sum y_1..y_k + x_k - x_0) / 2 with the unknown x_k taken as y_k / 2.
-    """
-    s = pred[:, :, :k].sum(axis=2)
-    return np.clip((s + 0.5 * pred[:, :, k - 1] - x0) / 2.0, 0, None)
+    """Cumulative reconciled half-hour flow over the next k steps."""
+    if not 1 <= k <= pred.shape[-1]:
+        raise ValueError("Lead must be within the forecast horizon")
+    return reconcile_hourly(pred, x0).cumulative[..., k - 1]
 
 
 def inflow_actual(x: np.ndarray, origins: np.ndarray, k: int) -> np.ndarray:

@@ -1,0 +1,22 @@
+{
+  "timings_seconds": {
+    "forecast_first": 13.29437919985503,
+    "forecast_repeat": 4.653375800233334,
+    "board": 4.821063800249249
+  },
+  "pipeline_logs": {
+    "forecast_first": "21:55:34 pipeline forecast from 2025-11-01 10:30:00: load 2.2s, shared snapshot 9.1s, cache_hit=False, snapshot_id=bd7d803e51241c240582056c381a082bc5f0249a1ac0c33e4f0b53e80923e23a\n",
+    "forecast_repeat": "21:55:39 pipeline forecast from 2025-11-01 10:30:00: load 2.2s, shared snapshot 0.7s, cache_hit=True, snapshot_id=bd7d803e51241c240582056c381a082bc5f0249a1ac0c33e4f0b53e80923e23a\n",
+    "board": "21:55:44 pipeline board D:\\Development\\python_programming\\rwb-shipment-forecasting\\outputs\\dispatch_board.html (1245 KB)\n"
+  },
+  "snapshot_id": "bd7d803e51241c240582056c381a082bc5f0249a1ac0c33e4f0b53e80923e23a",
+  "snapshot_creation_seconds": 8.783256399910897,
+  "repeated_snapshot_cache_hit": true,
+  "submission_rows": 8000,
+  "point_export_matches_archived_model": true,
+  "tools_and_csv_agree": true,
+  "negative_cumulative_steps": 0,
+  "board_runtime_check": "Board script and route rendering passed; no visual layout assertion.",
+  "visual_browser_qa": false,
+  "bundle_provenance_sha256": "6f82d1b8e245caeaf89207510ad41b48463e8aad298680b10ae6a2b9710cb9ee"
+}

@@ -1,0 +1,59 @@
+{
+  "source_code_commit": "91f89c3a5def0fef093e5b1a22376d1531668a63",
+  "source_artifacts_commit": "05b1603e2ec131593a0aedddf142955f3e7699a3",
+  "recipe": "Equal average of v2 calibrated physical prediction and the weekly latent prediction. No fitted blend weights.",
+  "source_v2_weights": [
+    0.6734248649200749,
+    0.14285907948767787,
+    0.10719349250737954,
+    0.0965225630848661
+  ],
+  "development_mean": {
+    "teammate_v2": 0.3267676623567154,
+    "teammate_weekly50": 0.325676210402588,
+    "weekly_v3_latent_half_shares": 0.3260693936281687
+  },
+  "forward_mean": {
+    "teammate_v2_forward": 0.3296070753167259,
+    "teammate_weekly50_forward": 0.32649534296246313,
+    "weekly_v3_latent_half_shares": 0.32441347797553016
+  },
+  "development_weeks": [
+    {
+      "week": 0,
+      "model": "teammate_v2",
+      "score": 0.3245280967232135
+    },
+    {
+      "week": 0,
+      "model": "teammate_weekly50",
+      "score": 0.3251556784251483
+    },
+    {
+      "week": 0,
+      "model": "weekly_v3_latent_half_shares",
+      "score": 0.3277253092808073
+    },
+    {
+      "week": 1,
+      "model": "teammate_v2",
+      "score": 0.3290072279902172
+    },
+    {
+      "week": 1,
+      "model": "teammate_weekly50",
+      "score": 0.3261967423800277
+    },
+    {
+      "week": 1,
+      "model": "weekly_v3_latent_half_shares",
+      "score": 0.32441347797553016
+    }
+  ],
+  "evidence_scope": "Fourteen October dates reused for development. Forward v2 weights were fitted on Oct18-24, evaluated on Oct25-31. This is not a newly untouched control period.",
+  "input_v2_reported_public_score": 0.323,
+  "output_public_score": null,
+  "output_csv_sha256": "b09c61d1c096d4b87cafb726546b658a294ac8cf01b990477aa48f2b77ec99fc",
+  "same_test_ids": 8000,
+  "source_v2_reassembled_relative_error": 0.0
+}

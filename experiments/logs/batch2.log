@@ -1,0 +1,14 @@
+RESULT {"tag":"E2_huber","feats":"v2","clip":true,"route_cat":false,"objective":"huber"} r=200: score 0.3378 std 0.0121 wape 0.3200 bias -0.0155 sat 0.3386 | k0.98:0.3549 k0.99:0.3451 k1.01:0.3345 k1.02:0.3368 k1.03:0.3420
+RESULT {"tag":"E2_huber","feats":"v2","clip":true,"route_cat":false,"objective":"huber"} r=300: score 0.3376 std 0.0118 wape 0.3192 bias -0.0163 sat 0.3381 | k0.98:0.3550 k0.99:0.3451 k1.01:0.3341 k1.02:0.3358 k1.03:0.3410
+RESULT {"tag":"E2_huber","feats":"v2","clip":true,"route_cat":false,"objective":"huber"} r=400: score 0.3366 std 0.0119 wape 0.3188 bias -0.0149 sat 0.3380 | k0.98:0.3532 k0.99:0.3434 k1.01:0.3336 k1.02:0.3364 k1.03:0.3417
+RESULT {"tag":"E2_huber","feats":"v2","clip":true,"route_cat":false,"objective":"huber"} r=600: score 0.3358 std 0.0115 wape 0.3186 bias -0.0131 sat 0.3385 | k0.98:0.3510 k0.99:0.3414 k1.01:0.3333 k1.02:0.3371 k1.03:0.3426
+rows 3696000  time 601s
+RESULT {"tag":"E2_tweedie","feats":"v2","clip":true,"route_cat":false,"objective":"tweedie"} r=200: score 0.3355 std 0.0130 wape 0.3212 bias -0.0045 sat 0.3411 | k0.98:0.3450 k0.99:0.3376 k1.01:0.3376 k1.02:0.3438 k1.03:0.3515
+RESULT {"tag":"E2_tweedie","feats":"v2","clip":true,"route_cat":false,"objective":"tweedie"} r=300: score 0.3343 std 0.0125 wape 0.3201 bias -0.0065 sat 0.3400 | k0.98:0.3459 k0.99:0.3379 k1.01:0.3358 k1.02:0.3413 k1.03:0.3486
+RESULT {"tag":"E2_tweedie","feats":"v2","clip":true,"route_cat":false,"objective":"tweedie"} r=400: score 0.3338 std 0.0124 wape 0.3196 bias -0.0065 sat 0.3385 | k0.98:0.3454 k0.99:0.3373 k1.01:0.3355 k1.02:0.3408 k1.03:0.3482
+RESULT {"tag":"E2_tweedie","feats":"v2","clip":true,"route_cat":false,"objective":"tweedie"} r=600: score 0.3336 std 0.0125 wape 0.3194 bias -0.0058 sat 0.3366 | k0.98:0.3445 k0.99:0.3364 k1.01:0.3358 k1.02:0.3413 k1.03:0.3490
+rows 3696000  time 709s
+RESULT {"tag":"E2_reg","feats":"v2","clip":true,"route_cat":false,"leaves":31,"min_leaf":1000,"lr":0.03,"rounds":[400,700,1000]} r=400: score 0.3355 std 0.0134 wape 0.3212 bias -0.0035 sat 0.3428 | k0.98:0.3442 k0.99:0.3374 k1.01:0.3385 k1.02:0.3440 k1.03:0.3523
+RESULT {"tag":"E2_reg","feats":"v2","clip":true,"route_cat":false,"leaves":31,"min_leaf":1000,"lr":0.03,"rounds":[400,700,1000]} r=700: score 0.3347 std 0.0128 wape 0.3201 bias -0.0039 sat 0.3397 | k0.98:0.3434 k0.99:0.3369 k1.01:0.3372 k1.02:0.3429 k1.03:0.3504
+RESULT {"tag":"E2_reg","feats":"v2","clip":true,"route_cat":false,"leaves":31,"min_leaf":1000,"lr":0.03,"rounds":[400,700,1000]} r=1000: score 0.3344 std 0.0126 wape 0.3197 bias -0.0045 sat 0.3398 | k0.98:0.3435 k0.99:0.3368 k1.01:0.3369 k1.02:0.3420 k1.03:0.3494
+rows 3696000  time 551s

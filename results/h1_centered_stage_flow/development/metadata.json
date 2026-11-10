@@ -1,0 +1,34 @@
+{
+  "model": "h1_centered_stage_flow",
+  "stage": "development",
+  "origins": [
+    "2025-10-18 10:30:00",
+    "2025-10-19 10:30:00",
+    "2025-10-20 10:30:00",
+    "2025-10-21 10:30:00",
+    "2025-10-22 10:30:00",
+    "2025-10-23 10:30:00",
+    "2025-10-24 10:30:00",
+    "2025-10-25 10:30:00",
+    "2025-10-26 10:30:00",
+    "2025-10-27 10:30:00",
+    "2025-10-28 10:30:00",
+    "2025-10-29 10:30:00",
+    "2025-10-30 10:30:00",
+    "2025-10-31 10:30:00"
+  ],
+  "means": {
+    "h1_centered_stage_flow": 0.32632634295690705,
+    "latent_mass_blend50": 0.33257029416795386,
+    "mae_share_mass25": 0.33214906971293034,
+    "phase8_h1_full_causal_known_offset": 0.326405186936159,
+    "v3_totals_mlp_shares50": 0.3274325624835123,
+    "vlado_t_h1s600_reference": 0.3279373819733204
+  },
+  "wins_vs_full_known_h1": 9,
+  "first_week_mean_delta": -0.00021243390922837907,
+  "second_week_mean_delta": 5.4745950724363214e-05,
+  "submission_sha256": "703febb6cd1c6a204f32ef5d71fe85ba87cbe978818f26e4dba2a8ad7d94b5c9",
+  "public_score": null,
+  "platform_submission": false
+}

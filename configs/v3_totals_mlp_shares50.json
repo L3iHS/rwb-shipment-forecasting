@@ -1,0 +1,60 @@
+{
+  "model": "v3_totals_mlp_shares50",
+  "latent_mlp": {
+    "train_days": 14,
+    "source_stride": 1,
+    "horizon": 8,
+    "status_dynamics": true,
+    "normalization": "source-causal raw hourly target mean48 floor1000",
+    "numeric_features": 78,
+    "calendar": "sin/cos slot_of_day and integer day_of_week",
+    "scaler": "StandardScaler on all78training numeric columns only",
+    "route_encoder": "sorted unique training route IDs only",
+    "route_embedding": 8,
+    "hidden": [
+      128,
+      128
+    ],
+    "activation": "ReLU",
+    "output": "8Softplus(beta1,threshold20)",
+    "initialization": "seeded PyTorch nn.Linear/nn.Embedding defaults",
+    "optimizer": "AdamW",
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "optimizer_parameters": "all model parameters; foreach=False; fused=False",
+    "batch_size": 4096,
+    "epochs": 20,
+    "drop_last": false,
+    "shuffle": "one torch randperm per epoch using a dedicated seeded CPU generator",
+    "loss": "mean(sample_weight*mean8((prediction-normalized_latent_label)^2))",
+    "sample_weight": "source raw hourly scale / mean training-row scale",
+    "gradient_clipping": null,
+    "eval_set": null,
+    "early_stopping": false,
+    "dropout": 0.0,
+    "mixed_precision": false,
+    "torch_compile": false,
+    "seed": 42,
+    "device": "cpu",
+    "dtype": "float32",
+    "native_threads": 2,
+    "interop_threads": 2,
+    "deterministic_algorithms": true,
+    "rounding_tolerance": 0.5,
+    "composition": "mass_preserving_blend(MAE25,raw_mlp_hourly,.5)",
+    "share_weight": 0.5,
+    "preserve_h1": true,
+    "preserve_predicted_horizon_totals": true
+  },
+  "specification_sha256": "79d812f40fad6b9576ec527353c1cc5885900277480e3960a9e2e87f65b70b7c",
+  "torch_version": "2.15.0",
+  "composition": [
+    "mass_preserving_blend(MAE25,raw_mlp_hourly,.5)",
+    "mass_preserving_blend(V3,final_mlp,.5)"
+  ],
+  "runtime": {
+    "native_threads": 2,
+    "interop_threads": 2,
+    "device": "cpu"
+  }
+}

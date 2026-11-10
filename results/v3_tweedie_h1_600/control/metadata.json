@@ -1,0 +1,63 @@
+{
+  "candidate": "vlado_t_h1s600_reference",
+  "stage": "control",
+  "origins": [
+    "2025-09-20 10:30:00",
+    "2025-09-21 10:30:00",
+    "2025-09-22 10:30:00",
+    "2025-09-23 10:30:00",
+    "2025-09-24 10:30:00",
+    "2025-09-25 10:30:00",
+    "2025-09-26 10:30:00"
+  ],
+  "means": {
+    "latent_mass_blend50": 0.3368571299871683,
+    "mae_share_mass25": 0.3361615378723338,
+    "vlado_t_h1s600_reference": 0.33366108366283254
+  },
+  "development_means": {
+    "latent_mass_blend50": 0.33257029416795386,
+    "mae_share_mass25": 0.3321490697129303,
+    "vlado_t_h1s600_reference": 0.32793738197332045
+  },
+  "accepted_against_both_references": true,
+  "development_and_control_below_032": false,
+  "predictions_sha256": "76a68fec1c21a6a7f79ac6c1d5750c665130d81f439da84a1f7519dc1fb55524",
+  "control_retired": true,
+  "reserve_opened": false,
+  "public_score": null,
+  "platform_submission": false,
+  "interpretation": "Earlier historical robustness windows; not a prospective future holdout",
+  "metric": "Arithmetic mean of per-origin WAPE + absolute relative bias",
+  "model_config": "configs/v3_tweedie_h1_600.json",
+  "reference_config": "configs/v3_reference_comparison.json",
+  "model_source": "Pinned adapter for Vlado T_h1s600, fresh training at every origin",
+  "reference_adapter_sha256": "0ef181939f3b4cb911f8a9e9d9fc378ef2df9b3eb11979cc11c269cf5338ed9e",
+  "control_manifest_sha256": "9d9fc91cec0c9d8e99210d0592ee9f604aac17b67d4d1603f3f501b3ad98d627",
+  "train_sha256": "300aecbe2d3dc28be03bff957ba56ab20c7fa8ceb81b0301822d4bf6473bd076",
+  "wins_vs_mae_share_mass25": 6,
+  "wins_vs_latent_mass_blend50": 6,
+  "native_threads": 2,
+  "training_sources_V3_in_date_order": [
+    275,
+    286,
+    297,
+    308,
+    319,
+    330,
+    341
+  ],
+  "verification": {
+    "unique_keys_and_raw_truth": 56000,
+    "recomputed_fold_metrics": 21,
+    "recomputed_horizon_metrics": 168,
+    "native_checkpoints_exact": 21,
+    "all_label_cutoffs_at_or_before_origin": true,
+    "independent_audit_sha256": "5ddbbce8397979796290bb1e5f6e28c481046d5b4d809534166b12ccb97f2624"
+  },
+  "limitations": [
+    "Earlier historical origins withheld from candidate scoring locally; labels from this period appeared in training histories of later-origin models.",
+    "Shorter available training history than the final November forecast.",
+    "No public result for this CSV."
+  ]
+}
