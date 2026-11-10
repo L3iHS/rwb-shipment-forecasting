@@ -94,42 +94,37 @@ export function RouteCard({ board, r, call, lead, leadH, risk, cuts, calledHere,
       <AnimatePresence mode="popLayout" initial={false}>
         <motion.div key={r.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, transition: { duration: 0.12 } }} transition={base}>
-          <div className="flex flex-col gap-4 @xl:flex-row @xl:items-start @xl:justify-between">
-          <div className="min-w-0">
           <div className="eyebrow">Маршрут № {r.id}</div>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div key={v.title} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-              <h2 className={`mt-1 whitespace-nowrap font-display text-[34px] font-semibold leading-[1.08] @xl:text-[40px] ${TONE[v.tone]}`}>{v.title}</h2>
-              {/* Two lines are always reserved, so the tiles below never move when the wording changes. */}
+              <h2 className={`mt-1 whitespace-nowrap font-display text-[clamp(30px,6.5cqw,40px)] font-semibold leading-[1.08] ${TONE[v.tone]}`}>{v.title}</h2>
+              {/* Two lines are always reserved, so nothing below moves when the wording changes. */}
               <p className="mt-1.5 min-h-[46px] text-ink-2">{v.why}</p>
             </motion.div>
           </AnimatePresence>
-          </div>
-          {/* The controls always keep their place. When the rule asks for a truck the button is the coral action and
-              calls as many as are due; otherwise it is a quiet "call early" that names its price first. */}
-          <div className="flex shrink-0 items-start gap-2 @xl:flex-col @xl:items-end @xl:pt-1">
-            <div className="flex flex-1 flex-col @xl:flex-none @xl:items-end">
-              <motion.button onClick={onCalled} disabled={!due && !canEarly} whileTap={{ scale: 0.96 }}
-                className={`inline-flex h-11 w-full items-center justify-center gap-2 rounded-[10px] px-5 text-[16px] font-semibold transition-colors disabled:text-muted @xl:w-auto ${
-                  due ? "bg-signal text-on-signal" : "text-ink ring-1 ring-inset ring-line hover:bg-raised"}`}
-                title={due ? "Отметить, что машины вызваны: план маршрута пересчитается" : canEarly ? "Вызвать машину раньше, чем просит прогноз" : "Сверх плана вызвано уже достаточно"}>
-                {due ? <Check size={18} strokeWidth={2.25} /> : <Clock size={16} strokeWidth={2} />}
-                <span className="whitespace-nowrap">
-                  {due > 1 ? `Вызвать ${due} ${plural(due, "машину", "машины", "машин")}` : due ? (calledHere ? "Вызвать ещё" : "Вызвать машину") : canEarly ? "Вызвать раньше" : "Машин хватает"}
-                </span>
-              </motion.button>
-              <div className="mt-1 h-5 whitespace-nowrap text-[13px] leading-5 text-alert @xl:text-right">
-                {!due && canEarly && (nextWait > 0 ? `простоит ${span(board, nextWait, nextFill == null)}` : "")}
-              </div>
-            </div>
+          {/* The controls keep one arrangement at every width, so the card never re-stacks when the console narrows.
+              When the rule asks for a truck the button is the coral action and calls as many as are due; otherwise it
+              is a quiet "call early" that names its price first. The undo holds its place even while hidden. */}
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <motion.button onClick={onCalled} disabled={!due && !canEarly} whileTap={{ scale: 0.96 }}
+              className={`inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-[10px] px-5 text-[16px] font-semibold transition-colors disabled:text-muted @md:flex-none ${
+                due ? "bg-signal text-on-signal" : "text-ink ring-1 ring-inset ring-line hover:bg-raised"}`}
+              title={due ? "Отметить, что машины вызваны: план маршрута пересчитается" : canEarly ? "Вызвать машину раньше, чем просит прогноз" : "Сверх плана вызвано уже достаточно"}>
+              {due ? <Check size={18} strokeWidth={2.25} /> : <Clock size={16} strokeWidth={2} />}
+              <span className="whitespace-nowrap">
+                {due > 1 ? `Вызвать ${due} ${plural(due, "машину", "машины", "машин")}` : due ? (calledHere ? "Вызвать ещё" : "Вызвать машину") : canEarly ? "Вызвать раньше" : "Машин хватает"}
+              </span>
+            </motion.button>
+            <span className="order-3 h-5 w-full whitespace-nowrap text-[13px] leading-5 text-alert @md:order-none @md:w-auto">
+              {!due && canEarly && nextWait > 0 ? `простоит ${span(board, nextWait, nextFill == null)}` : ""}
+            </span>
             <motion.button onClick={onUndo} disabled={!calledHere} aria-hidden={!calledHere} initial={false}
               animate={{ opacity: calledHere ? 1 : 0 }} transition={base}
-              className="inline-flex h-11 items-center gap-1.5 rounded-[10px] px-3 text-[14px] text-ink-2 ring-1 ring-inset ring-line hover:text-ink disabled:pointer-events-none @xl:h-7 @xl:ring-0"
+              className="order-2 inline-flex h-11 items-center gap-1.5 rounded-[10px] px-3 text-[14px] text-ink-2 ring-1 ring-inset ring-line hover:text-ink disabled:pointer-events-none @md:order-none @md:ml-auto"
               title="Отменить последний вызов по этому маршруту">
               <Undo2 size={14} />
               <span className="whitespace-nowrap">отменить{calledHere > 1 ? ` (${calledHere})` : ""}</span>
             </motion.button>
-          </div>
           </div>
 
           <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-[14px] bg-line ring-1 ring-line @xl:grid-cols-4">

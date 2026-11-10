@@ -81,7 +81,7 @@ interface Props {
   onFilter: (f: Filter) => void;
 }
 
-const COLS = "grid-cols-[62px_112px_1fr_30px]";
+const COLS = "grid-cols-[58px_104px_1fr_28px]";
 
 export function CallQueue({ board, calls, filter, query, onQuery, selected, onSelect, onCalled, onFilter }: Props) {
   const reduced = useReducedMotion();

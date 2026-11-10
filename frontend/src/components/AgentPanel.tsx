@@ -116,7 +116,7 @@ export function AgentPanel({ open, onClose, board, calls, leadH, risk, view, onA
   // On a phone the panel covers the console, so close it to show what the action changed.
   const act = (a: Action) => {
     onAction(a);
-    if (window.innerWidth < 1024) onClose();
+    if (window.innerWidth < 1280) onClose();
   };
 
   async function ask(q: string) {
@@ -157,7 +157,7 @@ export function AgentPanel({ open, onClose, board, calls, leadH, risk, view, onA
   return (
     <AnimatePresence>
       {open && (
-        <motion.div key="backdrop" className="fixed inset-0 z-30 bg-black lg:hidden" onClick={onClose}
+        <motion.div key="backdrop" className="fixed inset-0 z-30 bg-black xl:hidden" onClick={onClose}
           initial={{ opacity: 0 }} animate={{ opacity: 0.4 }} exit={{ opacity: 0 }} transition={fast} />
       )}
       {open && (

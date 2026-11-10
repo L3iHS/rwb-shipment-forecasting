@@ -64,7 +64,7 @@ const AGENT_WIDTH = 420; // px, the assistant panel (see AgentPanel)
 
 function Console({ board: source }: { board: Board }) {
   const reduced = useReducedMotion();
-  const wide = useMedia("(min-width: 1024px)"); // room for the assistant beside the console; below it overlays
+  const wide = useMedia("(min-width: 1280px)"); // room for the assistant beside a console that keeps its layout; below it overlays
 
   // Trucks called from this console, as batches of route ids: one call is a batch of one, "call all" is one big batch,
   // so either is taken back in one step. Nothing is stored: a reload starts the shift from the forecast again.

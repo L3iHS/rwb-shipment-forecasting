@@ -74,41 +74,47 @@ export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onF
   return (
     <motion.div className="space-y-8" initial="hidden" animate="show"
       variants={{ show: { transition: { staggerChildren: reduced ? 0 : 0.07 } } }}>
-      {/* On the left what is happening, on the right the one thing to do about it. Side by side when the console is wide
-          enough, else one under the other. Sizes follow the console's own width (container queries), because the
-          assistant panel takes its share of the window when open. */}
-      <motion.section variants={item} className="grid items-end gap-x-10 gap-y-6 @5xl:grid-cols-[minmax(0,1fr)_400px]">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-6">
+      {/* On the left what is happening, on the right the one thing to do about it. The two stay side by side from a
+          tablet-wide console up, and every size here is fluid in the console's own width (cqw): when the assistant
+          opens and takes its share of the window, the block narrows smoothly instead of re-arranging. */}
+      <motion.section variants={item} className="grid items-center gap-x-8 gap-y-7 @3xl:grid-cols-[minmax(0,1fr)_clamp(280px,30cqw,400px)]">
+        <div className="flex flex-col gap-4 @xl:flex-row @xl:items-center @xl:gap-[clamp(16px,2.2cqw,28px)]">
           {/* The hidden copy holds the final width, so the heading beside it does not slide while the number counts. */}
-          <span className={`relative inline-block self-start font-hero text-[104px] font-extrabold tabular-nums leading-[0.8] tracking-[-0.02em] transition-colors duration-300 sm:min-w-[3.4ch] sm:self-auto sm:text-[128px] ${k.callNow > 0 ? "text-signal" : "text-forecast"}`}>
+          <span className={`relative inline-block self-start font-hero text-[clamp(96px,11cqw,128px)] font-extrabold tabular-nums leading-[0.8] tracking-[-0.02em] transition-colors duration-300 @xl:min-w-[3.4ch] @xl:self-auto ${k.callNow > 0 ? "text-signal" : "text-forecast"}`}>
             <span className="invisible">{int(k.callNow)}</span>
             <span className="absolute inset-0"><Ticker value={k.callNow} from={0} /></span>
           </span>
-          <div className="pb-0.5">
-            <h1 className="font-display text-[30px] font-semibold leading-[1.06] sm:text-[40px]">
+          <div className="min-w-0">
+            <h1 className="font-display text-[clamp(28px,3.3cqw,40px)] font-semibold leading-[1.06]">
               {k.callNow > 0 ? <>{plural(k.callNow, "маршруту", "маршрутам", "маршрутам")} нужна<br />машина сейчас</> : <>срочных вызовов<br />не осталось</>}
             </h1>
-            <p className="mt-2 min-h-[46px] text-ink-2 sm:min-h-0">
-              Ещё <span className="font-semibold text-ink">{int(k.callHour)}</span> в течение часа,{" "}
-              <span className="whitespace-nowrap">всего до {hhmm(clock(board, 8))} нужно</span>{" "}
-              <span className="whitespace-nowrap"><span className="font-semibold text-ink">{int(k.fleet)}</span> {plural(k.fleet, "машина", "машины", "машин")}</span>
-            </p>
+            {/* What comes after "now": two figures instead of a sentence. */}
+            <dl className="mt-3.5 flex gap-6">
+              <div>
+                <dd className="text-[20px] font-semibold leading-6"><Ticker value={k.callHour} /></dd>
+                <dt className="text-[13px] leading-[18px] text-ink-2">ещё в течение часа</dt>
+              </div>
+              <div className="border-l border-line pl-6">
+                <dd className="text-[20px] font-semibold leading-6"><Ticker value={k.fleet} /></dd>
+                <dt className="whitespace-nowrap text-[13px] leading-[18px] text-ink-2">{plural(k.fleet, "машина", "машины", "машин")} всего до {hhmm(clock(board, 8))}</dt>
+              </div>
+            </dl>
           </div>
         </div>
 
-        {/* The one action of the screen. Over it the progress reads left to right: trucks called, the bar, trucks due in
-            all. The bar is as long as the button. Every line keeps its place whatever it says. */}
-        <div className="w-full @2xl:max-w-[400px] @5xl:justify-self-end">
-          <div className="flex items-center gap-3" role="img" aria-label={`Вызвано ${total} из ${total + due} машин`}>
-            <span className="num min-w-[4ch] text-[18px] font-semibold text-ink" title="Машин вызвано"><Ticker value={total} /></span>
-            <span className="relative h-2 flex-1 overflow-hidden rounded-full bg-line">
-              <motion.span className="absolute inset-0 origin-left rounded-full bg-signal" initial={false}
-                animate={{ scaleX: total / Math.max(1, total + due) }} transition={flow} />
-            </span>
-            <span className="num min-w-[4ch] text-right text-[18px] font-medium text-ink-2" title="Машин нужно всего"><Ticker value={total + due} /></span>
+        {/* The one action of the screen. Over it the progress, exactly as wide as the button: called on the left end,
+            due in all on the right end. Every line keeps its place whatever it says. */}
+        <div className="w-full max-w-[420px] @3xl:max-w-none">
+          <div className="flex items-baseline justify-between text-[13px] leading-6 text-ink-2">
+            <span>вызвано <span className="num ml-1 text-[18px] font-semibold text-ink"><Ticker value={total} /></span></span>
+            <span>нужно <span className="num ml-1 text-[18px] font-semibold text-ink"><Ticker value={total + due} /></span></span>
           </div>
+          <span className="relative mt-1.5 block h-2 overflow-hidden rounded-full bg-line" role="img" aria-label={`Вызвано ${total} из ${total + due} машин`}>
+            <motion.span className="absolute inset-0 origin-left rounded-full bg-signal" initial={false}
+              animate={{ scaleX: total / Math.max(1, total + due) }} transition={flow} />
+          </span>
           <motion.button onClick={onCallAll} disabled={!due} whileTap={{ scale: 0.98 }}
-            className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-[12px] bg-signal px-5 text-[17px] font-semibold text-on-signal transition-colors disabled:bg-raised disabled:text-muted"
+            className="mt-3.5 inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-[12px] bg-signal px-5 text-[17px] font-semibold text-on-signal transition-colors disabled:bg-raised disabled:text-muted"
             title={due ? `Вызвать машины всем маршрутам, которым пора: ${due}` : "Все нужные машины вызваны"}>
             <CheckCheck size={19} strokeWidth={2.25} />
             Вызвать всем
@@ -156,10 +162,10 @@ export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onF
         <Buckets calls={calls} waiting={k.waiting} active={query ? null : filter} onPick={onFilter} />
       </motion.div>
 
-      <motion.div variants={item} className="grid gap-5 @[840px]:grid-cols-[380px_minmax(0,1fr)] @6xl:grid-cols-[400px_minmax(0,1fr)]">
+      <motion.div variants={item} className="grid gap-5 @3xl:grid-cols-[clamp(350px,36cqw,400px)_minmax(0,1fr)]">
         {/* On a wide screen the queue takes exactly the card's height, so the two panels end on one line. */}
-        <div className="relative h-[480px] @[840px]:h-auto @[840px]:min-h-[560px]">
-          <div className="h-full @[840px]:absolute @[840px]:inset-0">
+        <div className="relative h-[480px] @3xl:h-auto @3xl:min-h-[560px]">
+          <div className="h-full @3xl:absolute @3xl:inset-0">
             <CallQueue board={board} calls={calls} filter={filter} query={query} onQuery={onQuery} selected={selected} onSelect={select} onCalled={onCalled} onFilter={onFilter} />
           </div>
         </div>
