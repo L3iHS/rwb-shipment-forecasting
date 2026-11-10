@@ -91,20 +91,24 @@ interface FanProps {
   calls?: number[]; // routes to call a truck for at step k = 0.. from now; drawn as bars on the same time axis
   active?: (k: number) => boolean; // bars the queue below is filtered to
   onSlot?: (k: number) => void;
+  ghost?: number[]; // the bars as the forecast planned them, before the dispatcher called anything
+  enRoute?: { k: number; count: number }; // trucks called from the console and the step they arrive at
 }
 
 /** Fact (ink) up to "now", then the forecast (sky) with its 10-90 % band; optionally the wave of truck calls beneath. */
-export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, active, onSlot }: FanProps) {
+export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, active, onSlot, ghost, enRoute }: FanProps) {
   const [ref, W] = useWidth<HTMLDivElement>();
   const reduced = useReducedMotion();
   const first = useFirstRender();
   const clip = useId().replace(/:/g, "");
   const [hover, setHover] = useState<number | null>(null);
+  const [overBars, setOverBars] = useState(false); // only the bars are clickable, so only they get the pointer cursor
 
   const L = 44, R = 18, top = 26, gap = 30, barsH = 60; // top + height + 24 = 260 at height 210: same box as Dock
   const plotB = top + height;
   const barsB = calls ? plotB + gap + barsH : plotB;
-  const H = barsB + 24;
+  const roadY = barsB + 14; // under the bars: the road of the trucks already called
+  const H = barsB + (calls ? 20 : 0) + 24;
   const h0 = hist.length - 1;
   const n = h0 + fc.length;
   const slot = (W - L - R) / n;
@@ -120,11 +124,12 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
   const lower = [nowPt, ...lo.map((v, k): Pt => [x(h0 + k + 1), y(v)])];
   const pk = fc.indexOf(Math.max(...fc));
   const labelStep = Math.max(1, Math.ceil(58 / slot));
-  const maxCall = calls ? Math.max(1, ...calls) : 1;
+  const maxCall = calls ? Math.max(1, ...calls, ...(ghost ?? [])) : 1;
   const barW = Math.min(22, Math.max(6, slot - 6));
   const activeKs = calls && active ? calls.map((_, k) => k).filter((k) => active(k)) : [];
   const t = (tr: object) => (reduced ? { duration: 0 } : tr);
   const k = hover == null ? -1 : hover - h0;
+  const canPick = !!calls && !!onSlot && overBars && k >= 0 && k < calls.length && calls[k] > 0; // a bar under the cursor
 
   return (
     <div ref={ref} className="relative select-none" style={{ height: H }}>
@@ -186,10 +191,47 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
                       style={{ filter: tone === "now" ? "var(--glow-signal)" : undefined }}
                       initial={{ y: barsB, height: 6, opacity: 0 }}
                       animate={{ y: barsB - h, height: h + 6, opacity: tone === "now" ? 1 : tone === "soon" ? (k === i ? 0.7 : 0.5) : k === i ? 0.5 : 0.3 }}
-                      transition={t({ ...flow, delay: first ? 0.7 + i * 0.045 : 0 })} />
+                      // A tween, not a spring: a spring overshoots below zero height when a bar collapses.
+                      transition={t({ duration: 0.45, ease, delay: first ? 0.7 + i * 0.045 : 0 })} />
                   );
                 })}
+                {/* What the plan was before the calls: a dotted outline where the bar has shrunk since. */}
+                {ghost?.map((g, i) =>
+                  g > calls[i] ? (
+                    <motion.rect key={`ghost${i}`} x={x(h0 + i) - barW / 2 + 0.5} width={barW - 1} rx={Math.min(5, barW / 2)}
+                      y={barsB - Math.max(3, (barsH * g) / maxCall)} height={Math.max(3, (barsH * g) / maxCall) + 6}
+                      fill="none" stroke="var(--ink-2)" strokeDasharray="2 3" initial={{ opacity: 0 }} animate={{ opacity: 0.7 }} />
+                  ) : null,
+                )}
               </g>
+              {ghost?.map((g, i) =>
+                // The old value is printed only where it has room above the current one; otherwise the tooltip carries it.
+                g > calls[i] && (slot >= 30 || i === 0) && (calls[i] === 0 || (barsH * (g - calls[i])) / maxCall >= 14) ? (
+                  <text key={`was${i}`} className="tick" x={x(h0 + i)} y={barsB - Math.max(3, (barsH * g) / maxCall) - 6}
+                    textAnchor="middle" textDecoration="line-through">{g}</text>
+                ) : null,
+              )}
+              {enRoute && enRoute.count > 0 && (
+                <g>
+                  <line x1={nowPt[0]} x2={x(h0 + enRoute.k)} y1={roadY} y2={roadY} stroke="var(--ink)" strokeOpacity={0.3}
+                    strokeWidth={2} strokeLinecap="round" />
+                  {/* The trucks drive from "now" to their arrival each time the count changes. */}
+                  <motion.g key={enRoute.count} initial={{ x: nowPt[0], opacity: 0 }} animate={{ x: x(h0 + enRoute.k), opacity: 1 }}
+                    transition={t({ x: { duration: 1.2, ease }, opacity: { duration: 0.2 } })}>
+                    <circle cx={0} cy={roadY} r={10} fill="var(--ground)" />
+                    <Truck x={-8} y={roadY - 8} width={16} height={16} strokeWidth={1.9} color="var(--ink)" />
+                    {/* Right of the truck while it fits; otherwise the short form, or to the left of the truck. */}
+                    {(() => {
+                      const full = `едут ${enRoute.count}, будут в ${times[h0 + enRoute.k]}`, short = `едут ${enRoute.count}`;
+                      const room = W - 4 - (x(h0 + enRoute.k) + 14), w = (s: string) => s.length * 6.3;
+                      const label = w(full) <= room ? full : short;
+                      return w(label) <= room
+                        ? <text className="mark" x={14} y={roadY + 4} style={{ fill: "var(--ink)" }}>{label}</text>
+                        : <text className="mark" x={-14} y={roadY + 4} textAnchor="end" style={{ fill: "var(--ink)", paintOrder: "stroke", stroke: "var(--ground)", strokeWidth: 4 }}>{label}</text>;
+                    })()}
+                  </motion.g>
+                </g>
+              )}
               {calls.map((c, i) => {
                 const h = c ? Math.max(3, (barsH * c) / maxCall) : 0;
                 const on = activeKs.includes(i);
@@ -226,13 +268,14 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
             </g>
           )}
           <rect x={L - slot / 2} y={top} width={W - L - R + slot} height={barsB - top} fill="transparent"
-            style={{ cursor: calls && onSlot && k >= 0 && k < calls.length ? "pointer" : "crosshair" }}
+            style={{ cursor: canPick ? "pointer" : "default" }}
             onPointerMove={(e) => {
               const box = e.currentTarget.ownerSVGElement!.getBoundingClientRect();
               setHover(Math.max(0, Math.min(n, Math.round((e.clientX - box.left - L) / slot))));
+              setOverBars(e.clientY - box.top > plotB + 6);
             }}
-            onPointerLeave={() => setHover(null)}
-            onClick={() => calls && onSlot && k >= 0 && k < calls.length && onSlot(k)} />
+            onPointerLeave={() => { setHover(null); setOverBars(false); }}
+            onClick={() => canPick && onSlot!(k)} />
         </svg>
       )}
       {hover != null && W > 0 && (
@@ -247,6 +290,8 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
             </>
           )}
           {calls && k >= 0 && k < calls.length && <TipRow k="вызвать" v={String(calls[k])} swatch="var(--signal)" />}
+          {ghost && k >= 0 && k < ghost.length && ghost[k] !== calls?.[k] && <TipRow k="было по плану" v={String(ghost[k])} />}
+          {enRoute && enRoute.count > 0 && k === enRoute.k && <TipRow k="приедут" v={String(enRoute.count)} swatch="var(--ink)" />}
         </Tooltip>
       )}
     </div>
@@ -261,10 +306,13 @@ interface DockProps {
   callK?: number; // step of the call; undefined when no call is needed within the horizon
   arriveK?: number;
   runKey: string; // changes when the truck should drive again: route, call or lead time
+  /** Trucks the dispatcher already called for this route and when they arrive. `wait` is set when they came ahead of
+   *  their load: until which step the last one stands idle (null = beyond the horizon) and the label saying how long. */
+  made?: { arriveK: number; count: number; wait?: { untilK: number | null; label: string } };
 }
 
 /** Truckloads at the dock over the horizon: the curve climbs to the "one more truck" level, the truck is called a lead time before. */
-export function Dock({ times, line, hi, need, callK, arriveK, runKey }: DockProps) {
+export function Dock({ times, line, hi, need, callK, arriveK, runKey, made }: DockProps) {
   const [ref, W] = useWidth<HTMLDivElement>();
   const reduced = useReducedMotion();
   const grad = useId().replace(/:/g, "");
@@ -304,6 +352,14 @@ export function Dock({ times, line, hi, need, callK, arriveK, runKey }: DockProp
             </g>
           ))}
 
+          {/* One line per truck already called: cargo up to that level has a truck coming. The next one is the dashed level. */}
+          {Array.from({ length: Math.min(need - 1, 8) }, (_, i) => i + 1).map((lv) => (
+            <motion.g key={lv} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={t({ duration: 0.3 })}>
+              <line x1={L} x2={W - R} y1={y(lv)} y2={y(lv)} stroke="var(--ink-2)" strokeOpacity={0.5} />
+              <Truck x={W - R + 3} y={y(lv) - 7} width={13} height={13} strokeWidth={1.9} color="var(--ink-2)" />
+            </motion.g>
+          ))}
+
           <motion.path fill="var(--forecast-soft)" initial={false} animate={{ d: between(cautious, pts) }} transition={t(flow)} />
           <motion.path fill={`url(#${grad})`} initial={false} animate={{ d: under(pts, B) }} transition={t(flow)} />
           <motion.path fill="none" stroke="var(--forecast)" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"
@@ -325,26 +381,67 @@ export function Dock({ times, line, hi, need, callK, arriveK, runKey }: DockProp
           {called && (
             <g>
               <motion.g initial={false} animate={{ x: x(callK) }} transition={t(flow)}>
-                <line y1={top - 26} y2={roadY} stroke="var(--signal)" strokeWidth={2} style={{ filter: "var(--glow-signal)" }} />
+                <line y1={top - 26} y2={made ? B : roadY} stroke="var(--signal)" strokeWidth={2} style={{ filter: "var(--glow-signal)" }} />
               </motion.g>
               <text className="mark" style={{ fill: "var(--signal-ink)" }} y={top - 18} {...anchor(x(callK))}>
-                вызов {callK === 0 ? "сейчас" : times[callK]}
+                {made ? "следующий вызов" : "вызов"} {callK === 0 ? "сейчас" : times[callK]}
               </text>
               <motion.g initial={false} animate={{ x: x(arriveK) }} transition={t(flow)}>
-                <line y1={top - 10} y2={roadY} stroke="var(--signal)" strokeWidth={1.5} strokeDasharray="2 4" />
+                <line y1={top - 10} y2={made ? B : roadY} stroke="var(--signal)" strokeWidth={1.5} strokeDasharray="2 4" />
               </motion.g>
               <text className="mark" style={{ fill: "var(--signal-ink)" }} y={top - 2} {...anchor(x(arriveK))}>
                 прибытие {times[arriveK]}
               </text>
               <motion.circle r={5.5} fill="var(--signal)" stroke="var(--surface)" strokeWidth={2} initial={false}
                 animate={{ cx: x(arriveK), cy: y(line[arriveK]) }} transition={t(flow)} />
-              {/* The road: its length is the lead time, and the truck drives it once per plan. */}
-              <motion.line y1={roadY} y2={roadY} stroke="var(--signal)" strokeOpacity={0.35} strokeWidth={2} strokeLinecap="round"
-                initial={false} animate={{ x1: x(callK), x2: x(arriveK) }} transition={t(flow)} />
-              <motion.g key={runKey} initial={{ x: x(callK), opacity: 0 }} animate={{ x: x(arriveK), opacity: 1 }}
-                transition={t({ x: { duration: 1.5, delay: 0.35, ease }, opacity: { duration: 0.2, delay: 0.3 } })}>
+              {/* The road: its length is the lead time, and the truck drives it once per plan.
+                  Once a truck is really called, the road below belongs to it instead. */}
+              {!made && (
+                <>
+                  <motion.line y1={roadY} y2={roadY} stroke="var(--signal)" strokeOpacity={0.35} strokeWidth={2} strokeLinecap="round"
+                    initial={false} animate={{ x1: x(callK), x2: x(arriveK) }} transition={t(flow)} />
+                  <motion.g key={runKey} initial={{ x: x(callK), opacity: 0 }} animate={{ x: x(arriveK), opacity: 1 }}
+                    transition={t({ x: { duration: 1.5, delay: 0.35, ease }, opacity: { duration: 0.2, delay: 0.3 } })}>
+                    <circle cx={0} cy={roadY} r={11} fill="var(--surface)" />
+                    <Truck x={-9} y={roadY - 9} width={18} height={18} strokeWidth={1.9} color="var(--signal)" />
+                  </motion.g>
+                </>
+              )}
+            </g>
+          )}
+
+          {/* The truck the dispatcher called: it leaves now and the label says when it arrives. */}
+          {made && made.arriveK <= n && (
+            <g>
+              <line x1={x(0)} x2={x(made.arriveK)} y1={roadY} y2={roadY} stroke="var(--ink)" strokeOpacity={0.3} strokeWidth={2} strokeLinecap="round" />
+              {/* Idle time: from the arrival to the moment the curve reaches this truck's level. */}
+              {made.wait && (
+                <g>
+                  <motion.line y1={roadY} y2={roadY} stroke="var(--alert)" strokeWidth={3} strokeLinecap="round"
+                    strokeDasharray={made.wait.untilK == null ? "1 7" : undefined} initial={false}
+                    animate={{ x1: x(made.arriveK), x2: x(made.wait.untilK ?? n) }} transition={t(flow)} />
+                  {made.wait.untilK != null && (
+                    <>
+                      <motion.line stroke="var(--alert)" strokeDasharray="2 4" initial={false}
+                        animate={{ x1: x(made.wait.untilK), x2: x(made.wait.untilK), y1: y(need - 1), y2: roadY }} transition={t(flow)} />
+                      <motion.circle r={5} fill="var(--alert)" stroke="var(--surface)" strokeWidth={2} initial={false}
+                        animate={{ cx: x(made.wait.untilK), cy: y(need - 1) }} transition={t(flow)} />
+                    </>
+                  )}
+                </g>
+              )}
+              <motion.g key={`${runKey}-${made.count}`} initial={{ x: x(0), opacity: 0 }} animate={{ x: x(made.arriveK), opacity: 1 }}
+                transition={t({ x: { duration: 1.5, delay: 0.2, ease }, opacity: { duration: 0.2, delay: 0.15 } })}>
                 <circle cx={0} cy={roadY} r={11} fill="var(--surface)" />
-                <Truck x={-9} y={roadY - 9} width={18} height={18} strokeWidth={1.9} color="var(--signal)" />
+                <Truck x={-9} y={roadY - 9} width={18} height={18} strokeWidth={1.9} color="var(--ink)" />
+                {(() => {
+                  const full = `${made.count > 1 ? `едут ${made.count}, будут` : "едет, будет"} в ${times[made.arriveK]}`;
+                  const ride = full.length * 6.3 <= W - 4 - (x(made.arriveK) + 15) ? full : made.count > 1 ? `едут ${made.count}` : "едет";
+                  // A waiting truck says how long it waits; the stroke keeps the words readable over the idle line.
+                  return made.wait
+                    ? <text className="mark" x={15} y={roadY + 4} style={{ fill: "var(--alert)", paintOrder: "stroke", stroke: "var(--surface)", strokeWidth: 5 }}>{made.wait.label}</text>
+                    : <text className="mark" x={15} y={roadY + 4} style={{ fill: "var(--ink)" }}>{ride}</text>;
+                })()}
               </motion.g>
             </g>
           )}
@@ -362,7 +459,7 @@ export function Dock({ times, line, hi, need, callK, arriveK, runKey }: DockProp
               <circle cx={x(hover)} cy={y(line[hover])} r={5} fill="var(--forecast)" stroke="var(--surface)" strokeWidth={2} />
             </g>
           )}
-          <rect x={L - slot / 2} y={top} width={W - L - R + slot} height={height} fill="transparent" style={{ cursor: "crosshair" }}
+          <rect x={L - slot / 2} y={top} width={W - L - R + slot} height={height} fill="transparent"
             onPointerMove={(e) => {
               const box = e.currentTarget.ownerSVGElement!.getBoundingClientRect();
               setHover(Math.max(0, Math.min(n, Math.round((e.clientX - box.left - L) / slot))));

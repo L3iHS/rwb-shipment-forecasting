@@ -1,11 +1,12 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowUp, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { brief, localAnswer, type Line } from "../brief";
+import { localAnswer } from "../brief";
+import { dec2, int } from "../format";
 import type { Board } from "../data";
 import type { Risk } from "../plan";
 import { base, fast, panel } from "../motion";
-import type { Action } from "../tools";
+import { findRoutes, networkSummary, type Action } from "../tools";
 
 interface Msg { role: "user" | "assistant"; content: string; local?: boolean; why?: string }
 
@@ -35,17 +36,55 @@ interface Props {
   onAction: (a: Action) => void;
 }
 
-const briefItem = { hidden: { opacity: 0, y: 4 }, show: { opacity: 1, y: 0, transition: base } };
+const tile = { hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0, transition: base } };
 
-function BriefLine({ line, onAction }: { line: Line; onAction: (a: Action) => void }) {
+/** The shift at a glance: four numbers to press and the three routes with the most cargo. No prose. */
+function Summary({ board, calls, onAction }: { board: Board; calls: number[]; onAction: (a: Action) => void }) {
+  const reduced = useReducedMotion();
+  const n = networkSummary(board, calls);
+  const top = findRoutes(board, calls, "call_now", 3).routes;
+  const tiles: [string, string, Action | null, string][] = [
+    ["Вызвать сейчас", int(n.call_now), { type: "filter", value: "now" }, n.call_now ? "text-signal" : "text-forecast"],
+    ["В течение часа", int(n.call_within_hour), { type: "filter", value: "soon" }, "text-ink"],
+    ["Груз без машины", int(n.waiting_without_truck), { type: "filter", value: "jam" }, n.waiting_without_truck ? "text-alert" : "text-ink"],
+    ["Пик отгрузок", n.peak_at, null, "text-ink"],
+  ];
   return (
-    <motion.li variants={briefItem} className="leading-relaxed">
-      {line.map((p, i) => typeof p === "string" ? <span key={i}>{p}</span> : (
-        <button key={i} onClick={() => onAction(p.action)} className="num font-semibold text-ink underline decoration-signal/60 decoration-2 underline-offset-4 transition-colors hover:decoration-signal">
-          {p.label}
-        </button>
-      ))}
-    </motion.li>
+    <motion.div initial="hidden" animate="show"
+      variants={{ show: { transition: { staggerChildren: reduced ? 0 : 0.05, delayChildren: reduced ? 0 : 0.12 } } }}>
+      <div className="grid grid-cols-2 gap-2">
+        {tiles.map(([label, value, action, tone]) => {
+          const body = (
+            <>
+              <div className={`font-display text-[32px] font-semibold leading-9 ${tone}`}>{value}</div>
+              <div className="mt-0.5 text-[14px] leading-5 text-ink-2">{label}</div>
+            </>
+          );
+          return action ? (
+            <motion.button key={label} variants={tile} onClick={() => onAction(action)} whileTap={{ scale: 0.97 }}
+              className="rounded-[14px] bg-raised px-4 py-3 text-left ring-1 ring-inset ring-transparent transition-shadow hover:ring-line">
+              {body}
+            </motion.button>
+          ) : (
+            <motion.div key={label} variants={tile} className="rounded-[14px] bg-raised px-4 py-3">{body}</motion.div>
+          );
+        })}
+      </div>
+      {top.length > 0 && (
+        <motion.div variants={tile} className="mt-4">
+          <div className="text-[14px] leading-5 text-ink-2">Больше всего груза у ворот</div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {top.map((r) => (
+              <button key={r.route_id} onClick={() => onAction({ type: "open_route", id: r.route_id })}
+                className="flex items-baseline gap-2 rounded-[10px] px-3 py-2 ring-1 ring-inset ring-line transition-colors hover:bg-raised">
+                <span className="num text-[14px] font-medium text-ink">№ {r.route_id}</span>
+                <span className="text-[14px] text-ink-2">{dec2(r.backlog_loads)} кузова</span>
+              </button>
+            ))}
+          </div>
+        </motion.div>
+      )}
+    </motion.div>
   );
 }
 
@@ -144,23 +183,17 @@ export function AgentPanel({ open, onClose, board, calls, leadH, risk, view, onA
           className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[420px] flex-col border-l border-line bg-surface shadow-[var(--shadow-pop)]">
           <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
             <div>
-              <h2 className="font-display text-[24px] font-semibold leading-7">Ассистент<span className="text-signal">.</span></h2>
+              <h2 className="font-display text-[22px] font-semibold leading-7">Ассистент<span className="text-signal">.</span></h2>
             </div>
             <button onClick={onClose} className="grid size-8 place-items-center rounded-[10px] text-ink-2 transition-colors hover:bg-raised hover:text-ink" aria-label="Закрыть"><X size={16} /></button>
           </div>
-          <div ref={scroller} className="scroll-quiet flex-1 space-y-4 overflow-y-auto p-5 text-[15px] leading-[22px]">
-            <div className="rounded-[14px] bg-raised p-4">
-              <div className="eyebrow mb-2">Сводка смены</div>
-              <motion.ul className="space-y-2" initial="hidden" animate="show"
-                variants={{ show: { transition: { staggerChildren: reduced ? 0 : 0.04, delayChildren: reduced ? 0 : 0.12 } } }}>
-                {brief(board, calls).map((l, i) => <BriefLine key={i} line={l} onAction={act} />)}
-              </motion.ul>
-            </div>
+          <div ref={scroller} className="scroll-quiet flex-1 space-y-5 overflow-y-auto p-5 text-[16px] leading-[24px]">
+            <Summary board={board} calls={calls} onAction={act} />
             {msgs.map((m, i) => (
               <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={base}
-                className={m.role === "user" ? "ml-auto w-fit max-w-[85%] rounded-[14px] rounded-br-md bg-ink px-3.5 py-2 text-ground" : "mr-6 leading-relaxed"}>
+                className={m.role === "user" ? "ml-auto w-fit max-w-[85%] rounded-[14px] rounded-br-md bg-ink px-3.5 py-2 text-ground" : "mr-4"}>
                 {m.content}
-                {m.local && <div className="mt-1 text-[11px] text-muted">Ответ без языковой модели. {m.why}</div>}
+                {m.local && <div className="mt-1.5 text-[13px] leading-5 text-muted">Ответ без языковой модели. {m.why}</div>}
               </motion.div>
             ))}
             {busy && <Thinking />}
@@ -169,13 +202,13 @@ export function AgentPanel({ open, onClose, board, calls, leadH, risk, view, onA
             {msgs.length === 0 && (
               <div className="mb-2 flex flex-wrap gap-1.5">
                 {SUGGEST.map((s) => (
-                  <button key={s} onClick={() => ask(s)} className="rounded-full px-3 py-1.5 text-xs text-ink-2 ring-1 ring-inset ring-line transition-colors hover:bg-raised hover:text-ink">{s}</button>
+                  <button key={s} onClick={() => ask(s)} className="rounded-full px-3.5 py-2 text-[14px] leading-5 text-ink-2 ring-1 ring-inset ring-line transition-colors hover:bg-raised hover:text-ink">{s}</button>
                 ))}
               </div>
             )}
             <form onSubmit={(e) => { e.preventDefault(); ask(text); }} className={`agent-composer flex items-center gap-2 rounded-[14px] bg-raised px-3.5 py-2.5 ${keyboardFocus ? "keyboard-focus" : ""}`}>
               <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Вопрос" aria-label="Вопрос ассистенту" maxLength={500}
-                className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted" />
+                className="min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-muted" />
               <button type="submit" disabled={!text.trim() || busy} className="grid size-7 place-items-center rounded-lg bg-ink text-ground transition-opacity disabled:opacity-30" aria-label="Отправить">
                 <ArrowUp size={14} />
               </button>

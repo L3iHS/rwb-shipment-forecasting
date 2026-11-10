@@ -19,7 +19,7 @@ export function Header({ board, onAgent, agentOpen, dark, onTheme }: Props) {
     <header className="sticky top-0 z-30 border-b border-line bg-ground/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="font-display text-[24px] font-bold leading-7">Пульт<span className="text-signal">.</span></span>
+          <span className="font-display text-[22px] font-bold leading-7">Пульт<span className="text-signal">.</span></span>
           <span className="num flex items-center gap-2 whitespace-nowrap rounded-full bg-raised px-2.5 py-1 text-[11px] leading-4 text-ink-2"
             title="Момент, на который построен прогноз">
             <i className="live-dot size-1.5 rounded-full bg-signal" />
