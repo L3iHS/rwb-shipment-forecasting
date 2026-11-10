@@ -1,11 +1,11 @@
-import { MotionConfig } from "motion/react";
+import { MotionConfig, motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AgentPanel } from "./components/AgentPanel";
 import { bucketOf, queueRows, type Filter } from "./components/CallQueue";
 import { Header } from "./components/Header";
 import { Shift } from "./components/Shift";
 import { loadBoard, type Board } from "./data";
-import { base } from "./motion";
+import { base, panel } from "./motion";
 import { calledIdle, callStep, kpis, leadSteps, trucksDue, type Scenario } from "./plan";
 import type { Action } from "./tools";
 
@@ -48,7 +48,24 @@ function Centered({ children }: { children: React.ReactNode }) {
   return <div className="grid h-full place-items-center p-6 text-ink-2">{children}</div>;
 }
 
+/** Whether a media query matches, kept up to date. */
+function useMedia(query: string): boolean {
+  const [matches, setMatches] = useState(() => matchMedia(query).matches);
+  useEffect(() => {
+    const mq = matchMedia(query);
+    const update = () => setMatches(mq.matches);
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, [query]);
+  return matches;
+}
+
+const AGENT_WIDTH = 420; // px, the assistant panel (see AgentPanel)
+
 function Console({ board: source }: { board: Board }) {
+  const reduced = useReducedMotion();
+  const wide = useMedia("(min-width: 1024px)"); // room for the assistant beside the console; below it overlays
+
   // Trucks called from this console, as batches of route ids: one call is a batch of one, "call all" is one big batch,
   // so either is taken back in one step. Nothing is stored: a reload starts the shift from the forecast again.
   const [log, setLog] = useState<number[][]>([]);
@@ -147,9 +164,12 @@ function Console({ board: source }: { board: Board }) {
   }
 
   return (
-    <div className="min-h-full overflow-x-clip">
+    // With the assistant open on a wide screen the console moves over and re-lays itself in the room that is left;
+    // the charts follow the width as it changes.
+    <motion.div className="min-h-full overflow-x-clip" initial={false}
+      animate={{ paddingRight: agentOpen && wide ? AGENT_WIDTH : 0 }} transition={reduced ? { duration: 0 } : panel}>
       <Header board={board} onAgent={() => setAgentOpen((o) => !o)} agentOpen={agentOpen} dark={dark} onTheme={toggleTheme} />
-      <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 sm:py-8">
+      <main className="@container mx-auto max-w-[1440px] px-4 py-6 sm:px-6 sm:py-8">
         <Shift board={board} calls={calls} k={k} lead={lead} scenario={scenario} onScenario={setScenario} filter={filter}
           onFilter={pick} query={query} onQuery={setQuery} selected={selected} onSelect={select}
           total={total} last={log[log.length - 1]} called={called} planned={planned} due={dueNow.length} idle={idle}
@@ -157,6 +177,6 @@ function Console({ board: source }: { board: Board }) {
       </main>
       <AgentPanel open={agentOpen} onClose={() => setAgentOpen(false)} board={board} calls={calls} leadH={scenario.leadH}
         risk={scenario.risk} view={{ tab: "shift", route: selected, called }} onAction={act} />
-    </div>
+    </motion.div>
   );
 }

@@ -8,6 +8,7 @@
   --surface: #151412;
   --raised: #211f1b;
   --line: #322e28;
+  --dot: #5a5245;
   --ink: #e6e0d3;
   --ink-2: #b8b1a3;
   --muted: #928b7e;
@@ -31,6 +32,7 @@
   --surface: #fbf9f4;
   --raised: #ebe5d8;
   --line: #dcd5c5;
+  --dot: #b9af9a;
   --ink: #171512;
   --ink-2: #4d483f;
   --muted: #6b655a;
@@ -86,15 +88,15 @@ body {
   -webkit-font-smoothing: antialiased;
   transition: background-color 0.3s, color 0.3s;
 }
-/* The dot grid of the cover, fading out below the header: the room, not a decoration of the data. */
+/* The dot grid of the cover over the whole page, a little fainter towards the bottom. Panels cover it. */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: -1;
-  background-image: radial-gradient(var(--line) 1px, transparent 1.5px);
+  background-image: radial-gradient(var(--dot) 1.1px, transparent 1.7px);
   background-size: 24px 24px;
-  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), transparent 55%);
+  mask-image: linear-gradient(to bottom, #000, rgba(0, 0, 0, 0.55) 60%, rgba(0, 0, 0, 0.3));
   pointer-events: none;
 }
 

@@ -67,14 +67,17 @@ export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onF
 
   const select = (id: number) => {
     onSelect(id);
-    if (window.innerWidth < 1024) card.current?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+    // When the card sits under the queue rather than beside it, bring it into view.
+    if (card.current && card.current.getBoundingClientRect().left < 200) card.current.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
   };
 
   return (
     <motion.div className="space-y-8" initial="hidden" animate="show"
       variants={{ show: { transition: { staggerChildren: reduced ? 0 : 0.07 } } }}>
-      {/* Stacked on purpose: with wrapping, a wider number or count moved the controls to another row and the page jumped. */}
-      <motion.section variants={item} className="flex flex-col gap-6">
+      {/* Two halves: on the left what is happening, on the right what the dispatcher does about it. They sit side by side
+          when the console is wide enough, else one under the other. Sizes follow the console's own width (container
+          queries), because the assistant panel takes its share of the window when open. */}
+      <motion.section variants={item} className="grid items-center gap-x-10 gap-y-6 @5xl:grid-cols-[minmax(0,1fr)_440px]">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-6">
           {/* The hidden copy holds the final width, so the heading beside it does not slide while the number counts. */}
           <span className={`relative inline-block self-start font-hero text-[104px] font-extrabold tabular-nums leading-[0.8] tracking-[-0.02em] transition-colors duration-300 sm:min-w-[3.4ch] sm:self-auto sm:text-[128px] ${k.callNow > 0 ? "text-signal" : "text-forecast"}`}>
@@ -85,49 +88,57 @@ export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onF
             <h1 className="font-display text-[30px] font-semibold leading-[1.06] sm:text-[40px]">
               {k.callNow > 0 ? <>{plural(k.callNow, "маршруту", "маршрутам", "маршрутам")} нужна<br />машина сейчас</> : <>срочных вызовов<br />не осталось</>}
             </h1>
-            <p className="mt-2 min-h-[46px] text-ink-2 sm:min-h-0 sm:whitespace-nowrap">
+            <p className="mt-2 min-h-[46px] text-ink-2 sm:min-h-0">
               Ещё <span className="font-semibold text-ink">{int(k.callHour)}</span> в течение часа,{" "}
               <span className="whitespace-nowrap">всего до {hhmm(clock(board, 8))} нужно</span>{" "}
               <span className="whitespace-nowrap"><span className="font-semibold text-ink">{int(k.fleet)}</span> {plural(k.fleet, "машина", "машины", "машин")}</span>
             </p>
-            {/* The bulk action and the progress of the shift. Always present, so nothing jumps when they change. */}
-            <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
-              <motion.button onClick={onCallAll} disabled={!due} whileTap={{ scale: 0.97 }}
-                className="inline-flex h-11 w-full items-center justify-center gap-2.5 rounded-[10px] bg-signal px-5 text-[16px] font-semibold text-on-signal transition-colors disabled:bg-raised disabled:text-muted sm:w-auto"
-                title="Вызвать машины всем маршрутам, которым пора: столько, сколько просит прогноз">
-                <CheckCheck size={18} strokeWidth={2.25} />
-                Вызвать всем
-                <span className="num min-w-[4ch] text-left text-[14px] font-medium opacity-80">{due || ""}</span>
+          </div>
+        </div>
+
+        {/* The shift panel. Every line keeps its place whatever it says, so nothing jumps. Between the phone and the
+            two-half layout it lays its two groups side by side to use the width. */}
+        <div className="panel grid gap-x-8 gap-y-4 p-4 sm:p-5 @3xl:grid-cols-2 @5xl:grid-cols-1">
+          <div>
+            <div className="flex items-center gap-3 text-[14px] text-ink-2">
+              <span className="whitespace-nowrap">
+                вызвано <span className="num font-semibold text-ink"><Ticker value={total} /></span> из{" "}
+                <span className="num"><Ticker value={total + due} /></span>
+              </span>
+              <span className="relative h-1.5 min-w-8 flex-1 overflow-hidden rounded-full bg-line" aria-hidden>
+                <motion.span className="absolute inset-0 origin-left rounded-full bg-signal" initial={false}
+                  animate={{ scaleX: total / Math.max(1, total + due) }} transition={flow} />
+              </span>
+              <motion.button onClick={() => onUndo()} disabled={!last} aria-hidden={!last} initial={false}
+                animate={{ opacity: last ? 1 : 0 }} transition={base}
+                className="inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[13px] text-ink-2 ring-1 ring-inset ring-line hover:text-ink disabled:pointer-events-none"
+                title={last && last.length > 1 ? `Отменить вызов всем: ${last.length} машин` : "Отменить последний вызов"}>
+                <Undo2 size={13} />
+                <span className="num min-w-[5ch] text-left">{!last ? "" : last.length > 1 ? `все ${last.length}` : `№ ${last[0]}`}</span>
               </motion.button>
-              <div className="flex items-center gap-3 text-[14px] text-ink-2">
-                <span className="relative h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-line sm:w-32" aria-hidden>
-                  <motion.span className="absolute inset-0 origin-left rounded-full bg-signal" initial={false}
-                    animate={{ scaleX: total / Math.max(1, total + due) }} transition={flow} />
-                </span>
-                <span className="whitespace-nowrap">
-                  вызвано <span className="num font-semibold text-ink"><Ticker value={total} /></span> из{" "}
-                  <span className="num"><Ticker value={total + due} /></span>
-                </span>
-                <motion.button onClick={() => onUndo()} disabled={!last} aria-hidden={!last} initial={false}
-                  animate={{ opacity: last ? 1 : 0 }} transition={base}
-                  className="inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[13px] text-ink-2 ring-1 ring-inset ring-line hover:text-ink disabled:pointer-events-none"
-                  title={last && last.length > 1 ? `Отменить вызов всем: ${last.length} машин` : "Отменить последний вызов"}>
-                  <Undo2 size={13} />
-                  <span className="num min-w-[5ch] text-left">{!last ? "" : last.length > 1 ? `все ${last.length}` : `№ ${last[0]}`}</span>
-                </motion.button>
-              </div>
             </div>
-            {/* The price of the dispatcher's own decisions. The line always holds its height. */}
+            <motion.button onClick={onCallAll} disabled={!due} whileTap={{ scale: 0.98 }}
+              className="mt-3.5 inline-flex h-11 w-full items-center justify-center gap-2.5 rounded-[10px] bg-signal px-5 text-[16px] font-semibold text-on-signal transition-colors disabled:bg-raised disabled:text-muted"
+              title="Вызвать машины всем маршрутам, которым пора: столько, сколько просит прогноз">
+              <CheckCheck size={18} strokeWidth={2.25} />
+              Вызвать всем
+              <span className="num min-w-[4ch] text-left text-[14px] font-medium opacity-80">{due || ""}</span>
+            </motion.button>
+            {/* The price of the dispatcher's own decisions. */}
             <p className="mt-2.5 h-5 text-[14px] leading-5">
               {idle.steps > 0 ? (
                 <span className="text-alert">Ранние вызовы: машины простоят {idle.open ? "больше " : ""}{leadLabel((idle.steps * board.step_min) / 60)}</span>
               ) : total > 0 ? (
                 <span className="text-muted">Все вызовы вовремя, простоя нет</span>
-              ) : null}
+              ) : (
+                <span className="text-muted">Столько машин прогноз просит прямо сейчас</span>
+              )}
             </p>
           </div>
+          <div className="@container border-t border-line pt-4 @3xl:border-l @3xl:border-t-0 @3xl:pl-8 @3xl:pt-0 @5xl:border-l-0 @5xl:border-t @5xl:pl-0 @5xl:pt-4">
+            <WhatIf board={board} s={scenario} onChange={onScenario} />
+          </div>
         </div>
-        <WhatIf board={board} s={scenario} onChange={onScenario} />
       </motion.section>
 
       <motion.section variants={item}>
@@ -150,10 +161,10 @@ export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onF
         <Buckets calls={calls} waiting={k.waiting} active={query ? null : filter} onPick={onFilter} />
       </motion.div>
 
-      <motion.div variants={item} className="grid gap-5 lg:grid-cols-[400px_1fr]">
+      <motion.div variants={item} className="grid gap-5 @[840px]:grid-cols-[380px_minmax(0,1fr)] @6xl:grid-cols-[400px_minmax(0,1fr)]">
         {/* On a wide screen the queue takes exactly the card's height, so the two panels end on one line. */}
-        <div className="relative h-[480px] lg:h-auto lg:min-h-[560px]">
-          <div className="h-full lg:absolute lg:inset-0">
+        <div className="relative h-[480px] @[840px]:h-auto @[840px]:min-h-[560px]">
+          <div className="h-full @[840px]:absolute @[840px]:inset-0">
             <CallQueue board={board} calls={calls} filter={filter} query={query} onQuery={onQuery} selected={selected} onSelect={select} onCalled={onCalled} onFilter={onFilter} />
           </div>
         </div>

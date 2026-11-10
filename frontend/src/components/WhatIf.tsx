@@ -15,21 +15,23 @@ export function WhatIf({ board, s, onChange }: { board: Board; s: Scenario; onCh
   const changed = s.leadH !== board.model.lead_h || s.risk !== "p50";
   const w = changed ? whatIf(board, s.leadH, s.risk) : null;
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5">
-      <div className="flex items-center gap-2.5 text-[14px] text-ink-2">Машина едет
+    <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2.5 text-[14px] text-ink-2">
+      <span>Машина едет</span>
+      <div className="flex items-center gap-2">
         <Segmented label="Машина едет" value={s.leadH} options={LEADS} onChange={(leadH) => onChange({ ...s, leadH })} />
+        {/* Always in the layout, shown only for a changed scenario: appearing must not push the controls around. */}
+        <motion.button onClick={() => onChange({ leadH: board.model.lead_h, risk: "p50" })} disabled={!w} aria-hidden={!w}
+          initial={false} animate={{ opacity: w ? 1 : 0, scale: w ? 1 : 0.9 }} transition={base}
+          className="ml-auto flex h-[30px] items-center gap-2 rounded-[10px] px-2.5 text-ink-2 ring-1 ring-inset ring-line hover:text-ink disabled:pointer-events-none"
+          title={w ? `Вернуть исходный сценарий: срочных было ${w.call_now_base}, стало ${w.call_now}` : undefined} aria-label="Вернуть исходный сценарий">
+          <span className="num hidden text-[13px] text-ink @sm:inline">{w ? `${w.call_now_base} → ${w.call_now}` : ""}</span>
+          <RotateCcw size={14} />
+        </motion.button>
       </div>
-      <div className="flex items-center gap-2.5 text-[14px] text-ink-2">Прогноз
+      <span>Прогноз</span>
+      <div className="flex">
         <Segmented label="Прогноз" value={s.risk} options={RISKS} onChange={(risk) => onChange({ ...s, risk })} />
       </div>
-      {/* Always in the layout, shown only for a changed scenario: appearing must not push the controls around. */}
-      <motion.button onClick={() => onChange({ leadH: board.model.lead_h, risk: "p50" })} disabled={!w} aria-hidden={!w}
-        initial={false} animate={{ opacity: w ? 1 : 0, scale: w ? 1 : 0.9 }} transition={base}
-        className="flex h-[30px] items-center gap-2 rounded-[10px] px-2.5 text-[14px] text-ink-2 ring-1 ring-inset ring-line hover:text-ink disabled:pointer-events-none"
-        title="Вернуть исходный сценарий" aria-label="Вернуть исходный сценарий">
-        <span className="num hidden min-w-[9ch] text-center text-ink sm:inline">{w ? `${w.call_now_base} → ${w.call_now}` : ""}</span>
-        <RotateCcw size={14} />
-      </motion.button>
     </div>
   );
 }
