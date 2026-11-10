@@ -107,7 +107,7 @@ jobs:
     needs: [api, web]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 4
     permissions:
       contents: read
       packages: read
