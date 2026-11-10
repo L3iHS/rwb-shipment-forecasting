@@ -250,7 +250,8 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
               {activeKs.length > 0 && (
                 <motion.rect y={barsB + 3} height={2} rx={1} fill="var(--ink)" initial={false}
                   animate={{ x: x(h0 + activeKs[0]) - barW / 2, width: x(h0 + activeKs[activeKs.length - 1]) - x(h0 + activeKs[0]) + barW }}
-                  transition={t({ type: "spring", stiffness: 500, damping: 40 })} />
+                  // A tween: a spring shrinking the underline from many bars to one overshoots into a negative width.
+                  transition={t({ duration: 0.28, ease })} />
               )}
             </g>
           )}
