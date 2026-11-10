@@ -7,6 +7,8 @@ import { dec2, vol, volShort } from "../format";
 import { ease, flow, useFirstRender } from "../motion";
 
 type Pt = [number, number];
+/** Below this width there is no room for the axes: draw nothing rather than marks of negative size. */
+const MIN_W = 140;
 const f = (v: number) => v.toFixed(1);
 
 /** Width of the element in px; charts draw at real size so text never scales. */
@@ -133,7 +135,7 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
 
   return (
     <div ref={ref} className="relative select-none" style={{ height: H }}>
-      {W > 0 && (
+      {W > MIN_W && (
         <svg width={W} height={H} className="block overflow-visible" role="img"
           aria-label={calls ? "Нагрузка склада и число вызовов по времени" : "Отгрузки маршрута: факт и прогноз"}>
           <defs>
@@ -278,7 +280,7 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
             onClick={() => canPick && onSlot!(k)} />
         </svg>
       )}
-      {hover != null && W > 0 && (
+      {hover != null && W > MIN_W && (
         <Tooltip x={x(hover)} y={top} width={W}>
           <div className="num mb-1 font-semibold text-ink">{times[hover]}</div>
           {hover <= h0 ? (
@@ -337,7 +339,7 @@ export function Dock({ times, line, hi, need, callK, arriveK, runKey, made }: Do
 
   return (
     <div ref={ref} className="relative select-none" style={{ height: H }}>
-      {W > 0 && (
+      {W > MIN_W && (
         <svg width={W} height={H} className="block overflow-visible" role="img" aria-label="Груз у ворот по времени, в кузовах">
           <defs>
             <linearGradient id={grad} x1="0" x2="0" y1="0" y2="1">
@@ -467,7 +469,7 @@ export function Dock({ times, line, hi, need, callK, arriveK, runKey, made }: Do
             onPointerLeave={() => setHover(null)} />
         </svg>
       )}
-      {hover != null && W > 0 && (
+      {hover != null && W > MIN_W && (
         <Tooltip x={x(hover)} y={top + 8} width={W}>
           <div className="num mb-1 font-semibold text-ink">{times[hover]}</div>
           <TipRow k="у ворот" v={`${dec2(line[hover])} кузова`} swatch="var(--forecast)" />

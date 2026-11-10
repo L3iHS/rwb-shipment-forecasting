@@ -166,7 +166,7 @@ function Console({ board: source }: { board: Board }) {
   return (
     // With the assistant open on a wide screen the console moves over and re-lays itself in the room that is left;
     // the charts follow the width as it changes.
-    <motion.div className="min-h-full overflow-x-clip" initial={false}
+    <motion.div className="dotted min-h-full overflow-x-clip" initial={false}
       animate={{ paddingRight: agentOpen && wide ? AGENT_WIDTH : 0 }} transition={reduced ? { duration: 0 } : panel}>
       <Header board={board} onAgent={() => setAgentOpen((o) => !o)} agentOpen={agentOpen} dark={dark} onTheme={toggleTheme} />
       <main className="@container mx-auto max-w-[1440px] px-4 py-6 sm:px-6 sm:py-8">
