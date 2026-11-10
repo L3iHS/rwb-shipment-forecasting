@@ -175,10 +175,6 @@ export function Shift({ board, calls, k, lead, scenario, onScenario, filter, onF
         </div>
       </motion.div>
 
-      <motion.p variants={item} className="num text-[11px] text-muted">
-        {board.model.lib === "lgbm" ? "LightGBM" : board.model.lib}, обучен до{" "}
-        {new Date(board.model.trained_until).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
-      </motion.p>
     </motion.div>
   );
 }
