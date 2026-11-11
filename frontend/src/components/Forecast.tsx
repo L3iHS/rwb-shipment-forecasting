@@ -50,8 +50,8 @@ export function Forecast({ board, overlay, selected, onSelect }: Props) {
               overlay ? "text-alert" : "text-forecast"}`}>
               {vol(total)}
             </span>
-            <h1 className="font-display text-[clamp(28px,3cqw,40px)] font-semibold leading-[1.06]">
-              товаров отгрузят<br />до {end}
+            <h1 className="font-display text-[clamp(28px,3.3cqw,40px)] font-semibold leading-[1.06]">
+              Отгрузим<br /><span className="whitespace-nowrap">до {end}</span>
             </h1>
           </div>
           {baseTotal != null && overlay?.baseFc ? (
@@ -99,17 +99,17 @@ function ForecastMetrics({ board, peak, peakAt }: { board: Board; peak: string; 
   const bt = board.backtest;
   return (
     <div className="w-full max-w-[520px] @5xl:max-w-none">
-      <dl className="grid grid-cols-2 gap-y-4 @lg:grid-cols-[max-content_max-content_minmax(0,1fr)] @lg:gap-x-5">
+      <dl className="grid grid-cols-2 items-baseline gap-y-4 @lg:grid-cols-[max-content_max-content_minmax(0,1fr)] @lg:gap-x-5">
         <div className="col-span-2 @lg:col-span-1">
-          <dd className="num whitespace-nowrap text-[clamp(22px,2cqw,28px)] font-semibold leading-8">{peak}</dd>
+          <dd className="num whitespace-nowrap text-[20px] font-semibold leading-6">{peak}</dd>
           <dt className="text-[13px] leading-[18px] text-ink-2">в час на пике, в {peakAt}</dt>
         </div>
         <div className="@lg:border-l @lg:border-line @lg:pl-5">
-          <dd className="num whitespace-nowrap text-[clamp(22px,2cqw,28px)] font-semibold leading-8">{(bt.point_1030 ?? bt.point).toFixed(3).replace(".", ",")}</dd>
+          <dd className="num whitespace-nowrap text-[28px] font-semibold leading-8">{(bt.point_1030 ?? bt.point).toFixed(3).replace(".", ",")}</dd>
           <dt className="text-[13px] leading-[18px] text-ink-2">ошибка</dt>
         </div>
         <div className="border-l border-line pl-5">
-          <dd className="num whitespace-nowrap text-[clamp(22px,2cqw,28px)] font-semibold leading-8">{pct(bt.intervals["80%"] ?? 0)}</dd>
+          <dd className="num whitespace-nowrap text-[28px] font-semibold leading-8">{pct(bt.intervals["80%"] ?? 0)}</dd>
           <dt className="text-[13px] leading-[18px] text-ink-2">факт в диапазоне прогноза</dt>
         </div>
       </dl>
@@ -209,7 +209,7 @@ function RouteForecast({ board, r, baseP50 }: { board: Board; r: Route; baseP50?
         <h2 className="shrink-0 font-display text-[clamp(30px,6.5cqw,40px)] font-semibold leading-[1.08]">
           <span className="num mr-3 text-[0.6em] text-muted">№</span>{r.id}
         </h2>
-        <dl className="flex min-w-0 flex-1 flex-wrap gap-x-4 gap-y-1 text-[13px] leading-5 text-ink-2 @lg:justify-end">
+        <dl className="flex min-w-0 flex-1 flex-wrap gap-x-4 gap-y-1 text-[14px] text-ink-2 @lg:justify-end">
           <div className="whitespace-nowrap"><dt className="inline">за 4 ч </dt><dd className="num inline font-semibold text-ink">{vol(next4h(r))}</dd></div>
           <div className="whitespace-nowrap"><dt className="inline">пик в </dt><dd className="num inline font-semibold text-ink">{times[h0 + 1 + peak]}</dd></div>
           <div className="whitespace-nowrap"><dt className="inline">диапазон </dt><dd className="num inline font-semibold text-ink">±{Math.round(band * 100)}%</dd></div>
