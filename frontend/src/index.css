@@ -128,7 +128,7 @@ body {
 .mark { font: 500 10px/14px var(--font-mono); font-stretch: 85%; fill: var(--ink-2); }
 
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-.assistant-question:focus-visible { outline: none; box-shadow: inset 0 -1px var(--ink-2); }
+.assistant-question:focus-visible { outline: none; }
 
 /* A dashboard fades in when its tab opens; the charts then draw themselves in. The same on both tabs. */
 .tab { animation: tab-in 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
