@@ -43,25 +43,24 @@ export function Forecast({ board, overlay, selected, onSelect }: Props) {
           В файле те же данные, что в истории, поэтому прогноз не изменился.
         </motion.p>
       )}
-      <motion.section variants={item} className="grid items-center gap-x-8 gap-y-7 @3xl:grid-cols-[minmax(0,1fr)_clamp(280px,30cqw,400px)]">
-        <div className="flex flex-col gap-4 @xl:flex-row @xl:items-center @xl:gap-[clamp(16px,2.2cqw,28px)]">
-          <span className={`self-start whitespace-nowrap font-hero text-[clamp(80px,9cqw,112px)] font-extrabold tabular-nums leading-[0.8] tracking-[-0.02em] @xl:self-auto ${
-            overlay ? "text-alert" : "text-forecast"}`}>
-            {vol(total)}
-          </span>
-          <div className="min-w-0">
-            <h1 className="font-display text-[clamp(28px,3.3cqw,40px)] font-semibold leading-[1.06]">
+      <motion.section variants={item} className="grid items-center gap-x-6 gap-y-5 @5xl:grid-cols-[minmax(0,1fr)_clamp(400px,35cqw,490px)]">
+        <div className="min-w-0">
+          <div className="flex flex-col gap-4 @xl:flex-row @xl:items-center @xl:gap-[clamp(16px,1.6cqw,24px)]">
+            <span className={`self-start whitespace-nowrap font-hero text-[clamp(80px,9cqw,112px)] font-extrabold tabular-nums leading-[0.8] tracking-[-0.02em] @xl:self-auto ${
+              overlay ? "text-alert" : "text-forecast"}`}>
+              {vol(total)}
+            </span>
+            <h1 className="font-display text-[clamp(28px,3cqw,40px)] font-semibold leading-[1.06]">
               товаров отгрузят<br />до {end}
             </h1>
-            <dl className="mt-3.5 flex flex-wrap gap-x-6 gap-y-3">
-              {baseTotal != null && overlay?.baseFc ? (
-                <Figure value={`${signed(((total / baseTotal) - 1) * 100)}%`} label={`исходный прогноз ${vol(baseTotal)}`} />
-              ) : null}
-              <Figure value={vol(n.p50[peak])} label={`в час на пике, в ${times[BACK + 1 + peak]}`} />
-            </dl>
           </div>
+          {baseTotal != null && overlay?.baseFc ? (
+            <dl className="mt-3.5 flex flex-wrap gap-x-6 gap-y-3">
+              <Figure value={`${signed(((total / baseTotal) - 1) * 100)}%`} label={`исходный прогноз ${vol(baseTotal)}`} />
+            </dl>
+          ) : null}
         </div>
-        <Trust board={board} />
+        <ForecastMetrics board={board} peak={vol(n.p50[peak])} peakAt={times[BACK + 1 + peak]} />
       </motion.section>
 
       <motion.section variants={item}>
@@ -96,17 +95,21 @@ function Figure({ value, label }: { value: ReactNode; label: string }) {
 }
 
 /** Why the number can be trusted: the model on a week it never saw. */
-function Trust({ board }: { board: Board }) {
+function ForecastMetrics({ board, peak, peakAt }: { board: Board; peak: string; peakAt: string }) {
   const bt = board.backtest;
   return (
-    <div className="w-full max-w-[420px] @3xl:max-w-none">
-      <dl className="grid grid-cols-2 gap-x-6">
-        <div>
-          <dd className="num text-[28px] font-semibold leading-8">{(bt.point_1030 ?? bt.point).toFixed(3).replace(".", ",")}</dd>
+    <div className="w-full max-w-[520px] @5xl:max-w-none">
+      <dl className="grid grid-cols-2 gap-y-4 @lg:grid-cols-[max-content_max-content_minmax(0,1fr)] @lg:gap-x-5">
+        <div className="col-span-2 @lg:col-span-1">
+          <dd className="num whitespace-nowrap text-[clamp(22px,2cqw,28px)] font-semibold leading-8">{peak}</dd>
+          <dt className="text-[13px] leading-[18px] text-ink-2">в час на пике, в {peakAt}</dt>
+        </div>
+        <div className="@lg:border-l @lg:border-line @lg:pl-5">
+          <dd className="num whitespace-nowrap text-[clamp(22px,2cqw,28px)] font-semibold leading-8">{(bt.point_1030 ?? bt.point).toFixed(3).replace(".", ",")}</dd>
           <dt className="text-[13px] leading-[18px] text-ink-2">ошибка</dt>
         </div>
-        <div className="border-l border-line pl-6">
-          <dd className="num text-[28px] font-semibold leading-8">{pct(bt.intervals["80%"] ?? 0)}</dd>
+        <div className="border-l border-line pl-5">
+          <dd className="num whitespace-nowrap text-[clamp(22px,2cqw,28px)] font-semibold leading-8">{pct(bt.intervals["80%"] ?? 0)}</dd>
           <dt className="text-[13px] leading-[18px] text-ink-2">факт в диапазоне прогноза</dt>
         </div>
       </dl>
@@ -147,7 +150,7 @@ function Routes({ board, overlay, selected, onSelect }: Props) {
 
   return (
     <div className="grid gap-5 @3xl:grid-cols-[clamp(340px,34cqw,400px)_minmax(0,1fr)]">
-      <div className="relative h-[480px] @3xl:h-auto @3xl:min-h-[520px]">
+      <div className="relative h-[360px] @3xl:h-auto">
         <section className="panel flex h-full min-h-0 flex-col overflow-hidden @3xl:absolute @3xl:inset-0">
           <div className="flex items-center justify-between gap-3 px-5 pb-3 pt-4">
             <h2 className="font-display text-[22px] font-semibold leading-7">
@@ -202,20 +205,22 @@ function RouteForecast({ board, r, baseP50 }: { board: Board; r: Route; baseP50?
   const changed = !!baseP50 && baseP50.some((v, k) => Math.abs(v - r.p50[k]) > 0.5);
   return (
     <section className="panel @container min-w-0 overflow-hidden p-5 sm:p-6">
-      <h2 className="font-display text-[clamp(30px,6.5cqw,40px)] font-semibold leading-[1.08]">
-        <span className="num mr-3 text-[0.6em] text-muted">№</span>{r.id}
-      </h2>
-      <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[14px] text-ink-2">
-        <div><dt className="inline">за 4 ч </dt><dd className="num inline font-semibold text-ink">{vol(next4h(r))}</dd></div>
-        <div><dt className="inline">пик в </dt><dd className="num inline font-semibold text-ink">{times[h0 + 1 + peak]}</dd></div>
-        <div><dt className="inline">диапазон </dt><dd className="num inline font-semibold text-ink">±{Math.round(band * 100)}%</dd></div>
-        {r.wape != null && (
-          <div><dt className="inline">ошибка </dt><dd className="num inline font-semibold text-ink">{pct(r.wape)}</dd>
-            {r.bias != null && <span className="num">, сдвиг {r.bias > 0 ? "+" : ""}{dec1(r.bias * 100)}%</span>}
-          </div>
-        )}
-      </dl>
-      <div className="mt-5">
+      <div className="flex flex-col gap-2 @lg:flex-row @lg:items-start @lg:gap-x-4">
+        <h2 className="shrink-0 font-display text-[clamp(30px,6.5cqw,40px)] font-semibold leading-[1.08]">
+          <span className="num mr-3 text-[0.6em] text-muted">№</span>{r.id}
+        </h2>
+        <dl className="flex min-w-0 flex-1 flex-wrap gap-x-4 gap-y-1 text-[13px] leading-5 text-ink-2 @lg:justify-end">
+          <div className="whitespace-nowrap"><dt className="inline">за 4 ч </dt><dd className="num inline font-semibold text-ink">{vol(next4h(r))}</dd></div>
+          <div className="whitespace-nowrap"><dt className="inline">пик в </dt><dd className="num inline font-semibold text-ink">{times[h0 + 1 + peak]}</dd></div>
+          <div className="whitespace-nowrap"><dt className="inline">диапазон </dt><dd className="num inline font-semibold text-ink">±{Math.round(band * 100)}%</dd></div>
+          {r.wape != null && (
+            <div className="whitespace-nowrap"><dt className="inline">ошибка </dt><dd className="num inline font-semibold text-ink">{pct(r.wape)}</dd>
+              {r.bias != null && <span className="num">, сдвиг {r.bias > 0 ? "+" : ""}{dec1(r.bias * 100)}%</span>}
+            </div>
+          )}
+        </dl>
+      </div>
+      <div className="mt-3">
         <Fan zero height={230} times={times} hist={r.h} fc={r.p50} lo={r.p10} hi={r.p90} baseFc={changed ? baseP50 : undefined} shadeGap={false} />
       </div>
     </section>

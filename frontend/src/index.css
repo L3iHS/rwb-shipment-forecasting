@@ -115,6 +115,7 @@ body {
   inset: 0 0 auto 0;
   height: min(100%, 880px);
   z-index: -1;
+  opacity: 0.65;
   background: radial-gradient(var(--dot) 1.1px, transparent 1.7px) 0 0 / 24px 24px;
   mask-image: linear-gradient(to bottom, #000, rgba(0, 0, 0, 0.5) 45%, transparent);
   pointer-events: none;
@@ -127,6 +128,7 @@ body {
 .mark { font: 500 10px/14px var(--font-mono); font-stretch: 85%; fill: var(--ink-2); }
 
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.assistant-question:focus-visible { outline: none; box-shadow: inset 0 -1px var(--ink-2); }
 
 /* A dashboard fades in when its tab opens; the charts then draw themselves in. The same on both tabs. */
 .tab { animation: tab-in 0.28s cubic-bezier(0.22, 1, 0.36, 1); }

@@ -87,14 +87,12 @@ export function AgentPanel({ open, onClose, board, view, onAction, offline }: Pr
   const [busy, setBusy] = useState(false);
   const reduced = useReducedMotion();
   const scroller = useRef<HTMLDivElement>(null);
-  const input = useRef<HTMLInputElement>(null);
 
-  // A ref, so a new onClose from each parent render does not re-run the effect and steal focus.
+  // Keep the Escape handler attached when the parent supplies a new callback.
   const close = useRef(onClose);
   close.current = onClose;
   useEffect(() => {
     if (!open) return;
-    input.current?.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close.current(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -184,9 +182,9 @@ export function AgentPanel({ open, onClose, board, view, onAction, offline }: Pr
                 <button key={s} onClick={() => ask(s)} disabled={busy} className="rounded-full px-3.5 py-2 text-[14px] leading-5 text-ink-2 ring-1 ring-inset ring-line transition-colors hover:bg-raised hover:text-ink disabled:opacity-40">{s}</button>
                 ))}
             </div>
-            <form onSubmit={(e) => { e.preventDefault(); ask(text); }} className="flex items-center gap-2 rounded-[14px] bg-raised px-3.5 py-2.5 focus-within:ring-1 focus-within:ring-ink-2">
-              <input ref={input} value={text} onChange={(e) => setText(e.target.value)} placeholder="Вопрос" maxLength={500}
-                className="flex-1 bg-transparent text-[16px] outline-none placeholder:text-muted" />
+            <form onSubmit={(e) => { e.preventDefault(); ask(text); }} className="flex items-center gap-2 rounded-[14px] bg-raised px-3.5 py-2.5">
+              <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Вопрос" aria-label="Вопрос ассистенту" maxLength={500}
+                className="assistant-question min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-muted" />
               <button type="submit" disabled={!text.trim() || busy} className="grid size-7 place-items-center rounded-lg bg-ink text-ground transition-opacity disabled:opacity-30" aria-label="Отправить">
                 <ArrowUp size={14} />
               </button>
