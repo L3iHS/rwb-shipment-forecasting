@@ -1,110 +1,24 @@
 """Forecast from data a user uploads: the rows go over the stored history and the service forecasts again.
 
+The file is first checked and repaired against the stored history (rwb.checks); the answer carries what was done.
 The file has the train columns. Rows inside the stored history replace it, rows right after it extend it; the
 forecast starts at the latest timestamp of the file. The comparison is the forecast from the same moment on the
 stored history, so a file that only repeats the history gives the console's own forecast back.
 """
 
 import copy
-import io
 from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
 
+from rwb.checks import COLUMNS, MAX_AHEAD, MAX_ROWS, MAX_VALUE, Note, UploadError, check, parse_times  # noqa: F401
 from rwb.data import HORIZON, STATUS_COLS, STEP, Panel
 from rwb.dispatch import DockState, call_plan
 from rwb.features import DAY, MAX_LOOKBACK, Cumsums, cumsums
 from rwb.service import Service
 
-COLUMNS = ["route_id", "timestamp", *STATUS_COLS, "target_1h"]
-MAX_ROWS = 200_000
-MAX_VALUE = 1e10  # far above any real half-hour volume; larger values only break the features
-MAX_AHEAD = 96  # steps a file may run past the stored history: two days
 HIST_N = 16  # steps of history the answer shows, as on the console
-
-
-class UploadError(ValueError):
-    """What is wrong with the file, in words the user can act on."""
-
-
-def read_table(raw: bytes) -> pd.DataFrame:
-    """Parquet or CSV (comma, semicolon or tab) with the train columns, checked and typed."""
-    if not raw.strip():
-        raise UploadError("Файл пустой")
-    too_many = f"Строк больше {MAX_ROWS:,}".replace(",", " ") + ": загрузите последние двое суток"
-    unreadable = "Не получилось прочитать файл: нужен CSV или Parquet"
-    if raw[:4] == b"PAR1":
-        # A few MB of compressed Parquet can unpack into gigabytes: check the size before reading, and read only our columns.
-        import pyarrow.parquet as pq
-
-        try:
-            f = pq.ParquetFile(io.BytesIO(raw))
-        except Exception:
-            raise UploadError(unreadable)
-        names = [str(c).strip() for c in f.schema_arrow.names]
-        missing = [c for c in COLUMNS if c not in names]
-        if missing:
-            raise UploadError(f"В файле нет колонок: {', '.join(missing)}")
-        if f.metadata.num_rows > MAX_ROWS:
-            raise UploadError(too_many)
-        try:
-            df = f.read(columns=[n for n in f.schema_arrow.names if str(n).strip() in COLUMNS]).to_pandas()
-        except Exception:
-            raise UploadError(unreadable)
-        df.columns = [str(c).strip() for c in df.columns]
-    else:
-        try:
-            head = raw[:2000].decode("utf-8-sig", errors="replace").splitlines()[0]
-            sep = max([",", ";", "\t"], key=head.count)
-            df = pd.read_csv(io.BytesIO(raw), sep=sep, encoding="utf-8-sig", nrows=MAX_ROWS + 1,
-                             usecols=lambda c: str(c).strip() in COLUMNS)
-        except Exception:
-            raise UploadError(unreadable)
-        df.columns = [str(c).strip() for c in df.columns]
-        missing = [c for c in COLUMNS if c not in df.columns]
-        if missing:
-            raise UploadError(f"В файле нет колонок: {', '.join(missing)}")
-    if not len(df):
-        raise UploadError("В файле нет строк")
-    if len(df) > MAX_ROWS:
-        raise UploadError(too_many)
-    df = df[COLUMNS].copy()
-    df["timestamp"] = parse_times(df["timestamp"])
-    for c in COLUMNS:
-        if c != "timestamp":
-            df[c] = pd.to_numeric(df[c], errors="coerce")
-        bad = df[c].isna().to_numpy()
-        if bad.any():
-            raise UploadError(f"Колонка {c}: пустое или непонятное значение в строке {int(np.argmax(bad)) + 2}")
-    vals = df[COLUMNS[2:]].to_numpy(np.float64)
-    if (vals < 0).any():
-        raise UploadError("Объёмы не могут быть отрицательными")
-    big = ~np.isfinite(vals) | (vals > MAX_VALUE)
-    if big.any():
-        row, col = np.argwhere(big)[0]
-        raise UploadError(f"Колонка {COLUMNS[2 + col]}: слишком большое значение в строке {row + 2}")
-    return df
-
-
-def parse_times(ts: pd.Series) -> pd.Series:
-    """ISO times as they are; dotted dates day first (10.09.2025 is 10 September); times with an offset in Moscow time."""
-    if pd.api.types.is_datetime64_any_dtype(ts):
-        return ts.dt.tz_convert("Europe/Moscow").dt.tz_localize(None) if ts.dt.tz is not None else ts
-    text = ts.astype(str).str.strip()
-    out = pd.Series(pd.NaT, index=text.index, dtype="datetime64[ns]")
-    zoned = text.str.contains(r"(?:Z|[+-]\d{2}:?\d{2})$", regex=True)
-    if zoned.any():
-        z = pd.to_datetime(text[zoned], format="ISO8601", errors="coerce", utc=True)
-        out[zoned] = z.dt.tz_convert("Europe/Moscow").dt.tz_localize(None)
-    plain = ~zoned
-    if plain.any():
-        iso = pd.to_datetime(text[plain], format="ISO8601", errors="coerce")
-        out[plain] = iso
-        rest = plain & out.isna()
-        if rest.any():
-            out[rest] = pd.to_datetime(text[rest], format="mixed", dayfirst=True, errors="coerce")
-    return out
 
 
 @dataclass
@@ -177,6 +91,7 @@ class Run:
 def forecast(svc: Service, panel: Panel, cums: Cumsums, origin: int, dock: DockState | None = None) -> Run:
     """Forecast, dock state and truck calls from ``origin``; the dock is replayed unless given."""
     fc = svc.forecast(panel, cums, origin)
+    fc.setdefault("inflow", fc["inflow_point"])  # the answer's name for the expected inflow, from before Service v2
     dock = dock if dock is not None else svc.dock_state(panel, cums, origin)
     call = call_plan(dock.backlog, fc["inflow_risk"], svc.capacity, svc.cfg.lead, dock.inbound)
     return Run(fc, dock, call)
@@ -271,7 +186,7 @@ def compare(svc: Service, stored: Panel, applied: Applied, new: Run, base: Run |
 
 def run(svc: Service, stored: Panel, cums: Cumsums, raw: bytes, base_at, band) -> dict:
     """The whole request: read, apply, forecast both ways, compare. ``base_at(origin)`` gives the cached base Run."""
-    df = read_table(raw)
+    df, notes = check(raw, stored, cums.x)
     applied = apply(stored, df)
     o = applied.origin
     base = base_at(o) if o <= stored.n_times - 1 else None
@@ -282,4 +197,5 @@ def run(svc: Service, stored: Panel, cums: Cumsums, raw: bytes, base_at, band) -
     new = forecast(svc, applied.panel, new_cums, o, base.dock if same_dock else None)
     out = compare(svc, stored, applied, new, base, band)
     out["file"]["rows"] = len(df)
+    out["checks"] = [n.as_dict() for n in notes]
     return out

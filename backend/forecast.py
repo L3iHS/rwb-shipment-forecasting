@@ -80,11 +80,11 @@ class Engine:
         return run
 
     def run(self, raw: bytes) -> dict:
-        from rwb.upload import UploadError, apply, compare, forecast, read_table
+        from rwb.upload import UploadError, apply, check, compare, forecast
         from rwb.monitor import DataUnavailableError
         from runtime import mapped_cumsums
 
-        table = read_table(raw)
+        table, notes = check(raw, self.panel, self.cums.x)  # repaired against the stored history, with what was done
         applied = apply(self.panel, table)
         try:
             base = self.base_at(applied.origin) if applied.origin < self.panel.n_times else None
@@ -95,6 +95,7 @@ class Engine:
                 new.fc["inflow"] = new.fc["inflow_point"]
                 out = compare(self.svc, self.panel, applied, new, base, BAND)
                 out["file"]["rows"] = len(table)
+                out["checks"] = [n.as_dict() for n in notes]
                 return out
         except DataUnavailableError as error:
             raise UploadError("Время файла раньше даты обучения модели или в истории недостаточно данных") from error

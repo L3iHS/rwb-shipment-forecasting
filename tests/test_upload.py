@@ -9,7 +9,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from rwb.data import STATUS_COLS, Panel
 from rwb.features import DAY, MAX_LOOKBACK
-from rwb.upload import COLUMNS, UploadError, apply, read_table
+from rwb.checks import parse, read
+from rwb.upload import COLUMNS, UploadError, apply
 
 
 def _panel(R=3, T=MAX_LOOKBACK + DAY + 20):
@@ -30,12 +31,12 @@ def _rows(p: Panel, steps, routes=(10, 20, 30)):
     return pd.DataFrame(out)[COLUMNS]
 
 
-def test_read_table_reads_semicolon_csv_and_names_missing_columns():
-    df = read_table(b"route_id;timestamp;status_1;status_2;status_3;status_4;status_5;status_6;target_1h\n"
-                    b"10;2025-01-01 00:00;1;1;1;1;1;1;7\n")
-    assert df["target_1h"].iloc[0] == 7
+def test_reads_semicolon_csv_and_names_missing_columns():
+    df, notes = read(b"route_id;timestamp;status_1;status_2;status_3;status_4;status_5;status_6;target_1h\n"
+                     b"10;2025-01-01 00:00;1;1;1;1;1;1;7\n")
+    assert parse(df, notes)["target_1h"].iloc[0] == 7 and notes[0].code == "separator"
     with pytest.raises(UploadError, match="status_1"):
-        read_table(b"route_id,timestamp\n1,2025-01-01\n")
+        read(b"route_id,timestamp\n1,2025-01-01\n")
 
 
 def test_file_that_repeats_history_changes_nothing():
@@ -80,11 +81,11 @@ def test_dotted_dates_are_day_first_and_offsets_become_moscow_time():
     assert got == [pd.Timestamp("2025-09-10 09:00"), pd.Timestamp("2025-11-01 10:30"), pd.Timestamp("2025-11-01 10:30")]
 
 
-def test_rejects_infinite_and_huge_values_and_rows_that_land_on_one_step():
+def test_infinite_values_are_marked_unusable_and_apply_still_guards_the_grid():
     head = ",".join(COLUMNS) + "\n"
-    for v in ["inf", "1e30"]:
-        with pytest.raises(UploadError, match="слишком большое"):
-            read_table((head + f"10,2025-01-01 00:00,1,1,1,1,1,1,{v}\n").encode())
+    df, notes = read((head + "10,2025-01-01 00:00,1,1,1,1,1,1,inf\n10,2025-01-01 00:30,1,1,1,1,1,1,2\n").encode())
+    parsed = parse(df, notes)
+    assert np.isnan(parsed["target_1h"].iloc[0]) and parsed["why:target_1h"].iloc[0] > 0
     p = _panel()
     df = _rows(p, [p.n_times - 1], routes=(10,))
     with pytest.raises(UploadError, match="30 минут"):
