@@ -10,18 +10,18 @@ import type { Action } from "./tools";
 import { fileBoard, overlayOf, type Overlay } from "./upload";
 
 function useTheme(): [boolean, () => void] {
-  // Night is the product's default look; day is a choice the user makes and we remember.
+  // Day, the deck's lavender, is the default look; night (its deep purple cover) is a choice we remember.
   const [dark, setDark] = useState(() => {
     try {
-      return localStorage.getItem("theme") !== "light";
+      return localStorage.getItem("pult.theme") === "dark";
     } catch {
-      return true;
+      return false;
     }
   });
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? "dark" : "light";
     try {
-      localStorage.setItem("theme", dark ? "dark" : "light");
+      localStorage.setItem("pult.theme", dark ? "dark" : "light");
     } catch {
       /* storage unavailable */
     }

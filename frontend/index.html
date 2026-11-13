@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Пульт диспетчера</title>
     <script>
-      // Night is the default; apply a saved "light" before the first paint so the page does not flash.
+      // Day (the deck's lavender) is the default; apply a saved "dark" before the first paint so the page does not flash.
       try {
-        document.documentElement.dataset.theme = localStorage.getItem("theme") === "light" ? "light" : "dark";
+        document.documentElement.dataset.theme = localStorage.getItem("pult.theme") === "dark" ? "dark" : "light";
       } catch {}
     </script>
   </head>

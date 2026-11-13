@@ -52,7 +52,7 @@ function Summary({ board, onAction }: { board: Board; onAction: (a: Action) => v
       variants={{ show: { transition: { staggerChildren: reduced ? 0 : 0.05, delayChildren: reduced ? 0 : 0.12 } } }}>
       <div className="grid grid-cols-2 gap-2">
         {tiles.map(([label, value, tone]) => (
-          <motion.div key={label} variants={tile} className="rounded-[14px] bg-raised px-4 py-3">
+          <motion.div key={label} variants={tile} className="rounded-[22px] bg-raised px-4 py-3">
             <div className={`num whitespace-nowrap text-[26px] font-semibold leading-9 ${tone}`}>{value}</div>
             <div className="mt-0.5 text-[14px] leading-5 text-ink-2">{label}</div>
           </motion.div>
@@ -63,7 +63,7 @@ function Summary({ board, onAction }: { board: Board; onAction: (a: Action) => v
         <div className="mt-2 flex flex-wrap gap-2">
           {top.map((r) => (
             <button key={r.route_id} onClick={() => onAction({ type: "open_route", id: r.route_id })}
-              className="flex items-baseline gap-2 rounded-[10px] px-3 py-2 ring-1 ring-inset ring-line transition-colors hover:bg-raised">
+              className="flex items-baseline gap-2 rounded-full px-3.5 py-2 ring-1 ring-inset ring-line transition-colors hover:bg-raised">
               <span className="num text-[14px] font-medium text-ink">№ {r.route_id}</span>
               <span className="num text-[14px] text-ink-2">{vol(r.volume_4h)}</span>
             </button>
@@ -140,7 +140,7 @@ export function AgentPanel({ open, onClose, board, view, onAction, offline }: Pr
       const a = localAnswer(board, q);
       setMsgs((m) => [...m, {
         role: "assistant", local: true, why,
-        content: a?.text ?? "Без модели отвечу про маршрут по номеру, общий прогноз, точность модели, крупные и неточные маршруты.",
+        content: a?.text ?? `Без модели отвечу про маршрут по номеру, общий прогноз, точность модели, крупные и неточные маршруты${board.checks ? ", проверку файла" : ""}.`,
       }]);
       a?.actions.forEach(act);
     } finally {
@@ -162,13 +162,13 @@ export function AgentPanel({ open, onClose, board, view, onAction, offline }: Pr
             <div>
               <h2 className="font-display text-[22px] font-semibold leading-7">Ассистент<span className="text-signal">.</span></h2>
             </div>
-            <button onClick={onClose} className="grid size-8 place-items-center rounded-[10px] text-ink-2 transition-colors hover:bg-raised hover:text-ink" aria-label="Закрыть"><X size={16} /></button>
+            <button onClick={onClose} className="grid size-8 place-items-center rounded-full text-ink-2 transition-colors hover:bg-raised hover:text-ink" aria-label="Закрыть"><X size={16} /></button>
           </div>
           <div ref={scroller} className="flex-1 space-y-5 overflow-y-auto p-5 text-[16px] leading-[24px]">
             <Summary board={board} onAction={act} />
             {msgs.map((m, i) => (
               <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={base}
-                className={m.role === "user" ? "ml-auto w-fit max-w-[85%] rounded-[14px] rounded-br-md bg-ink px-3.5 py-2 text-ground" : "mr-4"}>
+                className={m.role === "user" ? "ml-auto w-fit max-w-[85%] rounded-[20px] rounded-br-md bg-ink px-3.5 py-2 text-ground" : "mr-4"}>
                 {m.content}
                 {m.local && <div className="mt-1.5 text-[13px] leading-5 text-muted">офлайн{m.why ? `: ${lower(m.why)}` : ""}</div>}
               </motion.div>
@@ -178,14 +178,14 @@ export function AgentPanel({ open, onClose, board, view, onAction, offline }: Pr
           <div className="border-t border-line p-4">
             {/* The examples stay after the first answer: one tap asks the next question. */}
             <div className="mb-2 flex flex-wrap gap-1.5">
-              {SUGGEST.map((s) => (
+              {(board.checks ? ["Что было не так с файлом?", ...SUGGEST.slice(0, 3)] : SUGGEST).map((s) => (
                 <button key={s} onClick={() => ask(s)} disabled={busy} className="rounded-full px-3.5 py-2 text-[14px] leading-5 text-ink-2 ring-1 ring-inset ring-line transition-colors hover:bg-raised hover:text-ink disabled:opacity-40">{s}</button>
                 ))}
             </div>
-            <form onSubmit={(e) => { e.preventDefault(); ask(text); }} className="flex items-center gap-2 rounded-[14px] bg-raised px-3.5 py-2.5">
+            <form onSubmit={(e) => { e.preventDefault(); ask(text); }} className="flex items-center gap-2 rounded-full bg-raised pl-4 pr-2.5 py-2.5">
               <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Вопрос" aria-label="Вопрос ассистенту" maxLength={500}
                 className="assistant-question min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-muted" />
-              <button type="submit" disabled={!text.trim() || busy} className="grid size-7 place-items-center rounded-lg bg-ink text-ground transition-opacity disabled:opacity-30" aria-label="Отправить">
+              <button type="submit" disabled={!text.trim() || busy} className="grid size-7 place-items-center rounded-full bg-ink text-ground transition-opacity disabled:opacity-30" aria-label="Отправить">
                 <ArrowUp size={14} />
               </button>
             </form>

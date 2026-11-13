@@ -1,5 +1,14 @@
 // Types of board.json written by `python scripts/pipeline.py export` (see docs/web.md).
 
+/** One finding of the file check (src/rwb/checks.py): what was wrong with an uploaded file and what was done before
+ * the model read it. fixed: repaired without a guess; filled: values replaced by an estimate; warn: left as it is. */
+export interface Check {
+  code: string;
+  level: "fixed" | "filled" | "warn" | "info";
+  text: string;
+  rows: number;
+}
+
 export interface Route {
   id: number;
   cap: number; // truck capacity, goods
@@ -44,6 +53,7 @@ export interface Board {
   };
   network: { hist: number[]; p50: number[]; lo: number[]; hi: number[] };
   routes: Route[];
+  checks?: Check[]; // only on a board built from an uploaded file: what its check found
   monitor: { day: string; wape: number; bias: number; cov: number }[];
   alerts: { day: string; signal: string; detail: string; action: string }[];
   backtest: {

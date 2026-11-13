@@ -1,68 +1,67 @@
 @import "tailwindcss";
 
-/* Tokens of the "Ночная смена" design system: night (warm near-black) is the default, day is its paper twin.
-   Fact = ivory, forecast = pastel sage, "call now" = dusty coral, "cargo waits" = butter. No blue anywhere. */
+/* Tokens in the style of the defense deck (.local/pitch, palette "Маркетплейс"): day is lavender paper with white
+   cards, night is the deep purple of the deck's cover. Forecast = fuchsia, the second colour = violet; an uploaded
+   file wears violet where the console's own forecast wears fuchsia. Fact stays neutral grey, as on the deck's chart. */
 :root {
-  color-scheme: dark;
-  --ground: #0c0b0a;
-  --surface: #151412;
-  --raised: #211f1b;
-  --line: #322e28;
-  --dot: #4a4339;
-  --ink: #e6e0d3;
-  --ink-2: #b8b1a3;
-  --muted: #928b7e;
-  --forecast: #a8cfa4;
-  --forecast-soft: rgba(168, 207, 164, 0.15);
-  --forecast-ink: #b5d6b1;
-  --signal: #e27662;
-  --signal-soft: rgba(226, 118, 98, 0.16);
-  --signal-ink: #eb9482;
-  --on-signal: #2a0f09;
-  --alert: #e9c46a;
-  --alert-soft: rgba(233, 196, 106, 0.13);
-  --good: #a8cfa4;
-  --shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.5);
-  --glow-signal: drop-shadow(0 0 8px rgba(226, 118, 98, 0.3));
-  --glow-forecast: drop-shadow(0 0 8px rgba(168, 207, 164, 0.35));
-}
-:root[data-theme="light"] {
   color-scheme: light;
-  --ground: #f3efe6;
-  --surface: #fbf9f4;
-  --raised: #ebe5d8;
-  --line: #dcd5c5;
-  --dot: #c8bfab;
-  --ink: #171512;
-  --ink-2: #4d483f;
-  --muted: #6b655a;
-  --forecast: #539e64;
-  --forecast-soft: rgba(83, 158, 100, 0.16);
-  --forecast-ink: #2c6e40;
-  --signal: #bf4a35;
-  --signal-soft: rgba(191, 74, 53, 0.1);
-  --signal-ink: #a53b28;
+  --ground: #faf5fb;
+  --surface: #ffffff;
+  --raised: #f1e6f4;
+  --line: #e4d7ea;
+  --dot: #dccbe4;
+  --ink: #1c1024;
+  --ink-2: #463c4d;
+  --muted: #7a6d84;
+  --fact: #8f8298; /* the fact line, grey as on the deck's chart */
+  --forecast: #cb11ab;
+  --forecast-soft: rgba(203, 17, 171, 0.13);
+  --forecast-ink: #8e0b78;
+  --signal: #6a36c2;
+  --signal-soft: rgba(106, 54, 194, 0.12);
+  --signal-ink: #53259e;
   --on-signal: #ffffff;
-  --alert: #8a6508;
-  --alert-soft: rgba(138, 101, 8, 0.12);
-  --good: #2f7a45;
-  --shadow-pop: 0 12px 32px rgba(23, 21, 18, 0.12);
+  --alert: #6a36c2;
+  --alert-soft: rgba(106, 54, 194, 0.12);
+  --good: #5f7a3d;
+  --shadow-pop: 0 16px 40px rgba(72, 17, 115, 0.16);
+  --shadow-card: 0 12px 32px rgba(72, 17, 115, 0.07);
   --glow-signal: none;
   --glow-forecast: none;
 }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #2a0b45;
+  --surface: #351054;
+  --raised: #431766;
+  --line: #57247f;
+  --dot: #6a3394;
+  --ink: #faf5fb;
+  --ink-2: #e2cfe9;
+  --muted: #b99ec9;
+  --fact: #d6c4e0;
+  --forecast: #f08bd9;
+  --forecast-soft: rgba(240, 139, 217, 0.2);
+  --forecast-ink: #f8c2ec;
+  --signal: #c9b0f7;
+  --signal-soft: rgba(201, 176, 247, 0.18);
+  --signal-ink: #ddcdfb;
+  --on-signal: #2a0b45;
+  --alert: #c9b0f7;
+  --alert-soft: rgba(201, 176, 247, 0.16);
+  --good: #bcd6a2;
+  --shadow-pop: 0 16px 40px rgba(12, 0, 24, 0.55);
+  --shadow-card: none;
+  --glow-signal: drop-shadow(0 0 8px rgba(201, 176, 247, 0.35));
+  --glow-forecast: drop-shadow(0 0 8px rgba(240, 139, 217, 0.4));
+}
 
-/* A shift computed from an uploaded file wears butter where the console's own forecast wears coral,
+/* A shift computed from an uploaded file wears violet where the console's own forecast wears fuchsia,
    so the two never get mixed up on screen. */
 .from-file {
   --signal: var(--alert);
   --signal-soft: var(--alert-soft);
   --signal-ink: var(--alert);
-  --on-signal: #2a2108;
-  --glow-signal: drop-shadow(0 0 8px rgba(233, 196, 106, 0.3));
-}
-:root[data-theme="light"] .from-file {
-  --on-signal: #ffffff;
-  --glow-signal: none;
 }
 
 @theme inline {
@@ -83,12 +82,12 @@
   --color-alert: var(--alert);
   --color-alert-soft: var(--alert-soft);
   --color-good: var(--good);
-  /* One family in three widths, like road signage: condensed for the one big number, semi condensed for headings,
-     normal width for reading. Figures in columns and time codes are set in a slightly narrowed Martian Mono. */
-  --font-sans: "Sofia Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: "Sofia Sans Semi Condensed Variable", "Sofia Sans Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-hero: "Sofia Sans Condensed Variable", "Sofia Sans Semi Condensed Variable", ui-sans-serif, sans-serif;
-  --font-mono: "Martian Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
+  /* As on the deck: Yeseva One for headings and the big numbers, Onest for the rest; figures in columns are Onest
+     with tabular digits. */
+  --font-sans: "Onest Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Yeseva One", Georgia, serif;
+  --font-hero: "Yeseva One", Georgia, serif;
+  --font-mono: "Onest Variable", system-ui, sans-serif;
 }
 
 @layer base {
@@ -121,11 +120,13 @@ body {
   pointer-events: none;
 }
 
-.num { font-family: var(--font-mono); font-stretch: 85%; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
-.eyebrow { font-family: var(--font-mono); font-stretch: 85%; font-size: 11px; line-height: 16px; color: var(--muted); }
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; }
-.tick { font: 400 10px/14px var(--font-mono); font-stretch: 85%; fill: var(--muted); }
-.mark { font: 500 10px/14px var(--font-mono); font-stretch: 85%; fill: var(--ink-2); }
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+/* Yeseva One has one weight: no faux bold from the weight utilities next to it. */
+.font-display, .font-hero { font-weight: 400; font-synthesis: none; }
+.eyebrow { font-family: var(--font-mono); font-size: 11px; line-height: 16px; color: var(--muted); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 28px; box-shadow: var(--shadow-card); }
+.tick { font: 400 10px/14px var(--font-mono); fill: var(--muted); }
+.mark { font: 500 10px/14px var(--font-mono); fill: var(--ink-2); }
 
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .assistant-question:focus-visible { outline: none; }

@@ -64,7 +64,7 @@ function niceTicks(min: number, max: number, count = 4): number[] {
 function Tooltip({ x, y, width, children }: { x: number; y: number; width: number; children: ReactNode }) {
   const flip = x > width / 2;
   return (
-    <div className="pointer-events-none absolute z-10 whitespace-nowrap rounded-[10px] border border-line bg-raised px-3 py-2 text-xs shadow-[var(--shadow-pop)]"
+    <div className="pointer-events-none absolute z-10 whitespace-nowrap rounded-[14px] border border-line bg-raised px-3 py-2 text-xs shadow-[var(--shadow-pop)]"
       style={{ left: x + (flip ? -12 : 12), top: y, transform: flip ? "translateX(-100%)" : undefined }}>
       {children}
     </div>
@@ -235,7 +235,7 @@ export function Fan({ times, hist, fc, lo, hi, zero, height = 170, peak, calls, 
           {histChanged && (
             <path fill="none" stroke="var(--ink-2)" strokeWidth={1.5} strokeDasharray="4 4" d={curve(histBase!.map((v, i): Pt => [x(i), y(v)]))} />
           )}
-          <motion.path fill="none" stroke="var(--ink)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+          <motion.path fill="none" stroke="var(--fact)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
             initial={intro ? { pathLength: 0, d: curve(fact) } : false} animate={{ pathLength: 1, d: curve(fact) }}
             transition={t({ pathLength: { duration: 0.7, ease }, d: flow })} />
           {W >= 360 && (

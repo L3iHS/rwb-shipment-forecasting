@@ -1,8 +1,8 @@
 import { motion, useReducedMotion } from "motion/react";
 import { ArrowDown, Search } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
-import type { Board, Route } from "../data";
-import { dec1, hhmm, int, pct, vol } from "../format";
+import type { Board, Check, Route } from "../data";
+import { hhmm, int, pct, plural, vol } from "../format";
 import { base, useIntro } from "../motion";
 import { clock, spread } from "../plan";
 import type { Overlay } from "../upload";
@@ -39,14 +39,14 @@ export function Forecast({ board, overlay, selected, onSelect }: Props) {
     <motion.div className="space-y-10" initial={intro ? "hidden" : false} animate="show"
       variants={{ show: { transition: { staggerChildren: reduced ? 0 : 0.07 } } }}>
       {overlay?.same && (
-        <motion.p variants={item} className="w-fit rounded-[10px] bg-alert-soft px-3.5 py-2 text-[15px] text-ink" role="status">
+        <motion.p variants={item} className="w-fit rounded-[16px] bg-alert-soft px-3.5 py-2 text-[15px] text-ink" role="status">
           В файле те же данные, что в истории, поэтому прогноз не изменился.
         </motion.p>
       )}
       <motion.section variants={item} className="grid items-center gap-x-6 gap-y-5 @5xl:grid-cols-[minmax(0,1fr)_clamp(400px,35cqw,490px)]">
         <div className="min-w-0">
           <div className="flex flex-col gap-4 @xl:flex-row @xl:items-center @xl:gap-[clamp(16px,1.6cqw,24px)]">
-            <span className={`self-start whitespace-nowrap font-hero text-[clamp(80px,9cqw,112px)] font-extrabold tabular-nums leading-[0.8] tracking-[-0.02em] @xl:self-auto ${
+            <span className={`self-start whitespace-nowrap font-hero text-[clamp(56px,9cqw,112px)] font-extrabold tabular-nums leading-[0.8] tracking-[-0.02em] @xl:self-auto ${
               overlay ? "text-alert" : "text-forecast"}`}>
               {vol(total)}
             </span>
@@ -63,6 +63,8 @@ export function Forecast({ board, overlay, selected, onSelect }: Props) {
         <ForecastMetrics board={board} peak={vol(n.p50[peak])} peakAt={times[BACK + 1 + peak]} />
       </motion.section>
 
+      {overlay && <motion.div variants={item}><FileChecks checks={overlay.checks} rows={overlay.rows} /></motion.div>}
+
       <motion.section variants={item}>
         <h2 className="mb-3 font-display text-[22px] font-semibold leading-7">
           Отгрузки
@@ -75,13 +77,57 @@ export function Forecast({ board, overlay, selected, onSelect }: Props) {
       <motion.div variants={item}>
         <Routes board={board} overlay={overlay} selected={selected} onSelect={onSelect} />
       </motion.div>
-
-      {!overlay && (
-        <>
-          <motion.div variants={item}><Days board={board} /></motion.div>
-        </>
-      )}
     </motion.div>
+  );
+}
+
+const LEVEL: Record<Check["level"], { label: string; dot: string; order: number }> = {
+  warn: { label: "внимание", dot: "bg-alert ring-2 ring-alert-soft", order: 0 },
+  filled: { label: "заменено", dot: "bg-alert", order: 1 },
+  fixed: { label: "исправлено", dot: "bg-good", order: 2 },
+  info: { label: "к сведению", dot: "bg-muted", order: 3 },
+};
+const FOLDED = 4; // findings shown before "ещё"
+
+/** What the check of the file found and did before the model read it: the forecast above rests on this. */
+function FileChecks({ checks, rows }: { checks: Check[]; rows: number }) {
+  const [open, setOpen] = useState(false);
+  // Warnings first, the rest in the order the check ran.
+  const sorted = useMemo(() => checks.map((c, i) => ({ c, i })).sort((a, b) =>
+    (a.c.level === "warn" ? 0 : 1) - (b.c.level === "warn" ? 0 : 1) || a.i - b.i).map((x) => x.c), [checks]);
+  const shown = open ? sorted : sorted.slice(0, FOLDED);
+  const count = (["fixed", "filled", "warn"] as const).map((l) => [l, checks.filter((c) => c.level === l).length] as const)
+    .filter(([, n]) => n > 0).map(([l, n]) => `${LEVEL[l].label} ${n}`);
+  return (
+    <section>
+      <h2 className="font-display text-[22px] font-semibold leading-7">
+        Проверка файла
+        <span className="num ml-2.5 text-[13px] font-medium text-muted">
+          {int(rows)} {plural(rows, "строка", "строки", "строк")} в модели{count.length ? `, ${count.join(", ")}` : ""}
+        </span>
+      </h2>
+      {checks.length === 0 ? (
+        <p className="mt-2 text-[15px] text-ink-2">Замечаний нет: модель прочитала файл как есть.</p>
+      ) : (
+        <ul className="mt-3 border-t border-line">
+          {shown.map((c, i) => (
+            <li key={`${c.code}-${i}`} className="grid grid-cols-[minmax(0,1fr)] gap-x-4 gap-y-0.5 border-b border-line py-2.5 @md:grid-cols-[112px_minmax(0,1fr)]">
+              <span className={`flex items-center gap-2 text-[13px] leading-[22px] ${c.level === "warn" ? "font-semibold text-alert" : "text-ink-2"}`}>
+                <span className={`size-2 shrink-0 rounded-full ${LEVEL[c.level].dot}`} aria-hidden />
+                {LEVEL[c.level].label}
+              </span>
+              <span className="text-[15px] leading-[22px] text-ink">{c.text}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {checks.length > FOLDED && (
+        <button onClick={() => setOpen((o) => !o)} aria-expanded={open}
+          className="mt-2 h-9 text-[14px] text-ink-2 underline-offset-4 transition-colors hover:text-ink hover:underline">
+          {open ? "Свернуть" : `Ещё ${checks.length - FOLDED}`}
+        </button>
+      )}
+    </section>
   );
 }
 
@@ -117,7 +163,7 @@ function ForecastMetrics({ board, peak, peakAt }: { board: Board; peak: string; 
   );
 }
 
-type Sort = "volume" | "error" | "change" | "number";
+type Sort = "volume" | "change" | "number";
 
 function Routes({ board, overlay, selected, onSelect }: Props) {
   const [query, setQuery] = useState("");
@@ -130,7 +176,6 @@ function Routes({ board, overlay, selected, onSelect }: Props) {
     const hit = query ? all.filter((x) => String(x.r.id).startsWith(query)) : all;
     const by: Record<Sort, (a: typeof all[0], b: typeof all[0]) => number> = {
       volume: (a, b) => b.v - a.v,
-      error: (a, b) => (b.r.wape ?? 0) - (a.r.wape ?? 0),
       change: (a, b) => Math.abs(b.d) - Math.abs(a.d),
       number: (a, b) => a.r.id - b.r.id,
     };
@@ -140,7 +185,8 @@ function Routes({ board, overlay, selected, onSelect }: Props) {
   const maxV = Math.max(1, ...board.routes.map(next4h));
   const r = board.routes.find((q) => q.id === selected) ?? board.routes[0];
   const i = board.routes.indexOf(r);
-  const cols = "grid-cols-[72px_minmax(0,1fr)_64px]";
+  // The third column is the file's change; the console's own list has only number and volume.
+  const cols = base ? "grid-cols-[72px_minmax(0,1fr)_64px]" : "grid-cols-[72px_minmax(0,1fr)]";
   const head = (key: Sort, label: string, right = false) => (
     <button onClick={() => setSort(key)} aria-pressed={sort === key}
       className={`flex items-center gap-1 transition-colors hover:text-ink aria-pressed:text-ink ${right ? "justify-end" : ""}`}>
@@ -156,7 +202,7 @@ function Routes({ board, overlay, selected, onSelect }: Props) {
             <h2 className="font-display text-[22px] font-semibold leading-7">
               Маршруты<span className="num ml-2.5 text-[13px] font-medium text-muted">{rows.length}</span>
             </h2>
-            <label className="flex w-[132px] items-center gap-2 rounded-[10px] bg-raised px-2.5 py-1.5 text-[14px] focus-within:ring-1 focus-within:ring-ink-2">
+            <label className="flex w-[132px] items-center gap-2 rounded-full bg-raised px-2.5 py-1.5 text-[14px] focus-within:ring-1 focus-within:ring-ink-2">
               <Search size={14} className="shrink-0 text-muted" />
               <input value={query} onChange={(e) => setQuery(e.target.value.trim())} placeholder="№ маршрута" aria-label="Номер маршрута"
                 inputMode="numeric" className="num w-full bg-transparent outline-none placeholder:font-sans placeholder:text-muted" />
@@ -165,13 +211,13 @@ function Routes({ board, overlay, selected, onSelect }: Props) {
           <div className={`grid ${cols} gap-2.5 border-b border-line px-5 pb-2 text-[11px] text-muted`}>
             {head("number", "Маршрут")}
             {head("volume", "За 4 ч")}
-            {base ? head("change", "Изменение", true) : head("error", "Ошибка", true)}
+            {base && head("change", "Изменение", true)}
           </div>
           <ul className="min-h-0 flex-1 overflow-y-auto p-2" role="listbox" aria-label="Маршруты">
             {shown.map(({ r: q, v, d }) => (
               <li key={q.id}>
                 <button role="option" aria-selected={selected === q.id} onClick={() => onSelect(q.id)}
-                  className={`grid w-full ${cols} items-center gap-2.5 rounded-[10px] px-3 py-2 text-left text-[14px] transition-colors duration-100 hover:bg-raised/60 aria-selected:bg-raised aria-selected:ring-1 aria-selected:ring-inset aria-selected:ring-line`}>
+                  className={`grid w-full ${cols} items-center gap-2.5 rounded-[14px] px-3 py-2 text-left text-[14px] transition-colors duration-100 hover:bg-raised/60 aria-selected:bg-raised aria-selected:ring-1 aria-selected:ring-inset aria-selected:ring-line`}>
                   <span className="num font-medium">№ {q.id}</span>
                   <span className="flex items-center gap-2.5">
                     <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
@@ -179,9 +225,9 @@ function Routes({ board, overlay, selected, onSelect }: Props) {
                     </span>
                     <span className="num w-[60px] whitespace-nowrap text-right text-xs text-ink-2">{vol(v)}</span>
                   </span>
-                  <span className={`num text-right text-xs ${base ? (Math.abs(d) >= 0.05 ? "text-alert" : "text-muted") : "text-ink-2"}`}>
-                    {base ? `${signed(d * 100)}%` : q.wape != null ? pct(q.wape) : ""}
-                  </span>
+                  {base && (
+                    <span className={`num text-right text-xs ${Math.abs(d) >= 0.05 ? "text-alert" : "text-muted"}`}>{signed(d * 100)}%</span>
+                  )}
                 </button>
               </li>
             ))}
@@ -213,55 +259,10 @@ function RouteForecast({ board, r, baseP50 }: { board: Board; r: Route; baseP50?
           <div className="whitespace-nowrap"><dt className="inline">за 4 ч </dt><dd className="num inline font-semibold text-ink">{vol(next4h(r))}</dd></div>
           <div className="whitespace-nowrap"><dt className="inline">пик в </dt><dd className="num inline font-semibold text-ink">{times[h0 + 1 + peak]}</dd></div>
           <div className="whitespace-nowrap"><dt className="inline">диапазон </dt><dd className="num inline font-semibold text-ink">±{Math.round(band * 100)}%</dd></div>
-          {r.wape != null && (
-            <div className="whitespace-nowrap"><dt className="inline">ошибка </dt><dd className="num inline font-semibold text-ink">{pct(r.wape)}</dd>
-              {r.bias != null && <span className="num">, сдвиг {r.bias > 0 ? "+" : ""}{dec1(r.bias * 100)}%</span>}
-            </div>
-          )}
         </dl>
       </div>
       <div className="mt-3">
         <Fan zero height={230} times={times} hist={r.h} fc={r.p50} lo={r.p10} hi={r.p90} baseFc={changed ? baseP50 : undefined} shadeGap={false} />
-      </div>
-    </section>
-  );
-}
-
-/** How wrong the forecast was day by day over the check week: error, bias of the total, and how often the band held. */
-function Days({ board }: { board: Board }) {
-  const days = board.monitor;
-  const max = Math.max(...days.map((d) => d.wape)) * 1.1;
-  return (
-    <section>
-      <h2 className="font-display text-[22px] font-semibold leading-7">По дням проверки</h2>
-      <div className="mt-3 overflow-x-auto">
-        <table className="w-full min-w-[520px] text-[14px]">
-          <thead>
-            <tr className="border-b border-line text-left text-[11px] text-muted">
-              <th className="py-2 pr-4 font-normal">День</th>
-              <th className="py-2 pr-4 font-normal">Ошибка (WAPE)</th>
-              <th className="py-2 pr-4 text-right font-normal">Сдвиг суммы</th>
-              <th className="py-2 text-right font-normal">Факт в диапазоне</th>
-            </tr>
-          </thead>
-          <tbody>
-            {days.map((d) => (
-              <tr key={d.day} className="border-b border-line/60">
-                <td className="num py-2 pr-4 text-ink-2">{d.day}</td>
-                <td className="py-2 pr-4">
-                  <span className="flex items-center gap-3">
-                    <span className="h-1.5 w-40 overflow-hidden rounded-full bg-line">
-                      <span className="block h-full rounded-full bg-ink-2" style={{ width: `${(d.wape / max) * 100}%` }} />
-                    </span>
-                    <span className="num">{pct(d.wape)}</span>
-                  </span>
-                </td>
-                <td className="num py-2 pr-4 text-right">{d.bias > 0 ? "+" : d.bias < 0 ? "−" : ""}{dec1(Math.abs(d.bias) * 100)}%</td>
-                <td className="num py-2 text-right">{pct(d.cov)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
     </section>
   );

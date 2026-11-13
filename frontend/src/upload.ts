@@ -1,4 +1,4 @@
-import type { Board, Route } from "./data";
+import type { Board, Check, Route } from "./data";
 import { hhmm, plural } from "./format";
 
 // Answer of POST /api/forecast: the service model on an uploaded file against the stored history (src/rwb/upload.py).
@@ -55,6 +55,7 @@ export interface FileRun {
   group: Group | null;
   routes: (Route & { after?: number[] })[]; // every route, as in board.json
   base_routes: BaseRoute[] | null;
+  checks?: Check[]; // what the check of the file found and did before the model read it
 }
 
 /** Send the file as it is; the server tells CSV from Parquet by its first bytes. */
@@ -85,6 +86,12 @@ export const DEMOS = [
     title: "Всплеск заказов",
     note: "С 09:30 обработка вдвое выше, 200 маршрутов.",
   },
+  {
+    key: "mess",
+    file: "demo/gryaznyi_0900-1030.csv",
+    title: "Грязная выгрузка",
+    note: "Тот же затор из Excel: время в UTC, повторы, −1, лишние нули. Проверка чинит файл до модели.",
+  },
 ] as const;
 
 /** The file's shift as a board: the console shows it exactly as it shows its own forecast. */
@@ -93,7 +100,8 @@ export function fileBoard(source: Board, run: FileRun): Board {
   // The route's error on the check week belongs to the model, not to the file: it comes from the console's board.
   const quality = new Map(source.routes.map((r) => [r.id, { wape: r.wape, bias: r.bias }]));
   const routes = run.routes.map((r) => ({ ...r, ...quality.get(r.id) }));
-  return { ...source, now: run.now, hist_n: run.hist_n, network: { hist: a.hist, p50: a.p50, lo: a.lo, hi: a.hi }, routes };
+  return { ...source, now: run.now, hist_n: run.hist_n, network: { hist: a.hist, p50: a.p50, lo: a.lo, hi: a.hi }, routes,
+    checks: run.checks ?? [] };
 }
 
 /** What the shift chart draws over the file's forecast to show what the file changed. */
@@ -103,10 +111,13 @@ export interface Overlay {
   baseRoutes?: BaseRoute[]; // for the outlines of the bars without the file
   mark?: { from: number; label: string; short: string }; // the stretch of history where the file starts to differ
   same?: boolean; // the file repeats the stored history: the forecast is the console's own
+  checks: Check[]; // what the check of the file found and did
+  rows: number; // rows of the file the model read, after the check
 }
 
 export function overlayOf(run: FileRun, back: number): Overlay {
-  if (!run.baseline || !run.changed) return { same: run.baseline };
+  const check = { checks: run.checks ?? [], rows: run.file.rows };
+  if (!run.baseline || !run.changed) return { same: run.baseline, ...check };
   const g = run.group ?? run.all;
   const n = g.s13.length;
   const first = (a?: number[], b?: number[]) => (a && b ? a.findIndex((v, i) => Math.abs(v - b[i]) > 0.5) : -1);
@@ -122,5 +133,5 @@ export function overlayOf(run: FileRun, back: number): Overlay {
       : share !== 100 ? `с ${since} обработка ${share}%: ${routes}` : `с ${since} другие отгрузки: ${routes}`;
     mark = { from: Math.max(0, i - (n - 1 - back)), label, short: what ? `${what} с ${since}` : `с ${since}` };
   }
-  return { baseFc: run.all.b50, baseHist: run.all.b_hist, baseRoutes: run.base_routes ?? undefined, mark };
+  return { baseFc: run.all.b50, baseHist: run.all.b_hist, baseRoutes: run.base_routes ?? undefined, mark, ...check };
 }

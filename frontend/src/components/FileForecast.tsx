@@ -68,12 +68,12 @@ function Pick({ state, onFile, onDemo }: { state: FileState; onFile: (f: File) =
             </div>
             <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-1">
               <a href={`${import.meta.env.BASE_URL}${d.file}`} download
-                className="inline-flex h-10 items-center gap-1.5 rounded-[10px] px-2 text-ink-2 transition-colors hover:text-ink">
+                className="inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-ink-2 transition-colors hover:text-ink">
                 <Download size={15} />
                 <span className="num text-[13px]">{d.file.split("/").pop()}</span>
               </a>
               <button onClick={() => onDemo(d.file)} disabled={busy}
-                className="inline-flex h-10 items-center rounded-[10px] px-4 text-[15px] font-semibold text-ink ring-1 ring-inset ring-line transition-colors hover:bg-raised disabled:opacity-40">
+                className="inline-flex h-10 items-center rounded-full px-5 text-[15px] font-semibold text-ink ring-1 ring-inset ring-line transition-colors hover:bg-raised disabled:opacity-40">
                 Посчитать
               </button>
             </div>
@@ -91,7 +91,7 @@ function Pick({ state, onFile, onDemo }: { state: FileState; onFile: (f: File) =
             const f = e.dataTransfer.files[0];
             if (f && !busy) onFile(f);
           }}
-          className={`flex h-14 items-center justify-between gap-4 rounded-[12px] border border-dashed px-4 transition-colors duration-150 ${
+          className={`flex h-14 items-center justify-between gap-4 rounded-[22px] border border-dashed px-4 transition-colors duration-150 ${
             over ? "border-ink bg-raised" : "border-line"}`}>
           {busy ? (
             <span className="flex min-w-0 items-center gap-2 text-ink-2">
@@ -102,7 +102,7 @@ function Pick({ state, onFile, onDemo }: { state: FileState; onFile: (f: File) =
             <span className="min-w-0 truncate text-ink-2">Свой файл: .csv или .parquet, до 16 МБ</span>
           )}
           <button onClick={() => input.current?.click()} disabled={busy}
-            className="inline-flex h-9 shrink-0 items-center rounded-[10px] bg-ink px-4 text-[15px] font-semibold text-ground transition-opacity hover:opacity-90 disabled:opacity-40">
+            className="inline-flex h-9 shrink-0 items-center rounded-full bg-ink px-5 text-[15px] font-semibold text-ground transition-opacity hover:opacity-90 disabled:opacity-40">
             Выбрать
           </button>
           <input ref={input} type="file" accept=".csv,.parquet,text/csv" className="hidden"
@@ -111,7 +111,7 @@ function Pick({ state, onFile, onDemo }: { state: FileState; onFile: (f: File) =
         <AnimatePresence>
           {state.status === "idle" && state.error && (
             <motion.p initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={base}
-              className="mt-3 w-fit rounded-[10px] bg-alert-soft px-3.5 py-2 text-[14px] text-ink" role="alert">
+              className="mt-3 w-fit rounded-[16px] bg-alert-soft px-3.5 py-2 text-[14px] text-ink" role="alert">
               {state.error}
             </motion.p>
           )}

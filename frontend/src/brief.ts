@@ -1,6 +1,6 @@
 // Offline answers of the assistant; every number comes from tools.ts.
 import type { Board } from "./data";
-import { dec1, pct, vol } from "./format";
+import { dec1, pct, plural, vol } from "./format";
 import { findRoutes, modelQuality, networkForecast, routeForecast, type Action, type Order } from "./tools";
 
 const signed = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${dec1(Math.abs(v) * 100)}%`;
@@ -10,6 +10,19 @@ const list = (board: Board, order: Order) =>
 /** Offline answer for common questions; null when the question needs the model. */
 export function localAnswer(board: Board, q: string): { text: string; actions: Action[] } | null {
   const s = q.toLowerCase();
+  // On a file's board: what its check found, before anything about the forecast.
+  if (board.checks && /файл|выгрузк|исправ|почин|грязн|не так|проверк\S* данн|ошибк\S* в данн/.test(s)) {
+    const c = board.checks;
+    if (!c.length) return { text: "Проверка файла замечаний не нашла: модель прочитала его как есть.", actions: [] };
+    const n = (l: string) => c.filter((x) => x.level === l).length;
+    const parts = [["исправлено", n("fixed")], ["заменено оценкой", n("filled")], ["требует внимания", n("warn")]]
+      .filter(([, k]) => k).map(([w, k]) => `${w} ${k}`);
+    const rank = { warn: 0, filled: 1, fixed: 2, info: 3 }; // what changes the forecast most first
+    const top = [...c].sort((a, b) => rank[a.level] - rank[b.level])
+      .filter((x) => x.level !== "info").slice(0, 3).map((x) => x.text.replace(/\.?$/, ".")).join(" ");
+    return { text: `Проверка нашла ${c.length} ${plural(c.length, "замечание", "замечания", "замечаний")}` +
+      `${parts.length ? `: ${parts.join(", ")}` : ""}. ${top}`.trim(), actions: [] };
+  }
   const num = s.match(/\d+/)?.[0];
   if (num && /маршрут|№/.test(s)) {
     const r = routeForecast(board, +num);
